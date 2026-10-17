@@ -25,7 +25,7 @@ window.IMPS = (function () {
   ];
   const F_SOLL = [
     { k: 'tipo', label: 'Tipologia', tipo: 'select', opzioni: ['Paranco', 'Argano'], mezza: true },
-    { k: 'marcaModello', label: 'Marca e modello', mezza: true, placeholder: 'es. Demag DH 1000' },
+    { k: 'marcaModello', label: 'Marca e modello', mezza: true },
     { k: 'portata', label: 'Portata', u: 'kg', num: true, mezza: true },
     { k: 'velocita', label: 'Velocità di sollevamento', u: 'm/min', mezza: true, placeholder: 'es. 5/0,8' },
     { k: 'classeFem', label: 'Classe FEM', mezza: true, lista: ['1Cm', '1Bm', '1Am', '2m', '3m', '4m', '5m'] },
@@ -65,14 +65,14 @@ window.IMPS = (function () {
     { k: 'tensioniSecondarie', label: 'Tensioni secondarie / ausiliarie', tipo: 'multi', aggiungi: 'Aggiungi tensione', placeholder: 'es. 48 V ca', lista: ['24 V cc', '24 V ca', '48 V ca', '110 V ca', '230 V ca'] },
     { tipo: 'titolo', label: 'Linea di alimentazione' },
     { k: 'alimTipo', label: 'Tipologia carrellino di alimentazione', mezza: true, lista: ['Linea a festone', 'Blindosbarra', 'Sbarre in rame', 'Avvolgicavo'] },
-    { k: 'alimMarca', label: 'Marca carrellino di alimentazione', mezza: true, lista: ['Vahle', 'Conductix-Wampfler', 'Demag', 'Stemmann', 'Ilme'] },
+    { k: 'alimMarca', label: 'Marca carrellino di alimentazione', mezza: true },
     { k: 'alimAmpere', label: 'Portata carrellino', u: 'A', num: true, mezza: true },
     { tipo: 'titolo', label: 'Comando' },
     { k: 'comando', label: 'Tipo di comando', tipo: 'select', opzioni: ['Pulsantiera', 'Radiocomando', 'Pulsantiera + radiocomando', 'Cabina'] },
     { k: 'pulsConformazione', label: 'Pulsantiera: conformazione', placeholder: 'es. 8 pulsanti 2 velocità + fungo + marcia' },
     { k: 'pulsMarca', label: 'Pulsantiera: marca', mezza: true },
     { k: 'pulsModello', label: 'Pulsantiera: modello', mezza: true },
-    { k: 'radioMarca', label: 'Radiocomando: marca', mezza: true, lista: ['Ikusi', 'Hetronic', 'Autec', 'Tele Radio', 'Imet', 'Saga'] },
+    { k: 'radioMarca', label: 'Radiocomando: marca', mezza: true },
     { k: 'radioModello', label: 'Radiocomando: modello', mezza: true },
     { k: 'radioMatricola', label: 'Radiocomando: matricola', mezza: true }
   ];

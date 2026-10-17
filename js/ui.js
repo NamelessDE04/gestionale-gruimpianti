@@ -35,8 +35,11 @@ window.UI = (function () {
     try { return await Backend.save(col, doc); }
     catch (e) {
       console.error(e);
-      toast(/quota/i.test(e.name + e.message)
-        ? 'Memoria del dispositivo piena: elimina qualche foto.' : 'Errore nel salvataggio', 'err');
+      const m = (e.code || '') + ' ' + e.name + ' ' + e.message;
+      toast(/quota/i.test(m) ? 'Memoria del dispositivo piena: elimina qualche foto.'
+        : /permission/i.test(m) ? 'L\'account Google di questo dispositivo non ha il permesso per questa modifica'
+        : /too large|exceeds the maximum/i.test(m) ? 'Documento troppo grande per il cloud: togli qualche foto o firma'
+        : /sola lettura/.test(m) ? 'Accesso in sola lettura' : 'Errore nel salvataggio', 'err');
       throw e;
     }
   };
@@ -186,7 +189,7 @@ window.UI = (function () {
     f.onsubmit = async (e) => {
       e.preventDefault();
       const v = {};
-      campi.forEach((c) => { if (c.tipo === 'titolo') return; if (c.tipo === 'immagine') { v[c.k] = immagini[c.k]; return; } if (c.tipo === 'sino') { v[c.k] = f[c.k].checked; return; } if (c.tipo === 'multi') { multi[c.k].leggi(); v[c.k] = multi[c.k].map((x) => x.trim()).filter(Boolean); return; } let x = f[c.k].value.trim(); if (c.maiuscolo) x = x.toUpperCase(); v[c.k] = x; });
+      campi.forEach((c) => { if (c.tipo === 'titolo') return; if (c.tipo === 'immagine') { v[c.k] = immagini[c.k]; return; } if (c.tipo === 'sino') { v[c.k] = f[c.k].checked; return; } if (c.tipo === 'multi') { multi[c.k].leggi(); v[c.k] = multi[c.k].map((x) => x.trim()).filter(Boolean); return; } let x = f[c.k].value.trim(); if (daMaiusc(f[c.k])) x = x.toUpperCase(); v[c.k] = x; });
       const manca = campi.find((c) => c.req && !v[c.k]);
       if (manca) { f[manca.k].focus(); return toast(`Compila «${manca.label}»`, 'err'); }
       const malMail = campi.find((c) => c.tipo === 'email' && v[c.k] && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v[c.k]));
@@ -222,6 +225,18 @@ window.UI = (function () {
   };
 
   const conferma = (msg) => window.confirm(msg);
+
+  // ===== TUTTO MAIUSCOLO =====
+  // Tutti i campi di testo sono in maiuscolo. Restano come sono: email, PIN/password,
+  // numeri, date e i campi marcati con data-libero.
+  const TIPI_MAIUSC = ['text', 'search', 'tel', ''];
+  const daMaiusc = (el) => el && !el.hasAttribute('data-libero') &&
+    (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && TIPI_MAIUSC.includes((el.getAttribute('type') || '').toLowerCase())));
+  const maiusc = (el) => { if (daMaiusc(el) && el.value !== el.value.toUpperCase()) el.value = el.value.toUpperCase(); };
+  // si converte quando si esce dal campo o si salva (non mentre si scrive: alcune tastiere Android si confondono)
+  document.addEventListener('change', (e) => maiusc(e.target), true);
+  document.addEventListener('focusout', (e) => maiusc(e.target), true);
+  document.addEventListener('submit', (e) => e.target.querySelectorAll('input, textarea').forEach(maiusc), true);
 
   return { coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
 })();

@@ -52,7 +52,7 @@ window.HOME = (function () {
         <div class="home-tools">
           <button class="btn ghost small" id="btnExport">Esporta dati (backup)</button>
           ${UT.isMaster() ? '<a class="btn ghost small" href="#/utenti">👥 Utenti</a><a class="btn ghost small" href="#/registro">📋 Registro attività</a>' : ''}
-          ${UI.info('«Esporta dati» scarica una copia di tutto quello che hai inserito (clienti, impianti, controlli). Tienila al sicuro: per ora i dati sono solo su questo dispositivo. I documenti allegati non sono compresi.')}
+          ${UI.info('«Esporta dati» scarica una copia di tutto quello che hai inserito (clienti, impianti, controlli). Tienila al sicuro' + (Backend.mode === 'cloud' ? ': i dati sono nel cloud, il backup è una copia in più.' : ': per ora i dati sono solo su questo dispositivo.') + ' I documenti allegati non sono compresi.')}
         </div>
       </section>`;
     el.querySelector('#btnExport').onclick = () => App.esporta();

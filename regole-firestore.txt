@@ -1,0 +1,50 @@
+rules_version = '2';
+
+// Regole di sicurezza del Gestionale Gru Impianti
+// Master: tutto. Tecnico: tutto tranne registro e gestione utenti. Risorse Umane: solo lettura.
+// I livelli degli account Google stanno nella raccolta "ruoli" (la scrive l'app quando il Master salva gli utenti).
+// I due indirizzi qui sotto sono sempre Master: servono per il primo avvio.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function entrato() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function account() { return request.auth.token.email.lower(); }
+    function capo() { return account() in ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com']; }
+    function scheda() { return /databases/$(database)/documents/ruoli/$(account()); }
+    function haRuolo(lista) {
+      return entrato() && (capo() || (exists(scheda()) && get(scheda()).data.ruolo in lista));
+    }
+    function legge()  { return haRuolo(['master', 'tecnico', 'ru']); }
+    function scrive() { return haRuolo(['master', 'tecnico']); }
+    function master() { return haRuolo(['master']); }
+
+    // livelli degli account Google
+    match /ruoli/{email} {
+      allow read: if entrato() && (email == account() || master());
+      allow write: if master();
+    }
+
+    // registro attività: tutti scrivono, solo il Master legge, nessuno modifica o cancella
+    match /log/{id} {
+      allow create: if legge();
+      allow read: if master();
+      allow update, delete: if false;
+    }
+
+    // utenti: il Master gestisce tutto; gli altri possono cambiare solo firma e PIN
+    match /utenti/{id} {
+      allow read: if legge();
+      allow create, delete: if master();
+      allow update: if master() || (legge() &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firma', 'pinSalt', 'pinHash', 'pinLen', 'aggiornato']));
+    }
+
+    // tutto il resto (clienti, impianti, controlli, sottoganci, mezzi, impostazioni)
+    match /{raccolta}/{id} {
+      allow read: if legge() && !(raccolta in ['ruoli', 'log', 'utenti']);
+      allow write: if scrive() && !(raccolta in ['ruoli', 'log', 'utenti']);
+    }
+  }
+}

@@ -26,7 +26,7 @@ window.ALLEGATI = (function () {
     elimina: (id) => tx('readwrite', (s) => s.delete(id)),
     async apri(id, nome) {
       const b = await this.leggi(id);
-      if (!b) return UI.toast('File non trovato su questo dispositivo', 'err');
+      if (!b) return UI.toast(Backend.mode === 'cloud' ? 'Il file è salvato solo sul dispositivo dove è stato caricato' : 'File non trovato su questo dispositivo', 'err');
       const url = URL.createObjectURL(b);
       const a = document.createElement('a'); a.href = url; a.target = '_blank'; a.rel = 'noopener';
       if (!/pdf|image/.test(b.type)) a.download = nome || 'allegato';

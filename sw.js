@@ -1,6 +1,6 @@
 // Service worker: l'app funziona anche senza rete.
 // Prima prova la rete (così gli aggiornamenti arrivano subito), se non c'è usa la copia salvata.
-const VERSIONE = '0.11.0';
+const VERSIONE = '0.12.0';
 const CACHE = 'gi-demo-' + VERSIONE;
 const FILES = ['./', 'index.html', 'manifest.json', 'css/style.css',
   'js/config.js', 'js/backend.js', 'js/ui.js', 'js/illustrazioni.js',
@@ -15,7 +15,14 @@ self.addEventListener('activate', (e) => {
   self.clients.claim();
 });
 self.addEventListener('fetch', (e) => {
-  if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  const url = new URL(e.request.url);
+  if (e.request.method !== 'GET') return;
+  // librerie di Firebase: le tengo in copia per poter aprire l'app anche senza rete
+  if (url.host === 'www.gstatic.com' && url.pathname.startsWith('/firebasejs/')) {
+    e.respondWith(caches.match(e.request).then((r) => r || fetch(e.request).then((n) => { const c = n.clone(); caches.open(CACHE).then((k) => k.put(e.request, c)); return n; })));
+    return;
+  }
+  if (url.origin !== location.origin) return;
   e.respondWith(
     fetch(e.request).then((r) => {
       const copia = r.clone(); caches.open(CACHE).then((c) => c.put(e.request, copia)); return r;

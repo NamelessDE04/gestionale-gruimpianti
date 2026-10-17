@@ -112,6 +112,9 @@ input, select, textarea {
   background: #fff; color: var(--testo);
 }
 textarea { min-height: 70px; resize: vertical; }
+/* tutto maiuscolo nei campi di testo (email, PIN, numeri e date esclusi) */
+textarea, input:not([type]), input[type="text"], input[type="search"] { text-transform: uppercase; }
+textarea[data-libero], input[data-libero] { text-transform: none; }
 input:focus, select:focus, textarea:focus { outline: 3px solid rgba(242,183,5,.45); border-color: var(--giallo); }
 .azioni-lista { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 14px; }
 

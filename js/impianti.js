@@ -112,7 +112,7 @@ window.IMP = (function () {
           <label><span class="lab-riga">Tipologia di gru
               <button type="button" class="link" id="btnTipi">modifica elenco</button></span>
             <select name="tipologia"></select></label>
-          <label>Marca<input name="marca" list="listaMarche" value="${esc(i.marca)}" placeholder="es. Demag, Donati, Stahl…">
+          <label>Marca<input name="marca" list="listaMarche" value="${esc(i.marca)}">
             <datalist id="listaMarche">${marche(S).map((m) => `<option value="${esc(m)}">`).join('')}</datalist></label>
         </div>
 

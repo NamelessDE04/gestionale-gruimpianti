@@ -69,7 +69,7 @@ window.CLI = (function () {
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>Dati generali ${info('Nome breve: è il nome che compare su cartelle ed elenchi stampati (es. CELLINO). La ragione sociale completa va sui documenti ufficiali.')}</h2>
+          <div class="card-head"><h2>Dati generali ${info('Nome breve: è il nome che compare su cartelle ed elenchi stampati (es. ROSSI). La ragione sociale completa va sui documenti ufficiali.')}</h2>
             <button class="btn ghost small" id="btnDati">✏️ Modifica</button></div>
           <div class="griglia-campi">
             ${campo('Ragione sociale', esc(c.ragioneSociale))}
@@ -133,8 +133,8 @@ window.CLI = (function () {
       valori: c || {},
       campi: [
         { k: 'logo', label: 'Logo del cliente', tipo: 'immagine', vuoto: 'Nessun logo: si vedono le iniziali del nome breve' },
-        { k: 'ragioneSociale', label: 'Ragione sociale', req: true, placeholder: 'es. CELLINO S.R.L.', maiuscolo: true },
-        { k: 'nomeBreve', label: 'Nome breve', placeholder: 'es. CELLINO', aiuto: 'Compare su cartelle ed elenchi', maiuscolo: true, mezza: true },
+        { k: 'ragioneSociale', label: 'Ragione sociale', req: true, maiuscolo: true },
+        { k: 'nomeBreve', label: 'Nome breve', aiuto: 'Compare su cartelle ed elenchi', maiuscolo: true, mezza: true },
         { k: 'piva', label: 'Partita IVA', mezza: true, placeholder: '11 cifre' },
         { k: 'cf', label: 'Codice fiscale', mezza: true },
         { k: 'sdi', label: 'Codice SDI', mezza: true, placeholder: '7 caratteri', maiuscolo: true },
@@ -164,11 +164,11 @@ window.CLI = (function () {
   function modaleSede(S, c, sd) {
     UI.modal({
       titolo: sd ? 'Modifica sede' : 'Nuova sede',
-      infoTxt: 'Il nome della sede compare sotto il nome del cliente nelle cartelle e sugli elenchi (es. VINOVO). Il nome breve (es. GCV) è la sigla veloce che usate in officina: compare nelle tab, nelle cartelle e sulla lavagna. Il colore (giallo, verde, rosso) indica in che mese del trimestre si fanno i controlli ed è lo stesso dei magneti della lavagna.',
+      infoTxt: 'Il nome della sede compare sotto il nome del cliente nelle cartelle e sugli elenchi (es. STABILIMENTO 2). Il nome breve (es. ST2) è la sigla veloce che usate in officina: compare nelle tab, nelle cartelle e sulla lavagna. Il colore (giallo, verde, rosso) indica in che mese del trimestre si fanno i controlli ed è lo stesso dei magneti della lavagna.',
       valori: sd ? { ...sd, trimestre: sd.pianoControlli ? ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'][sd.pianoControlli.mese1 - 1] : '' } : {},
       campi: [
-        { k: 'nome', label: 'Nome sede', req: true, placeholder: 'es. VINOVO o STABILIMENTO 2', maiuscolo: true, mezza: true },
-        { k: 'sigla', label: 'Nome breve sede', placeholder: 'es. GCV', maiuscolo: true, mezza: true, aiuto: 'La sigla che usate in officina' },
+        { k: 'nome', label: 'Nome sede', req: true, placeholder: 'es. STABILIMENTO 2', maiuscolo: true, mezza: true },
+        { k: 'sigla', label: 'Nome breve sede', placeholder: 'es. ST2', maiuscolo: true, mezza: true, aiuto: 'La sigla che usate in officina' },
         { k: 'indirizzo', label: 'Indirizzo', placeholder: 'es. Via Roma 10' },
         { k: 'cap', label: 'CAP', mezza: true, tipo: 'text' },
         { k: 'citta', label: 'Città', mezza: true },

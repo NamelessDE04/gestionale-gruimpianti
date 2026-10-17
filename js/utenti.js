@@ -88,6 +88,7 @@ window.UT = (function () {
     const primo = !S.utenti.length;
     const senzaPin = attivi().some((u) => !u.pinHash);
     document.body.classList.add('fuori');
+    if (primo && Backend.mode === 'cloud') { el.innerHTML = '<section class="login"><div class="login-box card"><h1>Caricamento…</h1><p class="muted">Sto scaricando i dati dal cloud.</p></div></section>'; return; }
     if (primo) return primoAvvio(el);
     el.innerHTML = `
       <section class="login">
@@ -100,7 +101,7 @@ window.UT = (function () {
             <button type="button" data-canc aria-label="Cancella">⌫</button><button type="button" data-n="0">0</button><button type="button" data-ok aria-label="Entra">✓</button>
           </div>
           ${Backend.loginGoogle ? '<button class="btn ghost google" id="btnGoogle"><b>G</b> Accedi con Google</button>' : ''}
-          ${senzaPin ? '<button class="link" id="btnVecchio">Non hai ancora il PIN? Entra con nome utente e password</button>' : ''}
+          ${senzaPin && Backend.mode !== 'cloud' ? '<button class="link" id="btnVecchio">Non hai ancora il PIN? Entra con nome utente e password</button>' : ''}
         </div>
       </section>`;
     let pin = '';
@@ -128,6 +129,7 @@ window.UT = (function () {
     el.querySelector('#btnGoogle')?.addEventListener('click', async () => {
       try {
         const email = (await Backend.loginGoogle()).toLowerCase();
+        if (!(await ruoloAccount(email))) { await Backend.esciGoogle(); UI.toast(`L'account ${email} non è autorizzato`, 'err'); setTimeout(() => location.reload(), 1500); return; }
         const u = attivi().find((x) => (x.google || '').toLowerCase() === email);
         if (!u) return UI.toast(`L'account ${email} non è associato a nessun utente`, 'err');
         entra(u, 'Google');
@@ -227,14 +229,21 @@ window.UT = (function () {
             <div class="azioni-form"><span class="grow"></span><button class="btn ${u.pinHash ? 'ghost' : ''}" type="submit">Salva PIN</button></div>
           </form>
         </div>
+        ${Backend.mode === 'cloud' ? `
+        <div class="card">
+          <h2>Account Google ${info('Il tuo account Google lo associa il Master da «Utenti». Ogni dispositivo resta collegato a un account Google: serve una volta sola, poi si entra con il PIN. Su un tablet condiviso basta l\'account di uno di voi.')}</h2>
+          <p>Il tuo account: <b>${esc(u.google || 'nessuno')}</b></p>
+          <p class="muted small">Questo dispositivo è collegato a <b>${esc(Backend.account() || '—')}</b> (${esc(RUOLI[ruoloDispositivo] || '—')})</p>
+          <div class="azioni-form"><span class="grow"></span><button class="btn ghost" id="btnScollega">Scollega questo dispositivo</button></div>
+        </div>` : `
         <div class="card">
           <h2>Account Google ${info('Quando l\'app sarà online potrai entrare anche con il tuo account Google, senza PIN. Scrivi qui l\'indirizzo Gmail da associare.')}</h2>
           <form id="fGoogle" class="form" novalidate>
             <div class="due"><label>Indirizzo Google<input name="google" type="email" value="${esc(u.google || '')}" placeholder="nome@gmail.com"></label>
               <div class="azioni-form"><button class="btn ghost" type="submit">Salva</button></div></div>
-            ${Backend.loginGoogle ? '' : '<p class="muted small">L\'accesso con Google si attiverà con il collegamento al cloud.</p>'}
+            <p class="muted small">L'accesso con Google si attiverà con il collegamento al cloud.</p>
           </form>
-        </div>
+        </div>`}
         <div class="azioni-lista">
           ${r === 'master' ? '<a class="btn ghost" href="#/utenti">👥 Gestione utenti</a><a class="btn ghost" href="#/registro">📋 Registro attività</a>' : ''}
         </div>
@@ -258,8 +267,13 @@ window.UT = (function () {
       const pinSalt = uid(); await UI.salva('utenti', { ...io, pinSalt, pinHash: await hash(pinSalt, f.nuovo.value), pinLen: f.nuovo.value.length });
       f.reset(); UI.toast('PIN salvato', 'ok'); App.ridisegna();
     };
+    el.querySelector('#btnScollega')?.addEventListener('click', async () => {
+      if (!UI.conferma('Scollegare questo dispositivo dall\'account Google? Per rientrare servirà di nuovo l\'accesso con Google.')) return;
+      registra('uscita', 'Dispositivo scollegato dall\'account Google'); localStorage.removeItem(CHIAVE);
+      await Backend.esciGoogle(); location.hash = '#/'; location.reload();
+    });
     const g = el.querySelector('#fGoogle');
-    g.onsubmit = async (e) => {
+    if (g) g.onsubmit = async (e) => {
       e.preventDefault(); const v = g.google.value.trim().toLowerCase();
       if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return UI.toast('Indirizzo non valido', 'err');
       if (v && S.utenti.some((x) => x.id !== attuale().id && (x.google || '').toLowerCase() === v)) return UI.toast('Questo account è già associato a un collega', 'err');
@@ -301,7 +315,7 @@ window.UT = (function () {
         { k: 'nome', label: 'Nome e cognome', req: true, mezza: true },
         { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.values(RUOLI), mezza: true },
         { k: 'pin', label: u ? 'Nuovo PIN (4-6 cifre)' : 'PIN (4-6 cifre)', tipo: 'password', mezza: true },
-        { k: 'google', label: 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com' },
+        { k: 'google', label: Backend.mode === 'cloud' ? 'Account Google' : 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com', aiuto: Backend.mode === 'cloud' ? 'Senza account Google la persona entra solo col PIN su un dispositivo già collegato' : '' },
         ...(u ? [{ k: 'attivo', label: 'Utente attivo (se lo togli non può più entrare)', tipo: 'sino' }] : [])
       ],
       onSalva: async (v) => {
@@ -315,11 +329,13 @@ window.UT = (function () {
         Object.assign(d, { nome: v.nome, ruolo, google: (v.google || '').toLowerCase(), attivo: u ? v.attivo : true });
         if (v.pin) { d.pinSalt = uid(); d.pinHash = await hash(d.pinSalt, v.pin); d.pinLen = v.pin.length; }
         await UI.salva('utenti', d); UI.toast('Utente salvato', 'ok');
+        sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d));
       },
       onElimina: u && u.id !== io?.id ? async () => {
         if (ruoloDi(u) === 'master' && !S.utenti.some((x) => ruoloDi(x) === 'master' && x.id !== u.id && x.attivo !== false)) { UI.toast('Deve restare almeno un Master', 'err'); return false; }
         if (!UI.conferma(`Eliminare l'utente ${u.nome}? I controlli già fatti restano con il suo nome. (In alternativa puoi solo disattivarlo.)`)) return false;
         await Backend.remove('utenti', u.id);
+        sincronizzaRuoli(S.utenti.filter((x) => x.id !== u.id));
       } : null,
       testoElimina: 'Elimina utente'
     });
@@ -342,7 +358,9 @@ window.UT = (function () {
   async function registro(el, dati, parti) {
     S = dati;
     if (!isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master può vedere il registro attività.</p>'; return; }
-    const log = await Backend.leggiTutti('log');
+    let log;
+    try { log = await Backend.leggiTutti('log'); }
+    catch (e) { el.innerHTML = '<section class="vuoto"><h1>🔒 Registro non disponibile</h1><p>Per leggere il registro questo dispositivo deve essere collegato a un account Google Master.</p></section>'; return; }
     if (parti[1] === 'stampa') return stampaRegistro(el, log);
     const persone = [...new Map(log.map((x) => [x.uid, x.nome])).entries()].filter(([id]) => id);
     S.utenti.forEach((u) => { if (!persone.some(([id]) => id === u.id)) persone.push([u.id, u.nome]); });
@@ -361,7 +379,7 @@ window.UT = (function () {
           <p class="conta-log" id="conta"></p>
           <div class="azioni-form"><span class="grow"></span><button class="btn big" type="submit">📄 Crea PDF</button></div>
         </form>
-        <p class="muted small">Il registro conserva le ultime 10.000 operazioni di questo dispositivo.</p>
+        <p class="muted small">${Backend.mode === 'cloud' ? 'Il registro raccoglie le ultime 10.000 operazioni di tutti i dispositivi.' : 'Il registro conserva le ultime 10.000 operazioni di questo dispositivo.'}</p>
       </section>`;
     const f = el.querySelector('#fLog');
     const leggi = () => ({ u: f.u.value, tipo: f.tipo.value, dal: f.dal.value, al: f.al.value });
@@ -395,6 +413,122 @@ window.UT = (function () {
       const t = document.title; document.title = `Registro_attivita_${persona}_${UI.oggi()}`.replace(/[^\w\-]+/g, '_');
       window.print(); setTimeout(() => (document.title = t), 1000);
     };
+  }
+
+  // ---------- CLOUD: accesso con Google, primo avvio, livelli ----------
+  let ruoloDispositivo = null;
+  const capi = () => (window.UTENTI_INIZIALI || []).filter((x) => x.ruolo === 'master').map((x) => x.google.toLowerCase());
+  const ruoloAccount = async (email) => (capi().includes(email) ? 'master' : await Backend.ruoloAccount(email));
+  const box = (el, html) => { el.innerHTML = `<section class="login"><div class="login-box card"><img src="img/logo.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">${html}</div></section>`; };
+
+  function chiediGoogle(el) {
+    return new Promise((ok) => {
+      box(el, `<h1>Collega il dispositivo</h1>
+        <p class="muted">La prima volta su questo dispositivo entra con il tuo account Google. Dopo basterà il PIN.</p>
+        <button class="btn big google" id="btnG"><b>G</b> Accedi con Google</button>
+        ${navigator.onLine ? '' : '<p class="txt-ko small">Serve la connessione a internet per il primo accesso.</p>'}`);
+      el.querySelector('#btnG').onclick = async () => {
+        try { ok(await Backend.loginGoogle()); }
+        catch (e) { console.error(e); UI.toast(/popup-closed|cancelled/.test(e.code || '') ? 'Accesso annullato' : 'Accesso con Google non riuscito', 'err'); }
+      };
+    });
+  }
+  function aspetta(el, titolo, testo) {
+    return new Promise((ok) => {
+      box(el, `<h1>${titolo}</h1><p class="muted">${testo}</p>
+        <button class="btn ghost" id="btnAltro">Usa un altro account Google</button>`);
+      el.querySelector('#btnAltro').onclick = async () => { await Backend.esciGoogle(); ok(); };
+    });
+  }
+
+  function primoAvvioCloud(el, email, collezioni) {
+    const NOMI = { clienti: 'clienti', impianti: 'impianti', sottoganci: 'sottoganci', giriSottoganci: 'controlli sottoganci', schedeControllo: 'schede di controllo', mezzi: 'mezzi', utenti: 'utenti', impostazioni: 'impostazioni', log: 'righe di registro' };
+    const tutte = collezioni.concat('log');
+    const n = DatiLocali.conta(tutte);
+    const ci = tutte.filter((c) => n[c] && c !== 'log' && c !== 'impostazioni');
+    return new Promise((ok) => {
+      box(el, `<h1>Primo avvio nel cloud</h1>
+        <p class="muted">Il cloud è ancora vuoto. Lo prepari tu come Master: verranno creati anche gli utenti con il loro account Google.</p>
+        ${ci.length ? `<div class="card"><b>Su questo dispositivo ci sono già:</b><p>${ci.map((c) => `${n[c]} ${NOMI[c]}`).join(' · ')}</p></div>
+          <button class="btn big" id="btnCarica">☁️ Carica questi dati nel cloud</button>
+          <button class="btn ghost" id="btnZero">Parti da zero</button>`
+        : '<button class="btn big" id="btnZero">Prepara il cloud</button>'}
+        <p class="muted small" id="stato"></p>`);
+      const stato = el.querySelector('#stato');
+      const vai = async (carica) => {
+        if (!carica && ci.length && !UI.conferma('Partire da zero? I dati di questo dispositivo NON verranno caricati nel cloud.')) return;
+        el.querySelectorAll('button').forEach((b) => (b.disabled = true));
+        try {
+          if (carica) for (const c of tutte) {
+            if (c === 'utenti') continue;
+            const docs = DatiLocali.leggi(c); if (!docs.length) continue;
+            stato.textContent = `Carico ${docs.length} ${NOMI[c] || c}…`;
+            await Backend.caricaMolti(c, docs);
+          }
+          stato.textContent = 'Preparo gli utenti…';
+          const utenti = carica ? DatiLocali.leggi('utenti').map((u) => ({ ...u, ruolo: ruoloDi(u) })) : [];
+          for (const x of window.UTENTI_INIZIALI || []) {
+            const g = x.google.toLowerCase();
+            let u = utenti.find((y) => (y.google || '').toLowerCase() === g);
+            if (!u && g === email) u = utenti.find((y) => !y.google && ruoloDi(y) === 'master');
+            if (u) Object.assign(u, { google: g, ruolo: x.ruolo });
+            else utenti.push({ id: uid(), nome: g.split('@')[0].toUpperCase(), ruolo: x.ruolo, google: g, firma: null, attivo: true });
+          }
+          await Backend.caricaMolti('utenti', utenti);
+          for (const u of utenti) if (u.google && u.attivo !== false) await Backend.impostaRuolo(u.google, ruoloDi(u), u.nome);
+          registra('creazione', carica ? 'Primo avvio cloud: dati del dispositivo caricati' : 'Primo avvio cloud', { nome: email });
+          ok();
+        } catch (e) {
+          console.error(e); stato.textContent = '';
+          UI.toast('Caricamento non riuscito: controlla la connessione e le regole di Firebase', 'err');
+          el.querySelectorAll('button').forEach((b) => (b.disabled = false));
+        }
+      };
+      el.querySelector('#btnCarica')?.addEventListener('click', () => vai(true));
+      el.querySelector('#btnZero').onclick = () => vai(false);
+    });
+  }
+
+  // prima di vedere i dati: account Google del dispositivo autorizzato (e, la prima volta, preparazione del cloud)
+  async function accessoCloud(el, collezioni) {
+    document.body.classList.add('fuori');
+    for (;;) {
+      let email = Backend.account();
+      if (!email) email = await chiediGoogle(el);
+      box(el, '<h1>Controllo l\'accesso…</h1>');
+      const ruolo = await ruoloAccount(email);
+      if (!ruolo) { await aspetta(el, 'Account non autorizzato', `L'account <b>${esc(email)}</b> non è abilitato al gestionale. Chiedi al Master di aggiungerlo da «Utenti».`); continue; }
+      let vuoto = false;
+      try { vuoto = (await Backend.contaServer('utenti')) === 0; } catch (e) { /* senza rete: uso la copia sul dispositivo */ }
+      if (vuoto && ruolo !== 'master') { await aspetta(el, 'Cloud non ancora pronto', 'Il primo accesso al cloud lo deve fare un Master. Riprova dopo.'); continue; }
+      if (vuoto) await primoAvvioCloud(el, email, collezioni);
+      ruoloDispositivo = ruolo;
+      // primo accesso con Google su questo dispositivo: entro subito come la persona di quell'account
+      if (Backend.appenaEntrato()) {
+        try {
+          const u = (await Backend.leggiTutti('utenti')).find((x) => (x.google || '').toLowerCase() === email && x.attivo !== false);
+          if (u) {
+            localStorage.setItem(CHIAVE, u.id); registra('accesso', 'Accesso con Google', { utente: u });
+            UI.toast('Ciao ' + u.nome.split(' ')[0], 'ok');
+            if (!u.pinHash) { location.hash = '#/profilo'; setTimeout(() => UI.toast('Scegli il tuo PIN: dalla prossima volta entrerai con quello', ''), 2700); }
+          }
+        } catch (e) {}
+      }
+      box(el, '<h1>Caricamento…</h1><p class="muted">Sto scaricando i dati dal cloud.</p>');
+      return { email, ruolo };
+    }
+  }
+
+  // i livelli usati dalle regole di Firebase seguono gli utenti dell'app (solo un account Master può scriverli)
+  async function sincronizzaRuoli(lista) {
+    if (Backend.mode !== 'cloud' || ruoloDispositivo !== 'master') return;
+    lista = lista || S.utenti;
+    try {
+      const voluti = new Map(lista.filter((u) => u.google && u.attivo !== false).map((u) => [u.google.toLowerCase(), { ruolo: ruoloDi(u), nome: u.nome }]));
+      const ora = await Backend.elencoRuoli();
+      for (const [g, v] of voluti) { const r = ora.find((x) => x.email === g); if (!r || r.ruolo !== v.ruolo || r.nome !== v.nome) await Backend.impostaRuolo(g, v.ruolo, v.nome); }
+      for (const r of ora) if (!voluti.has(r.email)) await Backend.togliRuolo(r.email);
+    } catch (e) { console.error(e); UI.toast('Livelli nel cloud non aggiornati: serve un account Google Master su questo dispositivo', 'err'); }
   }
 
   // ---------- percorsi vietati per livello ----------
@@ -435,6 +569,6 @@ window.UT = (function () {
 
   return {
     attuale, isMaster, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
-    campoTecnici, collegaTecnici, installa, registra, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => u.nome), imposta: (dati) => (S = dati)
+    campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => u.nome), imposta: (dati) => (S = dati)
   };
 })();

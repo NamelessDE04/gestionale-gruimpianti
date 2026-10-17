@@ -122,8 +122,8 @@ window.MEZ = (function () {
     UI.modal({
       titolo: m ? 'Modifica mezzo' : 'Nuovo mezzo', valori: m || {},
       campi: [
-        { k: 'marca', label: 'Marca', req: true, mezza: true, placeholder: 'es. Fiat' },
-        { k: 'modello', label: 'Modello', mezza: true, placeholder: 'es. Ducato' },
+        { k: 'marca', label: 'Marca', req: true, mezza: true },
+        { k: 'modello', label: 'Modello', mezza: true },
         { k: 'targa', label: 'Targa', mezza: true, maiuscolo: true, placeholder: 'es. AB123CD' },
         { k: 'immatricolazione', label: 'Immatricolazione', tipo: 'date', mezza: true },
         { tipo: 'titolo', label: 'Scadenze' },
