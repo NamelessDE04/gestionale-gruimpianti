@@ -20,6 +20,7 @@ window.UT = (function () {
   const attuale = () => { const id = localStorage.getItem(CHIAVE); return attivi().find((u) => u.id === id) || null; };
   const isMaster = () => ruoloDi(attuale()) === 'master';
   const solaLettura = () => ruoloDi(attuale()) === 'ru';
+  const breve = (u) => (u?.nomeBreve || u?.nome || '');   // nome breve: quello usato in lavagna, rapportini e controlli
   const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
   const pinValido = (p) => /^\d{4,6}$/.test(p);
   async function pinGiaUsato(pin, trannId) {
@@ -28,7 +29,7 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo' };
+  const NOMI_COL = { rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
@@ -41,6 +42,7 @@ window.UT = (function () {
       case 'giriSottoganci': return `Controllo sottoganci ${d.slot}° ${d.anno} – ${sede(d.sedeId)}`;
       case 'schedeControllo': return `Scheda di controllo ${d.anno} – ${imp(d.impiantoId)} – ${cli(d.clienteId)}`;
       case 'utenti': return `Utente ${d.nome}`;
+      case 'rapportini': return `Rapportino ${d.numero || ''}/${d.anno || ''} – ${sede(d.sedeId)}`;
       case 'mezzi': return `Mezzo ${MEZ.nome(d)} ${d.targa || ''}`;
       case 'impostazioni': return d.id === 'modelliScheda' ? 'Modelli di scheda' : d.id === 'tipologieGru' ? 'Tipologie di gru' : 'Impostazioni';
       default: return NOMI_COL[col] || col;
@@ -295,7 +297,7 @@ window.UT = (function () {
           ${lista.map((u) => `
             <a class="riga cli-riga ${u.attivo === false ? 'dismesso' : ''}" href="javascript:void(0)" data-u="${u.id}">
               <span class="avatar">${esc(iniziali(u.nome))}</span>
-              <div class="riga-main"><div class="riga-top"><b>${esc(u.nome)}</b> <span class="pill ruolo-${ruoloDi(u)}">${RUOLI[ruoloDi(u)]}</span></div>
+              <div class="riga-main"><div class="riga-top"><b>${esc(u.nome)}</b>${u.nomeBreve ? ` <span class="muted">(${esc(u.nomeBreve)})</span>` : ''} <span class="pill ruolo-${ruoloDi(u)}">${RUOLI[ruoloDi(u)]}</span></div>
                 <div class="muted small">${u.attivo === false ? 'disattivato · ' : ''}${u.pinHash ? 'PIN impostato' : '<b class="txt-ko">PIN da impostare</b>'}${ruoloDi(u) !== 'ru' ? ` · ${u.firma ? 'firma salvata' : '<b class="txt-ko">firma mancante</b>'}` : ''}${u.google ? ' · ' + esc(u.google) : ''}</div></div>
               ${u.firma ? `<img class="firma-mini" src="${u.firma}" alt="">` : ''}
             </a>`).join('')}
@@ -313,6 +315,7 @@ window.UT = (function () {
       valori: u ? { ...u, ruolo: RUOLI[ruoloDi(u)], attivo: u.attivo !== false } : { ruolo: RUOLI.tecnico, attivo: true },
       campi: [
         { k: 'nome', label: 'Nome e cognome', req: true, mezza: true },
+        { k: 'nomeBreve', label: 'Nome breve', mezza: true, placeholder: 'es. LUCA V.', aiuto: 'Il nome usato in lavagna, nei rapportini e nei controlli' },
         { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.values(RUOLI), mezza: true },
         { k: 'pin', label: u ? 'Nuovo PIN (4-6 cifre)' : 'PIN (4-6 cifre)', tipo: 'password', mezza: true },
         { k: 'google', label: Backend.mode === 'cloud' ? 'Account Google' : 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com', aiuto: Backend.mode === 'cloud' ? 'Senza account Google la persona entra solo col PIN su un dispositivo già collegato' : '' },
@@ -326,7 +329,7 @@ window.UT = (function () {
         if (v.pin && (await pinGiaUsato(v.pin, u?.id))) { UI.toast('PIN già usato da un altro utente', 'err'); return false; }
         if (v.google && S.utenti.some((x) => x.id !== u?.id && (x.google || '').toLowerCase() === v.google.toLowerCase())) { UI.toast('Account Google già associato a un altro utente', 'err'); return false; }
         const d = u ? { ...u } : { id: uid(), firma: null };
-        Object.assign(d, { nome: v.nome, ruolo, google: (v.google || '').toLowerCase(), attivo: u ? v.attivo : true });
+        Object.assign(d, { nome: v.nome, nomeBreve: v.nomeBreve || '', ruolo, google: (v.google || '').toLowerCase(), attivo: u ? v.attivo : true });
         if (v.pin) { d.pinSalt = uid(); d.pinHash = await hash(d.pinSalt, v.pin); d.pinLen = v.pin.length; }
         await UI.salva('utenti', d); UI.toast('Utente salvato', 'ok');
         sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d));
@@ -547,7 +550,7 @@ window.UT = (function () {
     return `
       <div class="tecnici" data-tecnici>
         <span class="lab">Tecnici ${info('Tocca i nomi di chi ha fatto il controllo (anche più di uno). Il nome compare solo nell\'app, non sulla scheda del cliente. Sulla scheda va la firma del tecnico scelto in «Firma sulla scheda».')}</span>
-        <div class="chip-tecnici">${attivi().filter((u) => ruoloDi(u) !== 'ru' || sel.includes(u.id)).map((u) => `<button type="button" class="chip-t ${sel.includes(u.id) ? 'on' : ''}" data-t="${u.id}">${esc(u.nome)}</button>`).join('')}</div>
+        <div class="chip-tecnici">${attivi().filter((u) => ruoloDi(u) !== 'ru' || sel.includes(u.id)).map((u) => `<button type="button" class="chip-t ${sel.includes(u.id) ? 'on' : ''}" data-t="${u.id}">${esc(breve(u))}</button>`).join('')}</div>
         <label class="firma-di">Firma sulla scheda<select data-firmadi></select></label>
       </div>`;
   }
@@ -556,19 +559,19 @@ window.UT = (function () {
     const scelti = () => [...box.querySelectorAll('.chip-t.on')].map((b) => b.dataset.t);
     const aggiorna = () => {
       const ids = scelti(), prima = sel.value || firmaDi || attuale()?.id;
-      sel.innerHTML = ids.map((id) => { const u = attivi().find((x) => x.id === id); return `<option value="${id}" ${id === prima ? 'selected' : ''}>${esc(u.nome)}${u.firma ? '' : ' (senza firma)'}</option>`; }).join('') || '<option value="">—</option>';
+      sel.innerHTML = ids.map((id) => { const u = attivi().find((x) => x.id === id); return `<option value="${id}" ${id === prima ? 'selected' : ''}>${esc(breve(u))}${u.firma ? '' : ' (senza firma)'}</option>`; }).join('') || '<option value="">—</option>';
     };
     box.querySelectorAll('.chip-t').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); aggiorna(); }));
     aggiorna();
     return () => {
       const tec = scelti().map((id) => attivi().find((x) => x.id === id));
       const f = tec.find((t) => t.id === sel.value) || tec[0];
-      return { tecnici: tec.map((t) => ({ id: t.id, nome: t.nome })), tecnico: tec.map((t) => t.nome).join(' e '), firmaDi: f?.id || null, firma: f?.firma || null, firmatario: f?.nome || '' };
+      return { tecnici: tec.map((t) => ({ id: t.id, nome: breve(t) })), tecnico: tec.map((t) => breve(t)).join(' e '), firmaDi: f?.id || null, firma: f?.firma || null, firmatario: breve(f) };
     };
   }
 
   return {
     attuale, isMaster, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
-    campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => u.nome), imposta: (dati) => (S = dati)
+    campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
 })();

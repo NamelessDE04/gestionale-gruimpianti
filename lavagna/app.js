@@ -1,9 +1,9 @@
-import { firebaseConfig } from './config.js?v=24';
+import { firebaseConfig } from './config.js?v=25';
 
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '24';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '25';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -37,7 +37,7 @@ function anagraficaGestionale() {
     contacts: (c.referenti || []).filter(r => r.telefono).map(r => ({ id: r.id, name: [r.nome, r.cognome].filter(Boolean).join(' '), phone: r.telefono }))
   })));
   const ruolo = u => (u.ruolo === 'admin' ? 'master' : u.ruolo);
-  const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nome }));
+  const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nomeBreve || u.nome }));
   const vehicles = leggiG('mezzi').filter(m => !m.dismesso).map(m => ({ id: m.id, name: [m.modello || m.marca, m.targa].filter(Boolean).join(' ') }));
   return { clients, staff, vehicles };
 }

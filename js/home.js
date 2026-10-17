@@ -1,7 +1,7 @@
 // ===== HOME A CASELLE =====
 window.HOME = (function () {
   const caselle = [
-    { k: 'rapportini', titolo: 'Rapportini di intervento', sotto: 'Interventi firmati dal cliente', ill: 'rapportini' },
+    { k: 'rapportini', titolo: 'Rapportini di intervento', sotto: 'Interventi firmati dal cliente', ill: 'rapportini', attiva: true },
     { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, gru a bandiera, sottoganci', ill: 'schede', attiva: true },
     { k: 'clienti', titolo: 'Anagrafica Clienti', sotto: 'Ditte, sedi e referenti', ill: 'clienti', attiva: true },
     { k: 'impianti', titolo: 'Anagrafica Impianti', sotto: 'Gru, paranchi e carriponte', ill: 'impianti', attiva: true },
@@ -48,7 +48,7 @@ window.HOME = (function () {
           <p>Scegli cosa vuoi fare.</p>
         </div>
         ${avvisiMezzi(S)}
-        <div class="tiles">${caselle.map((c) => tile(c, c.k === 'mezzi' && MEZ.avvisi(S).length ? `${MEZ.avvisi(S).length} ${MEZ.avvisi(S).length === 1 ? 'scadenza' : 'scadenze'}` : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '')).join('')}</div>
+        <div class="tiles">${caselle.map((c) => tile(c, c.k === 'rapportini' ? RAP.badge(S) : c.k === 'mezzi' && MEZ.avvisi(S).length ? `${MEZ.avvisi(S).length} ${MEZ.avvisi(S).length === 1 ? 'scadenza' : 'scadenze'}` : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '')).join('')}</div>
         <div class="home-tools">
           <button class="btn ghost small" id="btnExport">Esporta dati (backup)</button>
           ${UT.isMaster() ? '<a class="btn ghost small" href="#/utenti">👥 Utenti</a><a class="btn ghost small" href="#/registro">📋 Registro attività</a>' : ''}

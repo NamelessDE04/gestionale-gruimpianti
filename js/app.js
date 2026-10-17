@@ -1,8 +1,8 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.12.2';
-  const COLLEZIONI = ['utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi'];
-  const S = { utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
+  const VERSIONE = '0.13.0';
+  const COLLEZIONI = ['rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi'];
+  const S = { rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
   const el = document.getElementById('app');
   let vistaLive = true, pronti = 0;
@@ -35,6 +35,7 @@ window.App = (function () {
     else if (UT.vietato(parti)) { el.innerHTML = `<section class="vuoto"><h1>🔒 Accesso limitato</h1><p>${UT.vietato(parti)}</p><button class="btn" onclick="history.back()">Indietro</button></section>`; info = { titolo: '', indietro: '#/' }; }
     else if (parti[0] === 'utenti') info = UT.gestione(el, S) || info;
     else if (parti[0] === 'registro') { UT.registro(el, S, parti); info = { titolo: parti[1] ? 'Registro attività · PDF' : 'Registro attività', indietro: parti[1] ? '#/registro' : '#/profilo', live: false }; }
+    else if (parti[0] === 'rapportini') info = RAP.route(el, S, parti, query) || info;
     else if (parti[0] === 'sottoganci') info = SG.route(el, S, parti, query) || info;
     else if (parti[0] === 'clienti') info = CLI.route(el, S, parti, query) || info;
     else if (parti[0] === 'impianti') info = IMP.route(el, S, parti, query) || info;
@@ -53,7 +54,7 @@ window.App = (function () {
 
   // quando cambiano i dati ridisegno, ma non se sto compilando un modulo
   let ruoliFatti = false;
-  const PER_LAVAGNA = { clienti: (c) => ({ ...c, logo: null }), utenti: (u) => ({ id: u.id, nome: u.nome, ruolo: u.ruolo, attivo: u.attivo }), mezzi: (m) => m };
+  const PER_LAVAGNA = { clienti: (c) => ({ ...c, logo: null }), utenti: (u) => ({ id: u.id, nome: u.nome, nomeBreve: u.nomeBreve || '', ruolo: u.ruolo, attivo: u.attivo }), mezzi: (m) => m };
   const aggiornaDati = (col) => (dati) => {
     S[col] = dati;
     if (Backend.mode === 'cloud') {

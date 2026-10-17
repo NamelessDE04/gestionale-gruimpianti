@@ -93,7 +93,7 @@ window.CLI = (function () {
                 <div class="mini-top"><b>${etichettaSede(s)}</b>
 </div>
                 <p>${esc(indirizzo(s)) || '<span class="muted">Indirizzo da inserire</span>'}</p>
-                ${s.km !== undefined && s.km !== '' ? `<p class="km">🚚 ${esc(s.km)} km dalla nostra sede</p>` : ''}
+                ${(s.km !== undefined && s.km !== '') || s.viaggio ? `<p class="km">🚚 ${[s.km !== undefined && s.km !== '' ? esc(s.km) + ' km' : '', s.viaggio ? esc(s.viaggio) + ' min' : ''].filter(Boolean).join(' · ')} dalla nostra sede</p>` : ''}
                 ${s.note ? `<p class="muted small">${esc(s.note)}</p>` : ''}
                 ${indirizzo(s) ? `<a class="azione" href="${mappa(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Apri mappa</a>` : ''}
               </div>`).join('') || '<p class="muted">Nessuna sede. Aggiungi la prima.</p>'}
@@ -174,7 +174,8 @@ window.CLI = (function () {
         { k: 'citta', label: 'Città', mezza: true },
         { k: 'provincia', label: 'Provincia', mezza: true, placeholder: 'es. TO', maiuscolo: true },
         { k: 'trimestre', label: 'Controlli nel trimestre (colore)', tipo: 'select', mezza: true, opzioni: ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'], aiuto: 'Gen/Apr/Lug/Ott = giallo · Feb/Mag/Ago/Nov = verde · Mar/Giu/Set/Dic = rosso' },
-        { k: 'km', label: 'Km dalla nostra sede', tipo: 'number', mezza: true, placeholder: 'es. 25', aiuto: 'Lo decidete voi, si cambia quando serve' },
+        { k: 'km', label: 'Km dalla nostra sede', tipo: 'number', mezza: true, placeholder: 'es. 25', aiuto: 'Solo andata: si cambia quando serve' },
+        { k: 'viaggio', label: 'Viaggio', u: 'minuti', tipo: 'number', mezza: true, placeholder: 'es. 30', aiuto: 'Tempo di viaggio solo andata: lo propone il rapportino' },
         { k: 'note', label: 'Note sulla sede', tipo: 'textarea', placeholder: 'es. ingresso carraio, orari, chiave in portineria…' }
       ],
       onSalva: async (v) => {

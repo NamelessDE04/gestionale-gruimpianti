@@ -38,7 +38,9 @@ window.CTRS = (function () {
     h += `<div class="cs-v" style="left:82.38mm;top:${righe1[0]}mm;height:${righe1[5] - righe1[0]}mm"></div>`;
     h += `<div class="cs-v" style="left:165.86mm;top:${righe1[0]}mm;height:${righe1[4] - righe1[0]}mm"></div>`;
     const L = (x, y, l, vx, v) => T(x, y, `<b>${l}</b>`) + T(vx, y, val(v));
-    h += L(5.9, 28.5, 'CLIENTE', 17.3, c?.ragioneSociale) + L(83.4, 28.5, 'UBICAZIONE', 99.6, s ? CLI.indirizzo(s) : '') + L(167.0, 28.5, 'N°INT.', 188.6, imp.numeroInterno);
+    // ubicazione: solo via, CAP e città, sempre dentro la sua casella
+    const ubic = s ? [s.indirizzo, [s.cap, s.citta].filter(Boolean).join(' ')].filter(Boolean).join(' – ') : '';
+    h += L(5.9, 28.5, 'CLIENTE', 17.3, c?.ragioneSociale) + T(83.4, 28.5, '<b>UBICAZIONE</b>') + T(99.6, 28.5, `<span style="font-size:${Math.max(55, Math.min(100, Math.floor(4400 / Math.max(1, ubic.length))))}%">${val(ubic)}</span>`, 'cs-ubic', 65.6) + L(167.0, 28.5, 'N°INT.', 188.6, imp.numeroInterno);
     h += L(5.9, 33.7, 'CASA', 17.3, imp.marca) + L(83.3, 33.7, 'N°FABBRICA', 99.7, imp.numeroSerie);
     h += L(5.9, 39.2, 'ANNO COSTRUZIONE', 32.6, imp.annoCostruzione) + L(83.3, 39.2, 'TIPO', 99.7, (imp.tipologia || '').toUpperCase())
       + L(167.0, 39.5, 'PORTATA', 190.5, par.map((p) => kgT(p.portata)).filter(Boolean).join(' + '));

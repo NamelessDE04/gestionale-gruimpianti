@@ -49,15 +49,26 @@ window.UI = (function () {
     const ctx = canvas.getContext('2d');
     let vuota = true, disegna = false, last = null;
     let box = null; // area disegnata (per ritagliare la firma)
+    let dpr0 = window.devicePixelRatio || 1;
     const allarga = (p) => { box = box ? { x0: Math.min(box.x0, p.x), y0: Math.min(box.y0, p.y), x1: Math.max(box.x1, p.x), y1: Math.max(box.y1, p.y) } : { x0: p.x, y0: p.y, x1: p.x, y1: p.y }; };
     const resize = () => {
       const r = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      const prima = vuota ? null : canvas.toDataURL();
-      canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+      const w = Math.round(r.width * dpr), h = Math.round(r.height * dpr);
+      if (!w || !h || (w === canvas.width && h === canvas.height)) return;   // stessa misura: non cancello niente
+      // copia sincrona del disegno, così la firma non sparisce mai (nemmeno per un attimo)
+      let copia = null;
+      if (!vuota) { copia = document.createElement('canvas'); copia.width = canvas.width; copia.height = canvas.height; copia.getContext('2d').drawImage(canvas, 0, 0); }
+      const vecchiaW = canvas.width / dpr0;
+      canvas.width = w; canvas.height = h;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#10243a';
-      if (prima) { const im = new Image(); im.onload = () => ctx.drawImage(im, 0, 0, r.width, r.height); im.src = prima; }
+      if (copia) {
+        const k = r.width / vecchiaW;   // la firma segue la nuova larghezza
+        ctx.drawImage(copia, 0, 0, copia.width, copia.height, 0, 0, copia.width / dpr0 * k, copia.height / dpr0 * k);
+        if (box) box = { x0: box.x0 * k, y0: box.y0 * k, x1: box.x1 * k, y1: box.y1 * k };
+      }
+      dpr0 = dpr;
     };
     const pos = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
     canvas.addEventListener('pointerdown', (e) => {
