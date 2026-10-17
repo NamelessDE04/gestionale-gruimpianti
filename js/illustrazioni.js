@@ -111,6 +111,18 @@ window.ILL = (function () {
       <circle cx="38" cy="94" r="10" fill="${N}"/><circle cx="38" cy="94" r="4" fill="${G}"/>
       <circle cx="116" cy="94" r="10" fill="${N}"/><circle cx="116" cy="94" r="4" fill="${G}"/>`),
 
+    piattaforma: svg(`
+      <ellipse cx="80" cy="108" rx="66" ry="5" fill="${L}"/>
+      <path d="M22 104 l12 -16 M138 104 l-12 -16" stroke="${N}" stroke-width="4" stroke-linecap="round"/>
+      <rect x="14" y="101" width="18" height="5" rx="1.5" fill="${N}"/><rect x="128" y="101" width="18" height="5" rx="1.5" fill="${N}"/>
+      <rect x="34" y="78" width="92" height="14" rx="3" fill="${Y}" stroke="${N}" stroke-width="3"/>
+      <rect x="54" y="66" width="30" height="13" rx="2" fill="${O}" stroke="${N}" stroke-width="3"/>
+      <path d="M70 68 L108 34" stroke="${N}" stroke-width="7" stroke-linecap="round"/>
+      <path d="M70 68 L108 34" stroke="${G}" stroke-width="3" stroke-linecap="round"/>
+      <path d="M100 16 h34 v16 h-34 z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M100 22 h34" stroke="${N}" stroke-width="2"/>
+      <circle cx="48" cy="94" r="6" fill="${N}"/><circle cx="112" cy="94" r="6" fill="${N}"/>`),
+
     sottoganci: svg(`
       <ellipse cx="80" cy="110" rx="50" ry="5" fill="${L}"/>
       <line x1="80" y1="2" x2="80" y2="18" stroke="${G}" stroke-width="3"/>

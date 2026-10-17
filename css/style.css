@@ -662,7 +662,7 @@ body.fuori .topbar .title, body.fuori #btnBack { visibility: hidden; }
 .firma-di select { min-height: 42px; width: auto; margin: 0 !important; }
 /* Risorse Umane: sola lettura, spariscono i tasti che modificano */
 body.sola-lettura .btn.danger, body.sola-lettura [data-del], body.sola-lettura [data-rmfile], body.sola-lettura [data-allega], body.sola-lettura [data-az],
-body.sola-lettura #btnNuovo, body.sola-lettura #btnSede, body.sola-lettura #btnRef, body.sola-lettura #btnDati, body.sola-lettura #btnPiano, body.sola-lettura #btnPiano2,
+body.sola-lettura #btnNuovo, body.sola-lettura #btnNuovoP, body.sola-lettura #btnSede, body.sola-lettura #btnRef, body.sola-lettura #btnDati, body.sola-lettura #btnPiano, body.sola-lettura #btnPiano2,
 body.sola-lettura #btnVoci, body.sola-lettura [data-oss], body.sola-lettura .tab-add, body.sola-lettura .aggiungi-riga,
 body.sola-lettura a.btn[href*="/nuovo"], body.sola-lettura a.btn[href*="/modifica"], body.sola-lettura a.btn[href*="/giro/"], body.sola-lettura a.btn[href*="cartella"],
 body.sola-lettura a.btn[href*="/modelli"], body.sola-lettura .btn.big[href*="/giro/"] { display: none !important; }
@@ -727,7 +727,7 @@ body.sola-lettura .mini, body.sola-lettura .tl-voce { cursor: default; }
 .gr-fascia { border: 0; padding: 0; margin: 0; display: flex; align-items: center; gap: 6px; min-width: 0; }
 .gr-fascia legend { font-size: 14px; font-weight: 700; color: #3a4a5c; padding: 0; margin-bottom: 4px; }
 .gr-fascia input { flex: 1; min-width: 0; margin: 0 !important; }
-.gr-tec { grid-template-columns: 1fr auto; } .gr-tec .lab { display: block; font-weight: 700; font-size: 14px; color: #3a4a5c; margin-bottom: 4px; }
+.gr-tec { grid-template-columns: 1fr 1fr; } .gr-tec .lab { display: block; font-weight: 700; font-size: 14px; color: #3a4a5c; margin-bottom: 4px; }
 .gr-piatt { display: flex; align-items: center; gap: 8px; font-weight: 700; min-height: 48px; padding: 0 12px; border: 1.5px solid var(--linea); border-radius: 12px; background: #fff; }
 .gr-piatt input { width: 22px !important; height: 22px; margin: 0 !important; flex: none; min-height: 0; }
 .gr-sugg { margin: -2px 0 8px; } .gr-sugg .link { font-size: 13px; padding: 0 4px; }
@@ -757,7 +757,7 @@ body.sola-lettura a.btn[href*="/rapportini/r/"][href$="/modifica"] { display: no
 .rap-ore { width: 100%; border-collapse: collapse; font-size: 8pt; margin-bottom: 5mm; }
 .rap-ore th { background: #16324f; color: #fff; font-weight: 700; padding: 1.6mm 1.2mm; text-align: left; font-size: 7.5pt; white-space: nowrap; }
 .rap-ore td { border-bottom: 1px solid #c9d2dc; padding: 1.6mm 1.2mm; vertical-align: top; white-space: nowrap; }
-.rap-ore td.rap-nota { white-space: normal; width: 30%; }
+.rap-ore td.rap-nota { white-space: normal; width: 22%; }
 .rap-ore td.num { text-align: right; }
 .rap-ore .rap-tot td { font-weight: 700; border-top: 1.5px solid #16324f; border-bottom: 0; }
 .rap-ore tr { break-inside: avoid; }
@@ -773,3 +773,8 @@ body.sola-lettura a.btn[href*="/rapportini/r/"][href$="/modifica"] { display: no
 .rap-img.grande { height: 32mm; }
 .rap-img img { max-height: 100%; max-width: 100%; }
 @media print { .rap-pagina { min-height: 266mm; } }
+
+.sez-piatt { margin-top: 18px; } .sez-piatt .mese-rap { margin: 0; }
+.chip-tecnici.piatt .chip-t.on { background: var(--arancio, #e07b1a); border-color: var(--arancio, #e07b1a); }
+.gr-piatt-vuoto { font-size: 13px; }
+.rap-ore td.rap-piatt { white-space: normal; min-width: 30mm; }

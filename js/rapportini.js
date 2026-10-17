@@ -40,6 +40,11 @@ window.RAP = (function () {
   const tecniciDi = (r) => [...new Set((r.giorni || []).flatMap((g) => g.tecnici || []))];
   const breveId = (S, id) => { const u = S.utenti.find((x) => x.id === id); return u ? UT.breve(u) : ''; };
   const firmato = (r) => !!r.firmaReferente;
+  const testoPiatt = (g) => {
+    const t = g.piattaformeTipi || [];
+    if (!t.length) return g.piattaforma ? 'SÌ' : 'NO';   // vecchi rapportini con la sola spunta
+    return `${t.length} – ${[...new Set(t)].join(' / ')}`;
+  };
   const badge = (S) => { const n = S.rapportini.filter((r) => !firmato(r)).length; return n ? `${n} da firmare` : ''; };
 
   // ---------- 1. ELENCO DIVISO PER MESE ----------
@@ -105,7 +110,7 @@ window.RAP = (function () {
   const giornoVuoto = (s, prima) => {
     const g = { id: uid(), data: prima ? UI.addGiorni(prima.data || oggi(), 1) : oggi(), mattDa: '', mattA: '', pomDa: '', pomA: '',
       tratta: prima?.tratta || 'AR', viaggio: '', km: '', auto: true, persone: '', personeAuto: true,
-      tecnici: prima ? [...prima.tecnici] : [UT.attuale()?.id].filter(Boolean), piattaforma: false, note: '' };
+      tecnici: prima ? [...prima.tecnici] : [UT.attuale()?.id].filter(Boolean), piattaforme: prima ? [...(prima.piattaforme || [])] : [], note: '' };
     suggerisci(g, s); g.persone = g.tecnici.length || ''; return g;
   };
   // km e minuti di viaggio dall'anagrafica della sede (solo andata) × tratta
@@ -187,6 +192,13 @@ window.RAP = (function () {
     const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); };
 
     // --- giorni
+    // piattaforme dell'anagrafica mezzi (più quelle già scelte, anche se nel frattempo dismesse)
+    const chipPiatt = (g) => {
+      g.piattaforme = g.piattaforme || [];
+      const ps = [...MEZ.piattaforme(S), ...S.mezzi.filter((m) => g.piattaforme.includes(m.id) && m.dismesso)];
+      if (!ps.length) return '<p class="muted gr-piatt-vuoto">Nessuna piattaforma: aggiungile in <a href="#/mezzi">Anagrafica mezzi</a>.</p>';
+      return `<div class="chip-tecnici piatt">${ps.map((p) => `<button type="button" class="chip-t ${g.piattaforme.includes(p.id) ? 'on' : ''}" data-pt="${p.id}" title="${esc(MEZ.tipoP(p))}">${esc(MEZ.corto(p))}</button>`).join('')}</div>`;
+    };
     const chipTec = (g) => tecUtenti.map((u) => `<button type="button" class="chip-t ${g.tecnici.includes(u.id) ? 'on' : ''}" data-tec="${u.id}">${esc(UT.breve(u))}</button>`).join('');
     function disegnaGiorni() {
       const s = sedeAttuale();
@@ -207,7 +219,7 @@ window.RAP = (function () {
           ${s && (s.km || s.viaggio) ? `<p class="muted small gr-sugg">Dall'anagrafica (solo andata): ${[s.km ? s.km + ' km' : '', s.viaggio ? s.viaggio + ' min' : ''].filter(Boolean).join(' · ')} <button type="button" class="link" data-sugg="${i}">↺ usa questi</button></p>` : ''}
           <div class="gr-riga gr-tec">
             <div class="grow"><span class="lab">Chi è andato</span><div class="chip-tecnici">${chipTec(g)}</div></div>
-            <label class="sino gr-piatt"><input type="checkbox" data-k="piattaforma" ${g.piattaforma ? 'checked' : ''}> Usata la piattaforma</label>
+            <div class="grow"><span class="lab">Piattaforme usate</span>${chipPiatt(g)}</div>
           </div>
           <label>Note<input data-k="note" value="${esc(g.note)}" placeholder="breve nota per questo giorno"></label>
         </div>`).join('');
@@ -220,6 +232,7 @@ window.RAP = (function () {
           tot();
         }));
         box.querySelector('[data-k="tratta"]').addEventListener('change', () => { leggiUno(box, g); suggerisci(g, sedeAttuale()); g.auto = true; box.querySelector('[data-k="km"]').value = g.km; box.querySelector('[data-k="viaggio"]').value = g.viaggio; tot(); });
+        box.querySelectorAll('[data-pt]').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); leggiUno(box, g); }));
         box.querySelectorAll('[data-tec]').forEach((b) => (b.onclick = () => {
           b.classList.toggle('on'); leggiUno(box, g);
           if (g.personeAuto) { g.persone = g.tecnici.length || ''; box.querySelector('[data-k="persone"]').value = g.persone; }
@@ -233,6 +246,8 @@ window.RAP = (function () {
     function leggiUno(box, g) {
       box.querySelectorAll('[data-k]').forEach((x) => (g[x.dataset.k] = x.type === 'checkbox' ? x.checked : x.value.trim().toUpperCase()));
       g.tecnici = [...box.querySelectorAll('[data-tec].on')].map((b) => b.dataset.tec);
+      g.piattaforme = [...box.querySelectorAll('[data-pt].on')].map((b) => b.dataset.pt);
+      delete g.piattaforma;
     }
     const leggiGiorni = () => el.querySelectorAll('.giorno-rap').forEach((box) => leggiUno(box, r.giorni[+box.dataset.g]));
     el.querySelector('#btnGiorno').onclick = () => { leggiGiorni(); r.giorni.push(giornoVuoto(sedeAttuale(), r.giorni[r.giorni.length - 1])); disegnaGiorni(); el.querySelector('.giorno-rap:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
@@ -314,6 +329,8 @@ window.RAP = (function () {
         firmaDi: f.firmaDi.value || ''
       });
       r.giorni.sort((a, b) => a.data.localeCompare(b.data));
+      // sul rapportino va solo quante piattaforme e di che tipo: lo fisso al salvataggio
+      r.giorni.forEach((g) => (g.piattaformeTipi = g.piattaforme.map((id) => { const m = S.mezzi.find((x) => x.id === id); return m ? MEZ.tipoP(m) : ''; }).filter(Boolean)));
       if (pad && !pad.vuota()) { r.firmaReferente = pad.immagine(); r.firmatoIl = new Date().toISOString(); }
       // la firma del tecnico è quella del suo profilo, fissata al momento del salvataggio
       const ft = S.utenti.find((u) => u.id === r.firmaDi);
@@ -360,12 +377,12 @@ window.RAP = (function () {
             </header>
             <div class="rap-titolo"><h1>RAPPORTINO DI INTERVENTO</h1><span>N° <b>${esc(numeroDi(r))}</b></span></div>
             <table class="rap-ore">
-              <thead><tr><th>Data</th><th>Mattina</th><th>Pomeriggio</th><th>Ore lavoro</th><th>Viaggio</th><th>Km</th><th>Tratta</th><th>Pers.</th><th>Tecnici</th><th>Piatt.</th><th>Note</th></tr></thead>
+              <thead><tr><th>Data</th><th>Mattina</th><th>Pomeriggio</th><th>Ore lavoro</th><th>Viaggio</th><th>Km</th><th>Tratta</th><th>Pers.</th><th>Tecnici</th><th>Piattaforma</th><th>Note</th></tr></thead>
               <tbody>${giorni.map((g) => `<tr>
                 <td>${fmt(g.data)}</td><td>${fascia(g.mattDa, g.mattA)}</td><td>${fascia(g.pomDa, g.pomA)}</td>
                 <td class="num">${hhmm(oreLavoro(g))}</td><td class="num">${g.viaggio ? hhmm(+g.viaggio) : ''}</td><td class="num">${esc(g.km)}</td>
                 <td>${esc(g.viaggio || g.km ? TRATTE[g.tratta] || '' : '')}</td><td class="num">${esc(g.persone)}</td>
-                <td>${esc((g.tecnici || []).map((id) => breveId(S, id)).filter(Boolean).join(', '))}</td><td>${g.piattaforma ? 'SÌ' : 'NO'}</td><td class="rap-nota">${esc(g.note)}</td></tr>`).join('')}
+                <td>${esc((g.tecnici || []).map((id) => breveId(S, id)).filter(Boolean).join(', '))}</td><td class="rap-piatt">${esc(testoPiatt(g))}</td><td class="rap-nota">${esc(g.note)}</td></tr>`).join('')}
               ${giorni.length > 1 ? `<tr class="rap-tot"><td colspan="3">TOTALE</td><td class="num">${hhmm(tot.lav)}</td><td class="num">${hhmm(tot.via)}</td><td class="num">${tot.km || ''}</td><td colspan="5"></td></tr>` : ''}</tbody>
             </table>
             <div class="rap-box"><h2>LAVORI ESEGUITI</h2><div class="rap-testo">${esc(r.eseguiti) || '&nbsp;'}</div></div>
