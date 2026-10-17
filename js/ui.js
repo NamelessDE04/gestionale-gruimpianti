@@ -1,0 +1,217 @@
+// ===== UTILITÀ COMUNI (date, testo, firma, foto) =====
+window.UI = (function () {
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) =>
+    ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+  // --- date (formato ISO "AAAA-MM-GG", ora locale) ---
+  const iso = (d) => {
+    const z = (n) => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${z(d.getMonth() + 1)}-${z(d.getDate())}`;
+  };
+  const oggi = () => iso(new Date());
+  const parse = (s) => { const [y, m, d] = s.split('-').map(Number); return new Date(y, m - 1, d); };
+  const addMesi = (s, n) => {
+    const d = parse(s); const g = d.getDate();
+    d.setDate(1); d.setMonth(d.getMonth() + n);
+    const ultimo = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    d.setDate(Math.min(g, ultimo));
+    return iso(d);
+  };
+  const addGiorni = (s, n) => { const d = parse(s); d.setDate(d.getDate() + n); return iso(d); };
+  const giorniDa = (s) => Math.round((parse(s) - parse(oggi())) / 86400000); // >0 nel futuro
+  const fmt = (s) => { if (!s) return '—'; const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; };
+
+  // --- messaggi ---
+  let tt;
+  const toast = (msg, tipo) => {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.className = 'show ' + (tipo || '');
+    clearTimeout(tt); tt = setTimeout(() => (t.className = ''), 2600);
+  };
+
+  const salva = async (col, doc) => {
+    try { return await Backend.save(col, doc); }
+    catch (e) {
+      console.error(e);
+      toast(/quota/i.test(e.name + e.message)
+        ? 'Memoria del dispositivo piena: elimina qualche foto.' : 'Errore nel salvataggio', 'err');
+      throw e;
+    }
+  };
+
+  // --- firma col dito (canvas) ---
+  function firmaPad(canvas) {
+    const ctx = canvas.getContext('2d');
+    let vuota = true, disegna = false, last = null;
+    let box = null; // area disegnata (per ritagliare la firma)
+    const allarga = (p) => { box = box ? { x0: Math.min(box.x0, p.x), y0: Math.min(box.y0, p.y), x1: Math.max(box.x1, p.x), y1: Math.max(box.y1, p.y) } : { x0: p.x, y0: p.y, x1: p.x, y1: p.y }; };
+    const resize = () => {
+      const r = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      const prima = vuota ? null : canvas.toDataURL();
+      canvas.width = r.width * dpr; canvas.height = r.height * dpr;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.lineWidth = 2.4; ctx.lineCap = 'round'; ctx.lineJoin = 'round'; ctx.strokeStyle = '#10243a';
+      if (prima) { const im = new Image(); im.onload = () => ctx.drawImage(im, 0, 0, r.width, r.height); im.src = prima; }
+    };
+    const pos = (e) => { const r = canvas.getBoundingClientRect(); return { x: e.clientX - r.left, y: e.clientY - r.top }; };
+    canvas.addEventListener('pointerdown', (e) => {
+      canvas.setPointerCapture(e.pointerId); disegna = true; last = pos(e); allarga(last);
+      ctx.beginPath(); ctx.arc(last.x, last.y, 1.1, 0, Math.PI * 2); ctx.fillStyle = '#10243a'; ctx.fill();
+      vuota = false; canvas.closest('.firma')?.classList.add('firmata');
+    });
+    canvas.addEventListener('pointermove', (e) => {
+      if (!disegna) return; const p = pos(e);
+      ctx.beginPath(); ctx.moveTo(last.x, last.y); ctx.lineTo(p.x, p.y); ctx.stroke(); last = p; allarga(p);
+    });
+    ['pointerup', 'pointercancel', 'pointerleave'].forEach((ev) => canvas.addEventListener(ev, () => (disegna = false)));
+    requestAnimationFrame(resize);
+    window.addEventListener('resize', resize);
+    return {
+      vuota: () => vuota,
+      pulisci() { ctx.clearRect(0, 0, canvas.width, canvas.height); vuota = true; box = null; canvas.closest('.firma')?.classList.remove('firmata'); },
+      immagine() {
+        if (vuota) return null;
+        // ritaglio solo la parte firmata, sfondo trasparente, larghezza max 500 px
+        const dpr = canvas.width / canvas.getBoundingClientRect().width;
+        const r = canvas.getBoundingClientRect();
+        const b = box || { x0: 0, y0: 0, x1: r.width, y1: r.height }, m = 6;
+        const x = Math.max(0, b.x0 - m) * dpr, y = Math.max(0, b.y0 - m) * dpr;
+        const w = Math.min(canvas.width - x, (b.x1 - b.x0 + 2 * m) * dpr), h = Math.min(canvas.height - y, (b.y1 - b.y0 + 2 * m) * dpr);
+        const k = Math.min(1, 500 / w);
+        const out = document.createElement('canvas'); out.width = Math.round(w * k); out.height = Math.round(h * k);
+        out.getContext('2d').drawImage(canvas, x, y, w, h, 0, 0, out.width, out.height);
+        return out.toDataURL('image/png');
+      }
+    };
+  }
+
+  // --- foto: ridotte a max 1280 px e compresse (~100-200 KB) ---
+  function comprimiFoto(file, max = 1280, q = 0.62) {
+    return new Promise((ok, ko) => {
+      const url = URL.createObjectURL(file);
+      const im = new Image();
+      im.onload = () => {
+        const k = Math.min(1, max / Math.max(im.width, im.height));
+        const c = document.createElement('canvas');
+        c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        c.getContext('2d').drawImage(im, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url);
+        ok(c.toDataURL('image/jpeg', q));
+      };
+      im.onerror = ko; im.src = url;
+    });
+  }
+
+
+  // --- "i" cerchiata: spiegazione a scomparsa (si chiude toccando altrove) ---
+  document.addEventListener('click', (e) => document.querySelectorAll('details.info[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
+  const info = (testo) => `<details class="info" onclick="event.stopPropagation()"><summary aria-label="Informazioni">i</summary><div class="info-txt">${testo}</div></details>`;
+
+  // --- finestra con modulo (per modificare dati senza cambiare pagina) ---
+  // campi: [{k, label, tipo: 'text'|'email'|'tel'|'textarea'|'number', req, mezza, placeholder, aiuto}]
+  function modal({ titolo, campi, valori = {}, onSalva, onElimina, testoElimina = 'Elimina', infoTxt, testoSalva = 'Salva', largo }) {
+    if (window.UT && UT.solaLettura()) { toast('Accesso in sola lettura: puoi consultare e stampare'); return () => {}; }
+    const ov = document.createElement('div');
+    ov.className = 'modal-ov';
+    ov.innerHTML = `
+      <form class="modal ${largo ? 'largo' : ''}" novalidate>
+        <div class="modal-head"><h2>${esc(titolo)}</h2>${infoTxt ? info(infoTxt) : ''}
+          <button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+        <div class="modal-body">
+          ${campi.map((c) => c.tipo === 'titolo' ? `<h3 class="modal-sez">${esc(c.label)}</h3>` : c.tipo === 'sino' ? `
+            <label class="check modal-check ${c.mezza ? 'mezza' : ''}"><input type="checkbox" name="${c.k}" ${valori[c.k] ? 'checked' : ''}> ${esc(c.label)}</label>` : `
+            <label class="${c.mezza ? 'mezza' : ''} ${c.terzo ? 'terzo' : ''}">${esc(c.label)}${c.u ? ` <span class="unita">(${esc(c.u)})</span>` : ''}${c.req ? ' *' : ''}
+              ${c.tipo === 'immagine'
+                ? `<div class="campo-img" data-img="${c.k}">
+                     <div class="img-prev">${valori[c.k] ? `<img src="${valori[c.k]}" alt="">` : `<span class="muted small">${esc(c.vuoto || 'Nessuna immagine')}</span>`}</div>
+                     <span class="img-btn btn ghost small">📷 Scegli immagine<input type="file" accept="image/*" hidden></span>
+                     <button type="button" class="btn ghost small danger" data-img-rm ${valori[c.k] ? '' : 'hidden'}>Togli</button>
+                   </div>`
+                : c.tipo === 'multi'
+                ? `<div class="multi-campo" data-multi="${c.k}"></div><button type="button" class="btn ghost small" data-multi-add="${c.k}">+ ${esc(c.aggiungi || 'Aggiungi')}</button>`
+                : c.tipo === 'select'
+                ? `<select name="${c.k}"><option value="">—</option>${c.opzioni.map((o) => `<option ${o === valori[c.k] ? 'selected' : ''}>${esc(o)}</option>`).join('')}${valori[c.k] && !c.opzioni.includes(valori[c.k]) ? `<option selected>${esc(valori[c.k])}</option>` : ''}</select>`
+                : c.tipo === 'textarea'
+                ? `<textarea name="${c.k}" rows="3" placeholder="${esc(c.placeholder || '')}">${esc(valori[c.k] || '')}</textarea>`
+                : `<input name="${c.k}" type="${c.tipo || 'text'}" ${c.tipo === 'tel' ? 'inputmode="tel"' : ''} ${c.num ? 'inputmode="decimal"' : ''} ${c.lista ? `list="dl-${c.k}"` : ''} placeholder="${esc(c.placeholder || '')}" value="${esc(valori[c.k] ?? '')}" ${c.maiuscolo ? 'style="text-transform:uppercase"' : ''}>${c.lista ? `<datalist id="dl-${c.k}">${c.lista.map((o) => `<option value="${esc(o)}">`).join('')}</datalist>` : ''}`}
+              ${c.aiuto ? `<small class="muted">${esc(c.aiuto)}</small>` : ''}
+            </label>`).join('')}
+        </div>
+        <div class="modal-foot">
+          ${onElimina ? `<button type="button" class="btn danger ghost" data-del>${esc(testoElimina)}</button>` : ''}
+          <span class="grow"></span>
+          <button type="button" class="btn ghost" data-annulla>Annulla</button>
+          <button type="submit" class="btn">${esc(testoSalva)}</button>
+        </div>
+      </form>`;
+    document.body.appendChild(ov);
+    document.body.classList.add('modal-aperto');
+    const f = ov.querySelector('form');
+    // campi con più valori (es. più tensioni secondarie)
+    const multi = {};
+    campi.filter((c) => c.tipo === 'multi').forEach((c) => {
+      const v0 = valori[c.k]; multi[c.k] = Array.isArray(v0) ? v0.slice() : v0 ? [v0] : [];
+      if (!multi[c.k].length) multi[c.k].push('');
+      const box = f.querySelector(`[data-multi="${c.k}"]`);
+      const leggi = () => box.querySelectorAll('input').forEach((n, j) => (multi[c.k][j] = n.value));
+      const disegna = () => {
+        box.innerHTML = multi[c.k].map((x, j) => `<div class="multi-riga"><input value="${esc(x)}" placeholder="${esc(c.placeholder || '')}" ${c.lista ? `list="dl-${c.k}"` : ''}>${multi[c.k].length > 1 ? `<button type="button" class="btn ghost small danger" data-j="${j}" aria-label="Togli">×</button>` : ''}</div>`).join('')
+          + (c.lista ? `<datalist id="dl-${c.k}">${c.lista.map((o) => `<option value="${esc(o)}">`).join('')}</datalist>` : '');
+        box.querySelectorAll('[data-j]').forEach((b) => (b.onclick = () => { leggi(); multi[c.k].splice(+b.dataset.j, 1); disegna(); }));
+      };
+      disegna();
+      f.querySelector(`[data-multi-add="${c.k}"]`).onclick = () => { leggi(); multi[c.k].push(''); disegna(); [...box.querySelectorAll('.multi-riga input')].pop()?.focus(); };
+      multi[c.k].leggi = leggi;
+    });
+    const immagini = {};
+    campi.filter((c) => c.tipo === 'immagine').forEach((c) => {
+      immagini[c.k] = valori[c.k] || '';
+      const box = f.querySelector(`[data-img="${c.k}"]`), inp = box.querySelector('input'), rm = box.querySelector('[data-img-rm]');
+      const mostra = () => {
+        box.querySelector('.img-prev').innerHTML = immagini[c.k] ? `<img src="${immagini[c.k]}" alt="">` : `<span class="muted small">${esc(c.vuoto || 'Nessuna immagine')}</span>`;
+        rm.hidden = !immagini[c.k];
+      };
+      box.querySelector('.img-btn').onclick = () => inp.click();
+      inp.onchange = async () => { if (inp.files[0]) { try { immagini[c.k] = await comprimiLogo(inp.files[0]); } catch (e) { toast('Immagine non leggibile', 'err'); } mostra(); } };
+      rm.onclick = () => { immagini[c.k] = ''; mostra(); };
+    });
+    const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
+    ov.querySelector('.modal-x').onclick = chiudi;
+    ov.querySelector('[data-annulla]').onclick = chiudi;
+    ov.addEventListener('click', (e) => { if (e.target === ov) chiudi(); });
+    setTimeout(() => f.querySelector('input:not([type=checkbox]):not([type=file]),textarea')?.focus({ preventScroll: true }), 50);
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const v = {};
+      campi.forEach((c) => { if (c.tipo === 'titolo') return; if (c.tipo === 'immagine') { v[c.k] = immagini[c.k]; return; } if (c.tipo === 'sino') { v[c.k] = f[c.k].checked; return; } if (c.tipo === 'multi') { multi[c.k].leggi(); v[c.k] = multi[c.k].map((x) => x.trim()).filter(Boolean); return; } let x = f[c.k].value.trim(); if (c.maiuscolo) x = x.toUpperCase(); v[c.k] = x; });
+      const manca = campi.find((c) => c.req && !v[c.k]);
+      if (manca) { f[manca.k].focus(); return toast(`Compila «${manca.label}»`, 'err'); }
+      const malMail = campi.find((c) => c.tipo === 'email' && v[c.k] && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v[c.k]));
+      if (malMail) { f[malMail.k].focus(); return toast(`«${malMail.label}» non sembra un indirizzo valido`, 'err'); }
+      try { if ((await onSalva(v)) !== false) chiudi(); } catch (er) { /* errore già mostrato */ }
+    };
+    if (onElimina) ov.querySelector('[data-del]').onclick = async () => { if ((await onElimina()) !== false) chiudi(); };
+    return chiudi;
+  }
+
+  // logo: lato massimo 256 px su sfondo bianco (pochi KB)
+  function comprimiLogo(file) {
+    return new Promise((ok, ko) => {
+      const url = URL.createObjectURL(file); const im = new Image();
+      im.onload = () => {
+        const k = Math.min(1, 256 / Math.max(im.width, im.height));
+        const c = document.createElement('canvas'); c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+        const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+        URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.9));
+      };
+      im.onerror = ko; im.src = url;
+    });
+  }
+
+  const conferma = (msg) => window.confirm(msg);
+
+  return { info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
+})();

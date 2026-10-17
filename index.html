@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#16324f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Gestionale Gru Impianti – DEMO</title>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="img/icon-192.png">
+<link rel="apple-touch-icon" href="img/icon-192.png">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <button class="back" id="btnBack" hidden aria-label="Indietro">&#8249;</button>
+  <a href="#/" class="brand" aria-label="Home">
+    <img src="img/logo.png" alt="Gru Impianti" id="logo"
+         onerror="this.hidden=true;document.getElementById('logoTxt').hidden=false">
+    <span id="logoTxt" class="logo-txt" hidden>GRU&nbsp;IMPIANTI</span>
+  </a>
+  <div class="title" id="pageTitle"></div>
+  <a href="#/profilo" class="utente-chip" id="btnUtente" hidden></a>
+  <span class="demo-badge" title="Versione dimostrativa">DEMO</span>
+</header>
+<div class="tape" aria-hidden="true"></div>
+
+<main id="app"></main>
+
+<footer class="foot">
+  <span>Gestionale Gru Impianti · <b>DEMO</b></span>
+  <span id="modeInfo"></span>
+  <span>v<span id="appVersion"></span></span>
+</footer>
+
+<div id="toast" role="status"></div>
+
+<script src="js/config.js"></script>
+<script src="js/backend.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/illustrazioni.js"></script>
+<script src="js/utenti.js"></script>
+<script src="js/home.js"></script>
+<script src="js/clienti.js"></script>
+<script src="js/allegati.js"></script>
+<script src="js/impianti.js"></script>
+<script src="js/impianti-scheda.js"></script>
+<script src="js/controlli.js"></script>
+<script src="js/controlli-stampa.js"></script>
+<script src="js/sottoganci.js"></script>
+<script src="js/sottoganci-stampa.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

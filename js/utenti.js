@@ -1,0 +1,439 @@
+// ===== UTENTI, ACCESSO CON PIN, LIVELLI E REGISTRO ATTIVITÀ =====
+// Livelli:
+//  - Master: fa tutto, gestisce gli utenti e vede il registro delle attività (solo come PDF).
+//  - Tecnico: fa tutto tranne vedere il registro e gestire gli utenti.
+//  - Risorse Umane: sola lettura di anagrafiche, sottoganci e controlli; può stampare tutto, non può modificare.
+// Accesso veloce con PIN. Con il cloud si potrà entrare anche con l'account Google associato all'utente.
+// NOTA: in questa demo i dati sono solo sul tablet; con il cloud l'accesso passerà a Firebase.
+window.UT = (function () {
+  const { esc, uid, info, fmt } = UI;
+  const RUOLI = { master: 'Master', tecnico: 'Tecnico', ru: 'Risorse Umane' };
+  const CHIAVE = 'gid_sessione';
+  let S = null;
+
+  const hash = async (salt, x) => {
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(salt + '|' + x));
+    return [...new Uint8Array(b)].map((v) => v.toString(16).padStart(2, '0')).join('');
+  };
+  const ruoloDi = (u) => (u?.ruolo === 'admin' ? 'master' : u?.ruolo || 'tecnico');   // gli "admin" della v0.8 diventano Master
+  const attivi = () => (S?.utenti || []).filter((u) => u.attivo !== false);
+  const attuale = () => { const id = localStorage.getItem(CHIAVE); return attivi().find((u) => u.id === id) || null; };
+  const isMaster = () => ruoloDi(attuale()) === 'master';
+  const solaLettura = () => ruoloDi(attuale()) === 'ru';
+  const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
+  const pinValido = (p) => /^\d{4,6}$/.test(p);
+  async function pinGiaUsato(pin, trannId) {
+    for (const u of S.utenti) if (u.id !== trannId && u.pinHash && (await hash(u.pinSalt, pin)) === u.pinHash) return true;
+    return false;
+  }
+
+  // ---------- REGISTRO ATTIVITÀ ----------
+  const NOMI_COL = { clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente' };
+  function descrivi(col, d) {
+    if (!d) return NOMI_COL[col] || col;
+    const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
+    const imp = (id) => { const i = S.impianti.find((x) => x.id === id); return i ? `${i.numeroInterno ? 'N° ' + i.numeroInterno + ' ' : ''}${IMP.titolo(i)}${i.matricola ? ' (matr. ' + i.matricola + ')' : ''}` : ''; };
+    const sede = (id) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === id); if (s) return `${CLI.nome(c)} ${s.nome || ''}`; } return ''; };
+    switch (col) {
+      case 'clienti': return `Cliente ${d.ragioneSociale || ''}`;
+      case 'impianti': return `Impianto ${d.numeroInterno ? 'N° ' + d.numeroInterno + ' ' : ''}${IMP.titolo(d)} – ${cli(d.clienteId)}`;
+      case 'sottoganci': return `Sottogancio ${d.numero} – ${sede(d.sedeId)}`;
+      case 'giriSottoganci': return `Controllo sottoganci ${d.slot}° ${d.anno} – ${sede(d.sedeId)}`;
+      case 'schedeControllo': return `Scheda di controllo ${d.anno} – ${imp(d.impiantoId)} – ${cli(d.clienteId)}`;
+      case 'utenti': return `Utente ${d.nome}`;
+      case 'impostazioni': return d.id === 'modelliScheda' ? 'Modelli di scheda' : d.id === 'tipologieGru' ? 'Tipologie di gru' : 'Impostazioni';
+      default: return NOMI_COL[col] || col;
+    }
+  }
+  function registra(azione, testo, extra = {}) {
+    const u = attuale() || extra.utente;
+    const voce = { id: uid(), t: new Date().toISOString(), uid: u?.id || '', nome: u?.nome || extra.nome || '—', azione, testo, ...(extra.col ? { col: extra.col, docId: extra.docId } : {}) };
+    try { Backend.append('log', voce, 10000); } catch (e) { /* registro pieno: non blocco il lavoro */ }
+  }
+
+  // controlla i permessi e registra ogni salvataggio / eliminazione
+  let installato = false;
+  function installa() {
+    if (installato) return; installato = true;
+    const o = { save: Backend.save, saveMany: Backend.saveMany, remove: Backend.remove };
+    const permesso = (col, doc) => {
+      if (!solaLettura()) return true;
+      return col === 'utenti' && doc?.id === attuale()?.id; // RU può solo aggiornare il proprio profilo (PIN, firma)
+    };
+    Backend.save = async (col, doc) => {
+      if (!permesso(col, doc)) { UI.toast('Accesso in sola lettura: non puoi modificare', 'err'); throw new Error('sola lettura'); }
+      const nuovo = !(S?.[col] || []).some((x) => x.id === doc.id);
+      const r = await o.save(col, doc);
+      registra(nuovo ? 'creazione' : 'modifica', descrivi(col, doc), { col, docId: doc.id });
+      return r;
+    };
+    Backend.saveMany = async (col, docs) => {
+      if (solaLettura()) { UI.toast('Accesso in sola lettura', 'err'); throw new Error('sola lettura'); }
+      const r = await o.saveMany(col, docs); registra('modifica', `${docs.length} × ${NOMI_COL[col] || col}`, { col }); return r;
+    };
+    Backend.remove = async (col, id) => {
+      if (solaLettura()) { UI.toast('Accesso in sola lettura: non puoi eliminare', 'err'); throw new Error('sola lettura'); }
+      const d = (S?.[col] || []).find((x) => x.id === id);
+      const testo = descrivi(col, d);
+      const r = await o.remove(col, id); registra('eliminazione', testo, { col, docId: id }); return r;
+    };
+    window.addEventListener('beforeprint', () => { if (attuale()) registra('stampa', document.title.replace(/_/g, ' ')); });
+  }
+
+  // ---------- schermata di accesso con PIN ----------
+  let tentativi = 0, bloccoFino = 0;
+  function schermata(el, dati) {
+    S = dati;
+    const primo = !S.utenti.length;
+    const senzaPin = attivi().some((u) => !u.pinHash);
+    document.body.classList.add('fuori');
+    if (primo) return primoAvvio(el);
+    el.innerHTML = `
+      <section class="login">
+        <div class="login-box card">
+          <img src="img/logo.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">
+          <h1>Inserisci il PIN</h1>
+          <div class="pin-punti" id="punti"></div>
+          <div class="tastierino">
+            ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" data-n="${n}">${n}</button>`).join('')}
+            <button type="button" data-canc aria-label="Cancella">⌫</button><button type="button" data-n="0">0</button><button type="button" data-ok aria-label="Entra">✓</button>
+          </div>
+          ${Backend.loginGoogle ? '<button class="btn ghost google" id="btnGoogle"><b>G</b> Accedi con Google</button>' : ''}
+          ${senzaPin ? '<button class="link" id="btnVecchio">Non hai ancora il PIN? Entra con nome utente e password</button>' : ''}
+        </div>
+      </section>`;
+    let pin = '';
+    const lunghezze = [...new Set(attivi().filter((u) => u.pinHash).map((u) => u.pinLen || 4))];
+    const max = Math.max(4, ...lunghezze);
+    const punti = () => (el.querySelector('#punti').innerHTML = Array.from({ length: Math.max(4, pin.length) }, (_, k) => `<span class="${k < pin.length ? 'on' : ''}"></span>`).join(''));
+    const errore = () => {
+      tentativi++; if (tentativi >= 5) { bloccoFino = Date.now() + 30000; tentativi = 0; }
+      registra('accesso negato', 'PIN errato', { nome: '(sconosciuto)' });
+      const b = el.querySelector('.login-box'); b.classList.remove('scuoti'); void b.offsetWidth; b.classList.add('scuoti');
+      UI.toast(bloccoFino > Date.now() ? 'Troppi tentativi: riprova tra 30 secondi' : 'PIN non corretto', 'err');
+      pin = ''; punti();
+    };
+    const prova = async (forza) => {
+      if (Date.now() < bloccoFino) { pin = ''; punti(); return UI.toast('Troppi tentativi: aspetta qualche secondo', 'err'); }
+      for (const u of attivi()) if (u.pinHash && (u.pinLen || 4) === pin.length && (await hash(u.pinSalt, pin)) === u.pinHash) return entra(u, 'PIN');
+      if (forza || pin.length >= max) errore();
+    };
+    el.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => { if (pin.length < 6) { pin += b.dataset.n; punti(); if (lunghezze.includes(pin.length)) prova(false); } }));
+    el.querySelector('[data-canc]').onclick = () => { pin = pin.slice(0, -1); punti(); };
+    el.querySelector('[data-ok]').onclick = () => pin && prova(true);
+    // anche con la tastiera del PC
+    document.onkeydown = (e) => { if (!document.body.classList.contains('fuori') || document.querySelector('.modal-ov')) return;
+      if (/^\d$/.test(e.key)) el.querySelector(`[data-n="${e.key}"]`)?.click(); else if (e.key === 'Backspace') el.querySelector('[data-canc]')?.click(); else if (e.key === 'Enter') el.querySelector('[data-ok]')?.click(); };
+    el.querySelector('#btnGoogle')?.addEventListener('click', async () => {
+      try {
+        const email = (await Backend.loginGoogle()).toLowerCase();
+        const u = attivi().find((x) => (x.google || '').toLowerCase() === email);
+        if (!u) return UI.toast(`L'account ${email} non è associato a nessun utente`, 'err');
+        entra(u, 'Google');
+      } catch (e) { UI.toast('Accesso con Google non riuscito', 'err'); }
+    });
+    el.querySelector('#btnVecchio')?.addEventListener('click', () => vecchioAccesso(el));
+    punti();
+  }
+
+  function primoAvvio(el) {
+    el.innerHTML = `
+      <section class="login">
+        <div class="login-box card">
+          <img src="img/logo.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">
+          <h1>Benvenuto</h1>
+          <p class="muted">Crea il primo accesso: sarai il <b>Master</b>. Poi potrai aggiungere i colleghi con il loro livello.</p>
+          <form id="fPrimo" novalidate>
+            <label>Nome e cognome<input name="nome" value="Luca" autocomplete="name"></label>
+            <label>Scegli un PIN (da 4 a 6 cifre)<input name="pin" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
+            <label>Ripeti il PIN<input name="pin2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
+            <button class="btn big" type="submit">Crea e entra</button>
+          </form>
+        </div>
+      </section>`;
+    const f = el.querySelector('#fPrimo');
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      if (!f.nome.value.trim()) return UI.toast('Scrivi il tuo nome', 'err');
+      if (!pinValido(f.pin.value)) return UI.toast('Il PIN deve avere da 4 a 6 cifre', 'err');
+      if (f.pin.value !== f.pin2.value) return UI.toast('I due PIN non coincidono', 'err');
+      const pinSalt = uid();
+      const u = { id: uid(), nome: f.nome.value.trim(), ruolo: 'master', pinSalt, pinHash: await hash(pinSalt, f.pin.value), pinLen: f.pin.value.length, google: '', firma: null, attivo: true };
+      localStorage.setItem(CHIAVE, u.id);
+      await Backend.save('utenti', u); entra(u, 'primo accesso');
+    };
+  }
+
+  // per chi aveva creato l'accesso con nome utente e password (v0.8): entra e imposta il PIN
+  function vecchioAccesso(el) {
+    el.innerHTML = `
+      <section class="login"><div class="login-box card">
+        <h1>Accesso con password</h1><p class="muted">Solo per questa volta: poi ti chiederò di scegliere il PIN.</p>
+        <form id="fOld" novalidate>
+          <label>Nome utente<input name="user" autocapitalize="none" autocomplete="username"></label>
+          <label>Password<input name="pw" type="password" autocomplete="current-password"></label>
+          <button class="btn big" type="submit">Entra</button>
+        </form>
+        <button class="link" id="btnIndietro">← Torna al PIN</button>
+      </div></section>`;
+    const f = el.querySelector('#fOld');
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const u = attivi().find((x) => x.username === f.user.value.trim().toLowerCase());
+      if (!u || !u.hash || (await hash(u.salt, f.pw.value)) !== u.hash) return UI.toast('Nome utente o password non corretti', 'err');
+      entra(u, 'password'); setTimeout(() => (location.hash = '#/profilo'), 50);
+    };
+    el.querySelector('#btnIndietro').onclick = () => schermata(el, S);
+  }
+
+  function entra(u, metodo) {
+    localStorage.setItem(CHIAVE, u.id);
+    document.body.classList.remove('fuori'); document.onkeydown = null; tentativi = 0;
+    registra('accesso', `Accesso con ${metodo}`);
+    UI.toast('Ciao ' + u.nome.split(' ')[0], 'ok');
+    if (!u.firma && ruoloDi(u) !== 'ru') setTimeout(() => UI.toast('Ricordati di salvare la tua firma nel profilo', ''), 2700);
+    if (!u.pinHash) setTimeout(() => UI.toast('Scegli il tuo PIN nel profilo', ''), 2700);
+    location.hash = u.pinHash ? '#/' : '#/profilo'; App.ridisegna();
+  }
+  function esci() { registra('uscita', 'Uscita dall\'app'); localStorage.removeItem(CHIAVE); location.hash = '#/'; App.ridisegna(); }
+
+  // ---------- profilo personale: firma, PIN, account Google ----------
+  function profilo(el, dati) {
+    S = dati; const u = attuale(), r = ruoloDi(u);
+    el.innerHTML = `
+      <section class="cli">
+        <div class="card cli-head">
+          <span class="avatar big">${esc(iniziali(u.nome))}</span>
+          <div class="grow"><h1>${esc(u.nome)}</h1><p class="muted">${RUOLI[r]}</p></div>
+          <button class="btn ghost" id="btnEsci">Esci</button>
+        </div>
+        ${r !== 'ru' ? `
+        <div class="card">
+          <div class="card-head"><h2>La mia firma ${info('Firma una volta sola: verrà messa in automatico sulle schede dei controlli che fai tu. Se la rifai, vale per i controlli nuovi; quelli già salvati tengono la firma di quel giorno.')}</h2></div>
+          ${u.firma ? `<div class="firma-salvata"><img src="${u.firma}" alt="La mia firma"></div>` : '<p class="muted">Non hai ancora salvato la tua firma.</p>'}
+          <div class="firma"><div class="firma-head"><b>${u.firma ? 'Rifai la firma' : 'Firma qui'}</b><button type="button" class="link" id="btnPulisci">Cancella</button></div>
+            <canvas id="cvP"></canvas><span class="firma-hint">Firma col dito</span></div>
+          <div class="azioni-form"><span class="grow"></span><button class="btn" id="btnSalvaFirma">Salva firma</button></div>
+        </div>` : ''}
+        <div class="card">
+          <h2>${u.pinHash ? 'Cambia PIN' : 'Scegli il tuo PIN'} ${info('Il PIN serve per entrare velocemente: da 4 a 6 cifre, diverso da quello dei colleghi.')}</h2>
+          <form id="fPin" class="form" novalidate>
+            <div class="tre">
+              ${u.pinHash ? '<label>PIN attuale<input name="vecchio" type="password" inputmode="numeric" maxlength="6" autocomplete="current-password"></label>' : ''}
+              <label>Nuovo PIN<input name="nuovo" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
+              <label>Ripeti nuovo PIN<input name="nuovo2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
+            </div>
+            <div class="azioni-form"><span class="grow"></span><button class="btn ${u.pinHash ? 'ghost' : ''}" type="submit">Salva PIN</button></div>
+          </form>
+        </div>
+        <div class="card">
+          <h2>Account Google ${info('Quando l\'app sarà online potrai entrare anche con il tuo account Google, senza PIN. Scrivi qui l\'indirizzo Gmail da associare.')}</h2>
+          <form id="fGoogle" class="form" novalidate>
+            <div class="due"><label>Indirizzo Google<input name="google" type="email" value="${esc(u.google || '')}" placeholder="nome@gmail.com"></label>
+              <div class="azioni-form"><button class="btn ghost" type="submit">Salva</button></div></div>
+            ${Backend.loginGoogle ? '' : '<p class="muted small">L\'accesso con Google si attiverà con il collegamento al cloud.</p>'}
+          </form>
+        </div>
+        <div class="azioni-lista">
+          ${r === 'master' ? '<a class="btn ghost" href="#/utenti">👥 Gestione utenti</a><a class="btn ghost" href="#/registro">📋 Registro attività</a>' : ''}
+        </div>
+      </section>`;
+    el.querySelector('#btnEsci').onclick = esci;
+    if (r !== 'ru') {
+      const pad = UI.firmaPad(el.querySelector('#cvP'));
+      el.querySelector('#btnPulisci').onclick = () => pad.pulisci();
+      el.querySelector('#btnSalvaFirma').onclick = async () => {
+        if (pad.vuota()) return UI.toast('Prima firma nel riquadro', 'err');
+        await UI.salva('utenti', { ...attuale(), firma: pad.immagine() }); UI.toast('Firma salvata', 'ok');
+      };
+    }
+    const f = el.querySelector('#fPin');
+    f.onsubmit = async (e) => {
+      e.preventDefault(); const io = attuale();
+      if (io.pinHash && (await hash(io.pinSalt, f.vecchio.value)) !== io.pinHash) return UI.toast('Il PIN attuale non è giusto', 'err');
+      if (!pinValido(f.nuovo.value)) return UI.toast('Il PIN deve avere da 4 a 6 cifre', 'err');
+      if (f.nuovo.value !== f.nuovo2.value) return UI.toast('I due PIN non coincidono', 'err');
+      if (await pinGiaUsato(f.nuovo.value, io.id)) return UI.toast('PIN già usato da un collega: scegline un altro', 'err');
+      const pinSalt = uid(); await UI.salva('utenti', { ...io, pinSalt, pinHash: await hash(pinSalt, f.nuovo.value), pinLen: f.nuovo.value.length });
+      f.reset(); UI.toast('PIN salvato', 'ok'); App.ridisegna();
+    };
+    const g = el.querySelector('#fGoogle');
+    g.onsubmit = async (e) => {
+      e.preventDefault(); const v = g.google.value.trim().toLowerCase();
+      if (v && !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(v)) return UI.toast('Indirizzo non valido', 'err');
+      if (v && S.utenti.some((x) => x.id !== attuale().id && (x.google || '').toLowerCase() === v)) return UI.toast('Questo account è già associato a un collega', 'err');
+      await UI.salva('utenti', { ...attuale(), google: v }); UI.toast('Account Google salvato', 'ok');
+    };
+    return { titolo: 'Il mio profilo', indietro: '#/', live: false };
+  }
+
+  // ---------- gestione utenti (solo Master) ----------
+  function gestione(el, dati) {
+    S = dati;
+    if (!isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master può gestire gli utenti.</p>'; return { titolo: 'Utenti', indietro: '#/' }; }
+    const lista = [...S.utenti].sort((a, b) => a.nome.localeCompare(b.nome));
+    el.innerHTML = `
+      <section class="cli">
+        <div class="sez-head"><h1>Utenti ${info('Master: fa tutto, gestisce gli utenti e vede il registro attività. Tecnico: fa tutto tranne registro e gestione utenti. Risorse Umane: vede anagrafiche, sottoganci e controlli e può stampare, ma non può modificare nulla. Ognuno salva firma e PIN dal proprio profilo.')}</h1>
+          <button class="btn" id="btnNuovo">+ Nuovo utente</button></div>
+        <div class="elenco">
+          ${lista.map((u) => `
+            <a class="riga cli-riga ${u.attivo === false ? 'dismesso' : ''}" href="javascript:void(0)" data-u="${u.id}">
+              <span class="avatar">${esc(iniziali(u.nome))}</span>
+              <div class="riga-main"><div class="riga-top"><b>${esc(u.nome)}</b> <span class="pill ruolo-${ruoloDi(u)}">${RUOLI[ruoloDi(u)]}</span></div>
+                <div class="muted small">${u.attivo === false ? 'disattivato · ' : ''}${u.pinHash ? 'PIN impostato' : '<b class="txt-ko">PIN da impostare</b>'}${ruoloDi(u) !== 'ru' ? ` · ${u.firma ? 'firma salvata' : '<b class="txt-ko">firma mancante</b>'}` : ''}${u.google ? ' · ' + esc(u.google) : ''}</div></div>
+              ${u.firma ? `<img class="firma-mini" src="${u.firma}" alt="">` : ''}
+            </a>`).join('')}
+        </div>
+      </section>`;
+    el.querySelector('#btnNuovo').onclick = () => modaleUtente(null);
+    el.querySelectorAll('[data-u]').forEach((r) => (r.onclick = () => modaleUtente(S.utenti.find((u) => u.id === r.dataset.u))));
+    return { titolo: 'Gestione utenti', indietro: '#/', live: true };
+  }
+  function modaleUtente(u) {
+    const io = attuale();
+    UI.modal({
+      titolo: u ? 'Utente ' + u.nome : 'Nuovo utente',
+      infoTxt: u ? 'Lascia vuoto il PIN per non cambiarlo.' : 'Scegli un PIN iniziale e comunicalo al collega: potrà cambiarlo dal suo profilo.',
+      valori: u ? { ...u, ruolo: RUOLI[ruoloDi(u)], attivo: u.attivo !== false } : { ruolo: RUOLI.tecnico, attivo: true },
+      campi: [
+        { k: 'nome', label: 'Nome e cognome', req: true, mezza: true },
+        { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.values(RUOLI), mezza: true },
+        { k: 'pin', label: u ? 'Nuovo PIN (4-6 cifre)' : 'PIN (4-6 cifre)', tipo: 'password', mezza: true },
+        { k: 'google', label: 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com' },
+        ...(u ? [{ k: 'attivo', label: 'Utente attivo (se lo togli non può più entrare)', tipo: 'sino' }] : [])
+      ],
+      onSalva: async (v) => {
+        const ruolo = Object.keys(RUOLI).find((k) => RUOLI[k] === v.ruolo) || 'tecnico';
+        const altriMaster = S.utenti.filter((x) => ruoloDi(x) === 'master' && x.attivo !== false && x.id !== u?.id);
+        if (u && ruoloDi(u) === 'master' && (ruolo !== 'master' || v.attivo === false) && !altriMaster.length) { UI.toast('Deve restare almeno un Master attivo', 'err'); return false; }
+        if ((!u || v.pin) && !pinValido(v.pin)) { UI.toast('Il PIN deve avere da 4 a 6 cifre', 'err'); return false; }
+        if (v.pin && (await pinGiaUsato(v.pin, u?.id))) { UI.toast('PIN già usato da un altro utente', 'err'); return false; }
+        if (v.google && S.utenti.some((x) => x.id !== u?.id && (x.google || '').toLowerCase() === v.google.toLowerCase())) { UI.toast('Account Google già associato a un altro utente', 'err'); return false; }
+        const d = u ? { ...u } : { id: uid(), firma: null };
+        Object.assign(d, { nome: v.nome, ruolo, google: (v.google || '').toLowerCase(), attivo: u ? v.attivo : true });
+        if (v.pin) { d.pinSalt = uid(); d.pinHash = await hash(d.pinSalt, v.pin); d.pinLen = v.pin.length; }
+        await UI.salva('utenti', d); UI.toast('Utente salvato', 'ok');
+      },
+      onElimina: u && u.id !== io?.id ? async () => {
+        if (ruoloDi(u) === 'master' && !S.utenti.some((x) => ruoloDi(x) === 'master' && x.id !== u.id && x.attivo !== false)) { UI.toast('Deve restare almeno un Master', 'err'); return false; }
+        if (!UI.conferma(`Eliminare l'utente ${u.nome}? I controlli già fatti restano con il suo nome. (In alternativa puoi solo disattivarlo.)`)) return false;
+        await Backend.remove('utenti', u.id);
+      } : null,
+      testoElimina: 'Elimina utente'
+    });
+  }
+
+  // ---------- REGISTRO ATTIVITÀ (solo Master, si consulta in PDF) ----------
+  const TIPI_LOG = { tutto: 'Tutte le operazioni', accessi: 'Solo accessi e uscite', modifiche: 'Solo creazioni, modifiche ed eliminazioni', stampe: 'Solo stampe' };
+  const filtraLog = (log, q) => log.filter((x) => {
+    if (q.u && x.uid !== q.u) return false;
+    const g = x.t.slice(0, 10);
+    if (q.dal && g < q.dal) return false;
+    if (q.al && g > q.al) return false;
+    if (q.tipo === 'accessi' && !/^(accesso|uscita|accesso negato)$/.test(x.azione)) return false;
+    if (q.tipo === 'modifiche' && !/^(creazione|modifica|eliminazione)$/.test(x.azione)) return false;
+    if (q.tipo === 'stampe' && x.azione !== 'stampa') return false;
+    return true;
+  }).sort((a, b) => b.t.localeCompare(a.t));
+  let filtroLog = { u: '', dal: '', al: '', tipo: 'tutto' };
+
+  async function registro(el, dati, parti) {
+    S = dati;
+    if (!isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master può vedere il registro attività.</p>'; return; }
+    const log = await Backend.leggiTutti('log');
+    if (parti[1] === 'stampa') return stampaRegistro(el, log);
+    const persone = [...new Map(log.map((x) => [x.uid, x.nome])).entries()].filter(([id]) => id);
+    S.utenti.forEach((u) => { if (!persone.some(([id]) => id === u.id)) persone.push([u.id, u.nome]); });
+    el.innerHTML = `
+      <section class="cli">
+        <div class="sez-head"><h1>Registro attività ${info('Qui si ricava l\'elenco di chi ha fatto cosa e quando: accessi, creazioni, modifiche, eliminazioni e stampe. Per non appesantire l\'app il registro non si sfoglia qui: scegli i filtri e crea il PDF.')}</h1></div>
+        <form class="card form" id="fLog" novalidate>
+          <div class="due">
+            <label>Persona<select name="u"><option value="">Tutti</option>${persone.map(([id, n]) => `<option value="${id}" ${filtroLog.u === id ? 'selected' : ''}>${esc(n)}</option>`).join('')}</select></label>
+            <label>Cosa<select name="tipo">${Object.entries(TIPI_LOG).map(([k, l]) => `<option value="${k}" ${filtroLog.tipo === k ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          </div>
+          <div class="due">
+            <label>Dal<input type="date" name="dal" value="${filtroLog.dal}"></label>
+            <label>Al<input type="date" name="al" value="${filtroLog.al}"></label>
+          </div>
+          <p class="conta-log" id="conta"></p>
+          <div class="azioni-form"><span class="grow"></span><button class="btn big" type="submit">📄 Crea PDF</button></div>
+        </form>
+        <p class="muted small">Il registro conserva le ultime 10.000 operazioni di questo dispositivo.</p>
+      </section>`;
+    const f = el.querySelector('#fLog');
+    const leggi = () => ({ u: f.u.value, tipo: f.tipo.value, dal: f.dal.value, al: f.al.value });
+    const conta = () => { filtroLog = leggi(); const n = filtraLog(log, filtroLog).length; el.querySelector('#conta').textContent = `${n.toLocaleString('it-IT')} ${n === 1 ? 'operazione trovata' : 'operazioni trovate'}`; };
+    f.oninput = conta; conta();
+    f.onsubmit = (e) => { e.preventDefault(); filtroLog = leggi(); location.hash = '#/registro/stampa'; };
+  }
+
+  function stampaRegistro(el, log) {
+    const q = filtroLog, righe = filtraLog(log, q);
+    const persona = q.u ? (S.utenti.find((u) => u.id === q.u)?.nome || log.find((x) => x.uid === q.u)?.nome || '') : 'Tutti';
+    const quando = (t) => { const d = new Date(t); return `${fmt(t.slice(0, 10))} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    el.innerHTML = `
+      <section class="stampa-recap">
+        <div class="azioni-lista no-print">
+          <button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>
+          <a class="btn ghost" href="#/registro">Torna ai filtri</a>
+          ${info('Scegli «Salva come PDF» nella finestra di stampa, formato A4 verticale.')}
+        </div>
+        <div class="recap-wrap"><article class="recap">
+          <header class="r-head"><img src="img/logo.png" alt="">
+            <div class="grow"><h1>Registro attività</h1><p>${esc(persona)} · ${esc(TIPI_LOG[q.tipo])}</p></div>
+            <div class="r-cli"><b>${q.dal || q.al ? `${q.dal ? 'dal ' + fmt(q.dal) : ''} ${q.al ? 'al ' + fmt(q.al) : ''}` : 'Tutto il periodo'}</b><span>${righe.length} operazioni</span><small>Creato il ${fmt(UI.oggi())} · DEMO</small></div>
+          </header>
+          ${righe.length ? `<table class="r-tab"><thead><tr><th>Data e ora</th><th>Persona</th><th>Operazione</th><th>Cosa</th></tr></thead>
+            <tbody>${righe.map((x) => `<tr><td>${quando(x.t)}</td><td>${esc(x.nome)}</td><td><b>${esc(x.azione)}</b></td><td>${esc(x.testo || '')}</td></tr>`).join('')}</tbody></table>`
+            : '<p class="r-vuoto">Nessuna operazione con questi filtri.</p>'}
+        </article></div>
+      </section>`;
+    el.querySelector('#btnStampa').onclick = () => {
+      const t = document.title; document.title = `Registro_attivita_${persona}_${UI.oggi()}`.replace(/[^\w\-]+/g, '_');
+      window.print(); setTimeout(() => (document.title = t), 1000);
+    };
+  }
+
+  // ---------- percorsi vietati per livello ----------
+  function vietato(parti) {
+    const r = ruoloDi(attuale()), p = parti.join('/');
+    if ((parti[0] === 'utenti' || parti[0] === 'registro') && r !== 'master') return 'Questa sezione è riservata al Master.';
+    if (r !== 'ru') return null;
+    const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)
+      || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p);
+    return modifica ? 'Con l\'accesso Risorse Umane puoi consultare e stampare, ma non modificare.' : null;
+  }
+
+  // ---------- scelta dei tecnici di un controllo (di solito 2) ----------
+  function campoTecnici(selezionati, firmaDi) {
+    const sel = selezionati?.length ? selezionati : [attuale()?.id].filter(Boolean);
+    return `
+      <div class="tecnici" data-tecnici>
+        <span class="lab">Tecnici ${info('Tocca i nomi di chi ha fatto il controllo (anche più di uno). Il nome compare solo nell\'app, non sulla scheda del cliente. Sulla scheda va la firma del tecnico scelto in «Firma sulla scheda».')}</span>
+        <div class="chip-tecnici">${attivi().filter((u) => ruoloDi(u) !== 'ru' || sel.includes(u.id)).map((u) => `<button type="button" class="chip-t ${sel.includes(u.id) ? 'on' : ''}" data-t="${u.id}">${esc(u.nome)}</button>`).join('')}</div>
+        <label class="firma-di">Firma sulla scheda<select data-firmadi></select></label>
+      </div>`;
+  }
+  function collegaTecnici(root, firmaDi) {
+    const box = root.querySelector('[data-tecnici]'), sel = box.querySelector('[data-firmadi]');
+    const scelti = () => [...box.querySelectorAll('.chip-t.on')].map((b) => b.dataset.t);
+    const aggiorna = () => {
+      const ids = scelti(), prima = sel.value || firmaDi || attuale()?.id;
+      sel.innerHTML = ids.map((id) => { const u = attivi().find((x) => x.id === id); return `<option value="${id}" ${id === prima ? 'selected' : ''}>${esc(u.nome)}${u.firma ? '' : ' (senza firma)'}</option>`; }).join('') || '<option value="">—</option>';
+    };
+    box.querySelectorAll('.chip-t').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); aggiorna(); }));
+    aggiorna();
+    return () => {
+      const tec = scelti().map((id) => attivi().find((x) => x.id === id));
+      const f = tec.find((t) => t.id === sel.value) || tec[0];
+      return { tecnici: tec.map((t) => ({ id: t.id, nome: t.nome })), tecnico: tec.map((t) => t.nome).join(' e '), firmaDi: f?.id || null, firma: f?.firma || null, firmatario: f?.nome || '' };
+    };
+  }
+
+  return {
+    attuale, isMaster, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
+    campoTecnici, collegaTecnici, installa, registra, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => u.nome), imposta: (dati) => (S = dati)
+  };
+})();

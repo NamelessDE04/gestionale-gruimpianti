@@ -1,0 +1,512 @@
+// ===== MODULO: CONTROLLO CARRIPONTE E GRU A BANDIERA =====
+// - Modelli di scheda: un elenco di voci, ognuna con la sua periodicità (TRIM / SEME / ANN).
+// - Piano controlli per SEDE: mese del 1° controllo e quale dei 4 è l'annuale.
+//   Annuale = tutte le voci · Semestrale (2 controlli dopo l'annuale) = TRIM + SEME · gli altri = solo TRIM.
+// - Una scheda per impianto e per anno, con 4 visite; ogni voce ha un esito per ogni paranco (P1, P2).
+// - Le osservazioni (A, B, C…) restano tutto l'anno finché non vengono segnate come sistemate.
+window.CTR = (function () {
+  const { esc, uid, info, fmt, oggi, iso } = UI;
+
+  const PER = { T: 'TRIM', S: 'SEME', A: 'ANN' };
+  const PER_NOME = { T: 'Trimestrale', S: 'Semestrale', A: 'Annuale' };
+  const CODICI = [['X', 'esame visivo funzionale'], ['R', 'ripristinato'], ['P', 'pulito'], ['L', 'lubrificato'], ['S', 'sostituito']];
+  const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+
+  const V = (per, testo, tipo = 'codice') => ({ id: uid(), per, testo, tipo });
+  const VOCI_CARROPONTE = () => [
+    V('T', 'FUNE DI SOLLEVAMENTO'), V('T', 'ESITO ELASTICITÀ'), V('T', 'MISURA DIAMETRO', 'misura'), V('T', 'INTEGRITÀ GANCIO SICUREZZA'),
+    V('T', 'FRENO SOLLEVAMENTO'), V('T', 'FRENO SOLLEVAMENTO AUX'), V('T', 'FRENO PONTE'), V('T', 'FRENO CARRO'),
+    V('T', 'FINECORSA SOLLEVAMENTO'), V('T', 'FINECORSA PONTE'), V('T', 'FINECORSA CARRO'), V('T', 'PULSANTIERA DI COMANDO'),
+    V('T', 'SEGNALAZIONE ACUSTICO - LUMINOSO'),
+    V('S', 'CARRUCOLE DI RINVIO E TAMBURO'), V('S', 'CAPOFISSO'), V('S', 'COMPONENTI QUADRO ELETTRICO'), V('S', 'IMPIANTO ELETTRICO BORDO GRU'), V('S', 'ANTINGOMBRO'),
+    V('A', 'LIMITATORE DI CARICO'), V('A', 'RESPINGENTI'), V('A', 'ELEMENTI STRUTTURALI E GIUNZIONI'), V('A', 'RUOTE - ROTAIE E VIE DI CORSA'),
+    V('A', 'CARTELLONISTICA'), V('A', 'LIVELLO - PERDITE OLIO'), V('A', "MOTORI - GIUNTI - RUMOROSITA'"), V('A', 'CARRELLINO ALIMENTAZIONE')
+  ];
+  const MODELLI_BASE = () => [
+    { id: 'carroponte', nome: 'Carroponte', voci: VOCI_CARROPONTE() },
+    { id: 'bandiera', nome: 'Gru a bandiera', voci: VOCI_CARROPONTE().filter((v) => !/PONTE/.test(v.testo)) }
+  ];
+
+  // ---------- dati ----------
+  const modelli = (S) => (S.impostazioni.find((x) => x.id === 'modelliScheda') || {}).modelli || null;
+  async function assicuraModelli(S) {
+    if (modelli(S)) return modelli(S);
+    const m = MODELLI_BASE();
+    await UI.salva('impostazioni', { id: 'modelliScheda', modelli: m });
+    S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: m }];
+    return m;
+  }
+  const modelloDi = (S, imp) => {
+    const ms = modelli(S) || MODELLI_BASE();
+    return ms.find((m) => m.id === imp.controllo?.modelloId) || ms.find((m) => m.id === (/bandiera/i.test(imp.tipologia || '') ? 'bandiera' : 'carroponte')) || ms[0];
+  };
+  const vociPerImpianto = (S, imp) => modelloDi(S, imp).voci.filter((v) => !(imp.controllo?.escluse || []).includes(v.id));
+
+  const trovaSede = (S, sedeId) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return {}; };
+  const piano = (sede) => ({ mese1: 1, annuale: 1, impostato: false, ...(sede?.pianoControlli || {}), ...(sede?.pianoControlli ? { impostato: true } : {}) });
+  const meseVisita = (p, n) => ((p.mese1 - 1 + 3 * (n - 1)) % 12) + 1;           // 1..12
+  const tipoVisita = (p, n) => (n === p.annuale ? 'A' : n === ((p.annuale + 1) % 4) + 1 ? 'S' : 'T');
+  const periodiDi = (t) => ({ A: ['T', 'S', 'A'], S: ['T', 'S'], T: ['T'] }[t]);
+  const nomeTipo = (t) => ({ A: 'Annuale', S: 'Semestrale', T: 'Trimestrale' }[t]);
+  const fineMese = (anno, m) => iso(new Date(anno, m, 0));
+
+  const impiantiSede = (S, sedeId) => S.impianti.filter((i) => i.sedeId === sedeId)
+    .sort((a, b) => (a.numeroInterno || '~').localeCompare(b.numeroInterno || '~', 'it', { numeric: true }));
+  const schedaDi = (S, impId, anno) => S.schedeControllo.find((x) => x.impiantoId === impId && x.anno === anno);
+  const nParanchi = (imp) => Math.max(1, (imp.paranchi || []).length);
+
+  // stato di una visita per la sede: fatta se tutti gli impianti l'hanno
+  function statoVisite(S, sedeId, anno) {
+    const imp = impiantiSede(S, sedeId);
+    return [1, 2, 3, 4].map((n) => {
+      const fatti = imp.filter((i) => schedaDi(S, i.id, anno)?.visite?.[n]).length;
+      return { n, fatti, tot: imp.length, completa: imp.length > 0 && fatti === imp.length };
+    });
+  }
+  function prossima(S, sedeId, anno) {
+    const { s } = trovaSede(S, sedeId); const p = piano(s);
+    const st = statoVisite(S, sedeId, anno);
+    const v = st.find((x) => !x.completa);
+    if (!v) return null;
+    const m = meseVisita(p, v.n), fine = fineMese(anno, m), oggiS = oggi();
+    const k = oggiS > fine ? 'scaduto' : oggiS.slice(0, 7) === fine.slice(0, 7) ? 'scadenza' : 'ok';
+    return { ...v, mese: m, tipo: tipoVisita(p, v.n), k, label: k === 'scaduto' ? `${v.n}° controllo in ritardo (${MESI[m - 1]})` : k === 'scadenza' ? `${v.n}° controllo da fare in ${MESI[m - 1]}` : `Prossimo: ${v.n}° a ${MESI[m - 1]}` };
+  }
+  const sediConImpianti = (S) => S.clienti.flatMap((c) => (c.sedi || []).filter((s) => S.impianti.some((i) => i.sedeId === s.id)).map((s) => ({ c, s })))
+    .sort((a, b) => (CLI.nome(a.c) + a.s.nome).localeCompare(CLI.nome(b.c) + b.s.nome));
+  const nomeSede = (c, s) => `${CLI.nome(c)} · ${s.sigla ? s.sigla + ' · ' : ''}${s.nome || s.citta}`;
+  const annoOggi = () => +oggi().slice(0, 4);
+  let annoScelto = annoOggi();
+
+  const slotHtml = (p, n, st, anno, href) => {
+    const t = tipoVisita(p, n);
+    return `<a class="slot-c ${st.completa ? 'fatto' : ''} t-${t}" href="${href || 'javascript:void(0)'}">
+      <span class="sc-n">${n}° · ${MESI[meseVisita(p, n) - 1]}</span><b>${nomeTipo(t)}</b>
+      <span class="sc-st">${st.tot ? (st.completa ? '✓ completato' : `${st.fatti}/${st.tot} impianti`) : ''}</span></a>`;
+  };
+
+  // ---------- 1. ELENCO SEDI ----------
+  function sedi(el, S) {
+    const lista = sediConImpianti(S); const anno = annoOggi();
+    el.innerHTML = `
+      <section class="sg">
+        <div class="sez-head">
+          <h1>Controllo carriponte e gru a bandiera ${info('Qui trovi le sedi che hanno impianti. Ogni sede ha il suo piano dei controlli (in che mese si parte e quale controllo è l\'annuale). Le voci da controllare stanno nei «Modelli di scheda», uguali per tutti gli impianti dello stesso tipo.')}</h1>
+          ${UT.solaLettura() ? '' : '<a class="btn ghost" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
+        </div>
+        ${lista.length ? '' : `<p class="nessuno">Nessun impianto inserito. Aggiungi prima gli impianti in <a class="link" href="#/impianti">Anagrafica impianti</a>.</p>`}
+        <div class="cartelle">
+          ${lista.map(({ c, s }) => {
+            const p = piano(s), st = statoVisite(S, s.id, anno), pr = prossima(S, s.id, anno);
+            return `<a class="cartella" href="#/controlli/s/${s.id}">
+              <div class="cartella-ico">${CLI.avatar(c, true)}</div>
+              <div class="cartella-txt">
+                <h2>${esc(CLI.nome(c))} ${s.sigla ? `<span class="sigla-sede">${esc(s.sigla)}</span>` : ''}</h2>
+                <p class="loc">${esc(s.nome || s.citta)}</p>
+                <p class="muted small">${impiantiSede(S, s.id).length} impianti · ${p.impostato ? `annuale a ${MESI[meseVisita(p, p.annuale) - 1]}` : 'piano da impostare'}</p>
+                <div class="fascette">${st.map((x) => `<span class="fasc ${x.completa ? 'fatto' : ''} t-${tipoVisita(p, x.n)}" title="${nomeTipo(tipoVisita(p, x.n))}">${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</span>`).join('')}</div>
+                <div class="cartella-st">${pr ? `<span class="pill st-${pr.k}">${esc(pr.label)}</span>` : '<span class="pill st-ok">Anno completato</span>'}</div>
+              </div></a>`;
+          }).join('')}
+        </div>
+      </section>`;
+    return { titolo: 'Controllo carriponte e gru a bandiera', indietro: '#/schede', live: true };
+  }
+
+  // ---------- 2. SEDE: piano, visite, impianti ----------
+  function sede(el, S, sedeId, query) {
+    const { c, s } = trovaSede(S, sedeId);
+    if (!s) { el.innerHTML = '<p class="nessuno">Sede non trovata.</p>'; return { titolo: 'Controlli', indietro: '#/controlli' }; }
+    if (query.get('anno')) annoScelto = +query.get('anno');
+    const anno = annoScelto, p = piano(s), st = statoVisite(S, sedeId, anno), imp = impiantiSede(S, sedeId);
+    const pr = prossima(S, sedeId, anno);
+    const tabs = sediConImpianti(S).map((x) => `<a class="tab ${x.s.id === sedeId ? 'on' : ''}" href="#/controlli/s/${x.s.id}">${x.s.sigla ? `<b>${esc(x.s.sigla)}</b><span>${esc(CLI.nome(x.c))} ${esc(x.s.nome)}</span>` : `<b>${esc(CLI.nome(x.c))}</b><span>${esc(x.s.nome || '')}</span>`}</a>`).join('');
+    el.innerHTML = `
+      <section class="sg">
+        <nav class="tabs">${tabs}</nav>
+        <div class="card cart-head">
+          <div class="grow">
+            <h1><a class="link-anag" href="#/clienti/${c.id}">${esc(CLI.nome(c))} <span class="loc">${esc(s.nome || '')}</span></a>
+              ${s.sigla ? `<span class="sigla-sede">${esc(s.sigla)}</span>` : ''}
+              ${info('Le 4 caselle sono i controlli dell\'anno con il loro mese. Tocca un impianto per compilare il controllo o stampare la sua scheda. «Piano controlli» decide i mesi e quale controllo è l\'annuale per questa sede.')}</h1>
+            <p class="muted">${imp.length} impianti · ${pr ? `<span class="pill st-${pr.k}">${esc(pr.label)}</span>` : '<span class="pill st-ok">Anno completato</span>'}</p>
+          </div>
+          <div class="anno">
+            <a class="btn ghost small" href="#/controlli/s/${sedeId}?anno=${anno - 1}">‹</a><b>${anno}</b><a class="btn ghost small" href="#/controlli/s/${sedeId}?anno=${anno + 1}">›</a>
+          </div>
+        </div>
+        ${p.impostato ? '' : `<div class="avviso">Il piano dei controlli di questa sede non è ancora impostato: per ora vale «1° controllo a gennaio, annuale il 1°». <button class="btn small" id="btnPiano2">Imposta piano</button></div>`}
+        <div class="slots slots-c">${st.map((x) => slotHtml(p, x.n, x, anno)).join('')}</div>
+        <div class="azioni-lista">
+          <button class="btn ghost" id="btnPiano">📅 Piano controlli</button>
+          ${imp.length ? `<a class="btn" href="#/controlli/s/${sedeId}/${anno}/stampa">🖨️ Stampa tutte le schede ${anno}</a>` : ''}
+        </div>
+        <div class="elenco">
+          ${imp.map((i) => {
+            const sc = schedaDi(S, i.id, anno);
+            return `<a class="riga imp-riga" href="#/controlli/i/${i.id}?anno=${anno}">
+              <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
+              <div class="riga-main">
+                <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}<b>${esc(IMP.titolo(i))}</b></div>
+                <div class="muted small">${i.matricola ? 'Matr. ' + esc(i.matricola) + ' · ' : ''}${esc(modelloDi(S, i).nome)}${(sc?.osservazioni || []).filter((o) => !o.risoltaIl).length ? ` · <b class="txt-ko">${sc.osservazioni.filter((o) => !o.risoltaIl).length} osservazioni aperte</b>` : ''}</div>
+              </div>
+              <div class="visite-mini">${[1, 2, 3, 4].map((n) => `<span class="vm ${sc?.visite?.[n] ? 'fatto' : ''} t-${tipoVisita(p, n)}" title="${n}° controllo">${sc?.visite?.[n] ? '✓' : n}</span>`).join('')}</div>
+            </a>`;
+          }).join('')}
+        </div>
+      </section>`;
+    const apriPiano = () => modalePiano(S, c, s);
+    el.querySelector('#btnPiano').onclick = apriPiano;
+    el.querySelector('#btnPiano2')?.addEventListener('click', apriPiano);
+    el.querySelector('.tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
+    return { titolo: 'Controlli · ' + nomeSede(c, s), indietro: '#/controlli', live: true };
+  }
+
+  function modalePiano(S, c, s) {
+    const p = piano(s);
+    UI.modal({
+      titolo: 'Piano controlli · ' + (s.nome || ''),
+      infoTxt: 'I 4 controlli sono a 3 mesi di distanza. L\'annuale comprende tutte le voci; due controlli dopo c\'è il semestrale (voci TRIM + SEME); gli altri due sono solo trimestrali.',
+      valori: { mese1: MESI[p.mese1 - 1], annuale: p.annuale + '°', tutte: false },
+      campi: [
+        { k: 'mese1', label: 'Mese del 1° controllo dell\'anno', tipo: 'select', opzioni: MESI.slice(0, 3), mezza: true },
+        { k: 'annuale', label: 'Il controllo annuale è il', tipo: 'select', opzioni: ['1°', '2°', '3°', '4°'], mezza: true },
+        ...((c.sedi || []).length > 1 ? [{ k: 'tutte', label: `Applica lo stesso piano a tutte le sedi di ${CLI.nome(c)}`, tipo: 'sino' }] : [])
+      ],
+      onSalva: async (v) => {
+        const pc = { mese1: Math.max(1, MESI.indexOf(v.mese1) + 1), annuale: parseInt(v.annuale, 10) || 1 };
+        const d = JSON.parse(JSON.stringify(c));
+        d.sedi.forEach((x) => { if (x.id === s.id || v.tutte) x.pianoControlli = pc; });
+        await UI.salva('clienti', d); UI.toast('Piano salvato', 'ok');
+      }
+    });
+  }
+
+  // ---------- 3. SCHEDA ANNUALE DI UN IMPIANTO ----------
+  function impianto(el, S, impId, query) {
+    const i = S.impianti.find((x) => x.id === impId);
+    if (!i) { el.innerHTML = '<p class="nessuno">Impianto non trovato.</p>'; return { titolo: 'Controlli', indietro: '#/controlli' }; }
+    if (query.get('anno')) annoScelto = +query.get('anno');
+    const anno = annoScelto;
+    const { c, s } = trovaSede(S, i.sedeId); const p = piano(s);
+    const sc = schedaDi(S, impId, anno);
+    const voci = sc ? sc.voci : vociPerImpianto(S, i);
+    const np = nParanchi(i);
+    const oss = sc?.osservazioni || [];
+    // voci dovute e lasciate vuote (in app restano vuote; sulla scheda del cliente escono con X)
+    const nonFatte = (n) => { const vis = sc?.visite?.[n]; if (!vis) return 0; const per = periodiDi(tipoVisita(p, n));
+      return voci.filter((v) => per.includes(v.per)).reduce((t, v) => t + Array.from({ length: np }, (_, k) => (vis.esiti?.[v.id] || [])[k]).filter((x) => !x).length, 0); };
+    el.innerHTML = `
+      <section class="sg">
+        <div class="card cli-head">
+          <span class="imp-ico big">${IMP.icona(i.tipologia)}</span>
+          <div class="grow">
+            <h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
+            <p class="muted"><a class="link-anag" href="#/controlli/s/${i.sedeId}?anno=${anno}">${esc(c ? nomeSede(c, s) : '')}</a> · Scheda ${anno} · ${esc(modelloDi(S, i).nome)}</p>
+          </div>
+          <div class="anno">
+            <a class="btn ghost small" href="#/controlli/i/${impId}?anno=${anno - 1}">‹</a><b>${anno}</b><a class="btn ghost small" href="#/controlli/i/${impId}?anno=${anno + 1}">›</a>
+          </div>
+        </div>
+        <div class="slots slots-c">${[1, 2, 3, 4].map((n) => {
+          const vis = sc?.visite?.[n];
+          return `<a class="slot-c ${vis ? 'fatto' : ''} t-${tipoVisita(p, n)}" href="#/controlli/i/${impId}/${anno}/${n}">
+            <span class="sc-n">${n}° · ${MESI[meseVisita(p, n) - 1]}</span><b>${nomeTipo(tipoVisita(p, n))}</b>
+            <span class="sc-st">${vis ? `✓ ${fmt(vis.dataScheda)}${vis.dataScheda !== vis.dataEsecuzione ? ` <i>(fatto il ${fmt(vis.dataEsecuzione)})</i>` : ''}${vis.tecnico ? `<br>${esc(vis.tecnico)}` : ''}${nonFatte(n) ? `<br><b class="txt-ko">${nonFatte(n)} voci non eseguite</b>` : ''}` : 'tocca per compilare'}</span></a>`;
+        }).join('')}</div>
+        <div class="azioni-lista">
+          <a class="btn" href="#/controlli/i/${impId}/${anno}/stampa">🖨️ Stampa scheda ${anno}</a>
+          <button class="btn ghost" id="btnVoci">⚙ Voci di questo impianto</button>
+          <a class="btn ghost" href="#/impianti/i/${impId}">Anagrafica impianto</a>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con la data della sistemazione.')}</h2></div>
+          ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
+              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ` · <b class="txt-ok">sistemata il ${fmt(o.risoltaIl)}</b>` : ''}</div></div>
+              <button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`).join('')
+            : '<p class="muted">Nessuna osservazione.</p>'}
+        </div>
+      </section>`;
+    el.querySelector('#btnVoci').onclick = () => modaleVoci(S, i);
+    el.querySelectorAll('[data-oss]').forEach((b) => (b.onclick = () => toggleOss(S, sc, b.dataset.oss)));
+    return { titolo: 'Scheda ' + anno + ' · ' + IMP.titolo(i), indietro: '#/controlli/s/' + i.sedeId + '?anno=' + anno, live: true };
+  }
+  const vocNome = (voci, id) => voci.find((v) => v.id === id)?.testo || '';
+
+  function toggleOss(S, sc, lettera) {
+    const o = sc.osservazioni.find((x) => x.lettera === lettera);
+    if (o.risoltaIl) {
+      if (!UI.conferma(`Riaprire l'osservazione ${lettera}?`)) return;
+      const d = JSON.parse(JSON.stringify(sc)); delete d.osservazioni.find((x) => x.lettera === lettera).risoltaIl; return UI.salva('schedeControllo', d);
+    }
+    UI.modal({
+      titolo: `Osservazione ${lettera} sistemata`, valori: { data: oggi() },
+      campi: [{ k: 'data', label: 'Data della sistemazione', tipo: 'date', req: true }],
+      onSalva: async (v) => { const d = JSON.parse(JSON.stringify(sc)); d.osservazioni.find((x) => x.lettera === lettera).risoltaIl = v.data; await UI.salva('schedeControllo', d); UI.toast('Segnata come sistemata', 'ok'); }
+    });
+  }
+
+  function modaleVoci(S, i) {
+    const ms = modelli(S) || MODELLI_BASE(); const m = modelloDi(S, i);
+    const escl = i.controllo?.escluse || [];
+    UI.modal({
+      titolo: 'Voci di questo impianto', largo: true,
+      infoTxt: 'Togli la spunta alle voci che su questo impianto non si fanno (es. freno ausiliario se non c\'è il motore ausiliario). Per cambiare le voci di tutti gli impianti usa «Modelli di scheda».',
+      valori: { modello: m.nome, ...Object.fromEntries(m.voci.map((v) => ['v_' + v.id, !escl.includes(v.id)])) },
+      campi: [{ k: 'modello', label: 'Modello di scheda', tipo: 'select', opzioni: ms.map((x) => x.nome) },
+        ...['T', 'S', 'A'].flatMap((pp) => [{ tipo: 'titolo', label: PER_NOME[pp] }, ...m.voci.filter((v) => v.per === pp).map((v) => ({ k: 'v_' + v.id, label: v.testo, tipo: 'sino', mezza: true }))])],
+      onSalva: async (v) => {
+        const nuovo = ms.find((x) => x.nome === v.modello) || m;
+        const d = JSON.parse(JSON.stringify(i));
+        d.controllo = { modelloId: nuovo.id, escluse: nuovo.id === m.id ? m.voci.filter((x) => !v['v_' + x.id]).map((x) => x.id) : [] };
+        await UI.salva('impianti', d);
+        UI.toast(nuovo.id === m.id ? 'Voci aggiornate' : 'Modello cambiato: riapri per scegliere le voci', 'ok');
+      }
+    });
+  }
+
+  // ---------- 4. COMPILAZIONE DI UN CONTROLLO ----------
+  async function visita(el, S, impId, anno, n) {
+    const i = S.impianti.find((x) => x.id === impId);
+    if (!i) { el.innerHTML = '<p class="nessuno">Impianto non trovato.</p>'; return { titolo: 'Controllo' }; }
+    const { c, s } = trovaSede(S, i.sedeId); const p = piano(s);
+    const tipo = tipoVisita(p, n), periodi = periodiDi(tipo), mese = meseVisita(p, n);
+    const esistente = schedaDi(S, impId, anno);
+    const sc = esistente ? JSON.parse(JSON.stringify(esistente)) : {
+      id: impId + '-' + anno, impiantoId: impId, sedeId: i.sedeId, clienteId: i.clienteId, anno,
+      voci: vociPerImpianto(S, i).map((v) => ({ ...v })), visite: {}, osservazioni: []
+    };
+    const np = nParanchi(i);
+    const prima = sc.visite[n];
+    const fine = fineMese(anno, mese);
+    const vis = prima ? JSON.parse(JSON.stringify(prima)) : {
+      dataScheda: oggi() > fine ? fine : oggi(), // in ritardo: propongo l'ultimo giorno del mese di scadenza
+      dataEsecuzione: oggi(), tecnici: [], tecnico: '', firma: null, esiti: {}
+    };
+    const voci = sc.voci.filter((v) => periodi.includes(v.per));
+    const osservazioni = sc.osservazioni;
+    const aperte = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && o.visita < n);
+    // valori iniziali: per le anomalie ancora aperte riporto la lettera
+    voci.forEach((v) => {
+      vis.esiti[v.id] = vis.esiti[v.id] || Array(np).fill('');
+      for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) { const a = aperte(v.id, pi)[0]; if (a && !prima) vis.esiti[v.id][pi - 1] = a.lettera; }
+    });
+    const nominale = (v, pi) => (/DIAMETRO/i.test(v.testo) ? i.paranchi?.[pi - 1]?.fune?.diametro : '');
+    const prossimaLettera = () => { const usate = osservazioni.map((o) => o.lettera); let k = 0; let l; do { l = k < 26 ? String.fromCharCode(65 + k) : 'A' + String.fromCharCode(65 + k - 26); k++; } while (usate.includes(l)); return l; };
+
+    el.innerHTML = `
+      <form class="sg form" id="fVis" novalidate>
+        <div class="card giro-head t-${tipo}">
+          <div class="giro-fascia">${n}° controllo ${anno}<b>${nomeTipo(tipo)}</b><span>${MESI[mese - 1]}</span></div>
+          <div class="grow"><h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
+            <p class="muted small">${esc(c ? nomeSede(c, s) : '')} · ${voci.length} voci (${periodi.map((x) => PER[x]).join(' + ')})${np > 1 ? ' · ' + np + ' paranchi' : ''}</p></div>
+          <div class="due giro-dati">
+            <label>Data sulla scheda ${info('È la data che compare sulla scheda del cliente. Se siete in ritardo (es. scadenza a ottobre, controllo fatto a novembre) puoi mettere una data del mese di scadenza.')}<input type="date" name="dataScheda" value="${vis.dataScheda}"></label>
+            <label>Eseguito il<input type="date" name="dataEsecuzione" value="${vis.dataEsecuzione}"></label>
+          </div>
+          ${UT.campoTecnici((vis.tecnici || []).map((t) => t.id), vis.firmaDi)}
+        </div>
+        <div class="giro-tools">
+          <span class="progress"><b id="nFatti">0</b> / ${voci.length * np} compilate</span>
+          ${info('Per ogni voce tocca l\'esito: X esame visivo funzionale · R ripristinato · P pulito · L lubrificato · S sostituito. Per un problema tocca «⚠ Anomalia»: scrivi la nota e l\'app le dà una lettera (A, B, C…) che compare nelle osservazioni. Le anomalie ancora aperte dei controlli precedenti sono già riportate. Le voci che non riesci a fare lasciale vuote: nell\'app risultano non eseguite, sulla scheda del cliente escono con la X.')}
+
+        </div>
+        ${['T', 'S', 'A'].filter((pp) => periodi.includes(pp)).map((pp) => `
+          <h2 class="sez sez-paranco">${PER_NOME[pp]}</h2>
+          <div class="giro-lista">
+            ${voci.filter((v) => v.per === pp).map((v) => `
+              <div class="giro-item cv-item" data-v="${v.id}">
+                <div class="gi-head"><b>${esc(v.testo)}</b></div>
+                ${Array.from({ length: np }, (_, k) => k + 1).map((pi) => `
+                  <div class="gi-parte" data-p="${pi}">
+                    ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
+                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta">⚠ <b>${esc(o.lettera)}</b> ${esc(o.testo)} <button type="button" class="link" data-sistema="${o.lettera}">✓ sistemata</button></div>`).join('')}
+                    <div class="gi-row">
+                      ${v.tipo === 'misura'
+                        ? `<label class="misura"><input type="text" inputmode="decimal" data-mis placeholder="misura"><span>mm</span></label>${nominale(v, pi) ? `<span class="prima">nominale ${esc(nominale(v, pi))} mm</span>` : ''}`
+                        : `<div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>`}
+                      <button type="button" class="btn ghost small anom-btn" data-anom>⚠ Anomalia</button>
+                      <span class="val-lettera"></span>
+                    </div>
+                  </div>`).join('')}
+              </div>`).join('')}
+          </div>`).join('')}
+        <div class="card">
+          <h2>Osservazioni dell'anno</h2>
+          <div id="ossLista"></div>
+          <button type="button" class="btn ghost small" id="btnOssLibera">+ Osservazione non legata a una voce</button>
+        </div>
+        <div class="azioni-form sticky">
+          ${prima ? '<button type="button" class="btn danger ghost" id="btnElimina">Elimina controllo</button>' : `<a class="btn ghost" href="#/controlli/i/${impId}?anno=${anno}">Annulla</a>`}
+          <span class="grow"></span>
+          <button class="btn big" type="submit">Salva controllo</button>
+        </div>
+      </form>`;
+
+    const f = el.querySelector('#fVis');
+    const box = (vid, pi) => el.querySelector(`.cv-item[data-v="${vid}"] .gi-parte[data-p="${pi}"]`);
+    const isLettera = (x) => /^[A-Z]{1,2}$/.test(x) && !CODICI.some(([k]) => k === x);
+    const mostra = (v, pi) => {
+      const b = box(v.id, pi), val = vis.esiti[v.id][pi - 1] || '';
+      b.querySelectorAll('.cod-btn').forEach((x) => x.classList.toggle('on', x.dataset.c === val));
+      const mis = b.querySelector('[data-mis]'); if (mis && !isLettera(val)) mis.value = val;
+      b.querySelector('.val-lettera').innerHTML = isLettera(val) ? `<span class="lettera-on">${esc(val)}</span>` : '';
+      b.classList.toggle('fatto', !!val); b.classList.remove('manca');
+      el.querySelector('#nFatti').textContent = voci.reduce((t, x) => t + vis.esiti[x.id].filter(Boolean).length, 0);
+    };
+    const disegnaOss = () => {
+      el.querySelector('#ossLista').innerHTML = osservazioni.length ? osservazioni.map((o) => `
+        <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(o.testo)}
+          <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ' · sistemata il ' + fmt(o.risoltaIl) : ''}</div></div>
+          ${o.visita === n && !o.risoltaIl ? `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}">×</button>` : ''}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
+      el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = () => {
+        const o = osservazioni.find((x) => x.lettera === b.dataset.togli);
+        osservazioni.splice(osservazioni.indexOf(o), 1);
+        if (o.vocId && vis.esiti[o.vocId]?.[(o.p || 1) - 1] === o.lettera) { vis.esiti[o.vocId][(o.p || 1) - 1] = ''; mostra(voci.find((x) => x.id === o.vocId), o.p || 1); }
+        disegnaOss();
+      }));
+    };
+    const nuovaOss = (v, pi) => UI.modal({
+      titolo: v ? `Anomalia · ${v.testo}${np > 1 ? ' · P' + pi : ''}` : 'Osservazione',
+      infoTxt: 'Scrivi il problema come vuoi che compaia sulla scheda (es. «RIVEDERE SALDATURE SU STAFFA SOSTEGNO MOTORE CARRO»).',
+      campi: [{ k: 'testo', label: 'Descrizione', tipo: 'textarea', req: true, maiuscolo: true }],
+      testoSalva: 'Aggiungi',
+      onSalva: (x) => {
+        const lettera = prossimaLettera();
+        osservazioni.push({ lettera, testo: x.testo, vocId: v?.id || '', p: v ? pi : null, visita: n, data: f.dataScheda.value || oggi() });
+        if (v) { vis.esiti[v.id][pi - 1] = lettera; mostra(v, pi); }
+        disegnaOss();
+      }
+    });
+    voci.forEach((v) => { for (let pi = 1; pi <= np; pi++) {
+      const b = box(v.id, pi);
+      b.querySelectorAll('.cod-btn').forEach((x) => (x.onclick = () => { vis.esiti[v.id][pi - 1] = vis.esiti[v.id][pi - 1] === x.dataset.c ? '' : x.dataset.c; mostra(v, pi); }));
+      const mis = b.querySelector('[data-mis]'); if (mis) mis.oninput = () => { vis.esiti[v.id][pi - 1] = mis.value.trim(); mostra(v, pi); };
+      b.querySelector('[data-anom]').onclick = () => nuovaOss(v, pi);
+      b.querySelectorAll('[data-sistema]').forEach((x) => (x.onclick = () => {
+        const o = osservazioni.find((y) => y.lettera === x.dataset.sistema);
+        o.risoltaIl = f.dataScheda.value || oggi();
+        if (vis.esiti[v.id][pi - 1] === o.lettera) vis.esiti[v.id][pi - 1] = v.tipo === 'misura' ? '' : 'R';
+        x.closest('.oss-aperta').innerHTML = `✓ <b>${esc(o.lettera)}</b> sistemata il ${fmt(o.risoltaIl)}`;
+        mostra(v, pi); disegnaOss();
+      }));
+      mostra(v, pi);
+    } });
+    disegnaOss();
+    el.querySelector('#btnOssLibera').onclick = () => nuovaOss(null, null);
+    const leggiTecnici = UT.collegaTecnici(el, vis.firmaDi);
+
+    f.onsubmit = async (e) => {
+      e.preventDefault();
+      const manc = [];
+      voci.forEach((v) => { for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) manc.push(box(v.id, pi)); });
+      if (manc.length) {
+        manc.forEach((b) => b.classList.add('manca')); manc[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (!UI.conferma(`${manc.length} voci non eseguite. Nell'app resteranno segnate come non eseguite; sulla scheda del cliente compariranno con la X. Salvare?`)) return;
+      }
+      const t = leggiTecnici();
+      if (!t.tecnici.length) return UI.toast('Scegli almeno un tecnico', 'err');
+      // la firma del profilo viene copiata nel controllo: se poi il tecnico la rifà, i controlli vecchi non cambiano
+      const firma = t.firmaDi === vis.firmaDi && vis.firma && prima ? vis.firma : t.firma;
+      if (!firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sulla scheda non comparirà. Salvare lo stesso?`)) return;
+      Object.assign(vis, { dataScheda: f.dataScheda.value || oggi(), dataEsecuzione: f.dataEsecuzione.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, firma });
+      sc.visite[n] = vis; sc.osservazioni = osservazioni;
+      try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
+      App.ricordaTecnico(vis.tecnico); UI.toast('Controllo salvato', 'ok');
+      location.hash = '#/controlli/s/' + i.sedeId + '?anno=' + anno;
+    };
+    el.querySelector('#btnElimina')?.addEventListener('click', async () => {
+      if (!UI.conferma(`Eliminare il ${n}° controllo ${anno} di questo impianto? Le osservazioni nate in questo controllo verranno tolte.`)) return;
+      delete sc.visite[n]; sc.osservazioni = sc.osservazioni.filter((o) => o.visita !== n);
+      if (!Object.keys(sc.visite).length) await Backend.remove('schedeControllo', sc.id); else await UI.salva('schedeControllo', sc);
+      location.hash = '#/controlli/i/' + impId + '?anno=' + anno;
+    });
+    return { titolo: `${n}° controllo · ${IMP.titolo(i)}`, indietro: '#/controlli/i/' + impId + '?anno=' + anno, live: false };
+  }
+
+  // ---------- 5. MODELLI DI SCHEDA ----------
+  let modelloAperto = null;
+  async function pagModelli(el, S) {
+    const ms = await assicuraModelli(S);
+    const m = ms.find((x) => x.id === modelloAperto) || ms[0]; modelloAperto = m.id;
+    const uso = S.impianti.filter((i) => modelloDi(S, i).id === m.id).length;
+    el.innerHTML = `
+      <section class="sg">
+        <div class="sez-head"><h1>Modelli di scheda ${info('Un modello è l\'elenco delle voci di controllo, ognuna con la sua periodicità (TRIM, SEME, ANN). Vale per tutti gli impianti che lo usano: le gru a bandiera usano «Gru a bandiera», le altre «Carroponte». Le modifiche valgono per le schede nuove; quelle già iniziate restano come sono.')}</h1>
+          <button class="btn ghost" id="btnNuovoMod">+ Nuovo modello</button></div>
+        <nav class="tabs">${ms.map((x) => `<a class="tab ${x.id === m.id ? 'on' : ''}" href="javascript:void(0)" data-mod="${x.id}"><b>${esc(x.nome)}</b><span>${x.voci.length} voci</span></a>`).join('')}</nav>
+        <div class="card">
+          <div class="card-head"><h2>${esc(m.nome)} <span class="conta">${uso} impianti</span></h2>
+            <div class="card-azioni"><button class="btn ghost small" id="btnRinomina">Rinomina</button>${ms.length > 1 && !['carroponte', 'bandiera'].includes(m.id) ? '<button class="btn ghost small danger" id="btnEliminaMod">Elimina</button>' : ''}</div></div>
+          ${['T', 'S', 'A'].map((pp) => `
+            <h3 class="sotto-tit">${PER_NOME[pp]} (${PER[pp]})</h3>
+            <div class="mod-voci">
+              ${m.voci.filter((v) => v.per === pp).map((v) => `
+                <div class="mod-voce" data-id="${v.id}">
+                  <span class="grow">${esc(v.testo)}${v.tipo === 'misura' ? ' <span class="pill st-mai">misura</span>' : ''}</span>
+                  <button class="btn ghost small" data-su="${v.id}" aria-label="Su">↑</button>
+                  <button class="btn ghost small" data-giu="${v.id}" aria-label="Giù">↓</button>
+                  <button class="btn ghost small" data-mod-voce="${v.id}">✏️</button>
+                </div>`).join('') || '<p class="muted small">Nessuna voce.</p>'}
+            </div>
+            <button class="btn ghost small" data-add="${pp}">+ Aggiungi voce ${PER[pp]}</button>`).join('')}
+        </div>
+      </section>`;
+    const salvaM = async (nuovi) => {
+      await UI.salva('impostazioni', { id: 'modelliScheda', modelli: nuovi });
+      S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: nuovi }];
+      App.ridisegna();
+    };
+    const copiaM = () => JSON.parse(JSON.stringify(ms));
+    el.querySelectorAll('[data-mod]').forEach((b) => (b.onclick = () => { modelloAperto = b.dataset.mod; App.ridisegna(); }));
+    const modVoce = (v, per) => UI.modal({
+      titolo: v ? 'Modifica voce' : 'Nuova voce ' + PER[per], valori: v ? { ...v, misura: v.tipo === 'misura', per: PER_NOME[v.per] } : { per: PER_NOME[per] },
+      campi: [{ k: 'testo', label: 'Testo della voce', req: true, maiuscolo: true }, { k: 'per', label: 'Periodicità', tipo: 'select', opzioni: Object.values(PER_NOME), mezza: true },
+        { k: 'misura', label: 'Si scrive una misura (es. diametro) invece di un codice', tipo: 'sino', mezza: true }],
+      onSalva: async (x) => {
+        const n = copiaM(), mm = n.find((y) => y.id === m.id);
+        const dati = { testo: x.testo, per: Object.keys(PER_NOME).find((k) => PER_NOME[k] === x.per) || per || 'T', tipo: x.misura ? 'misura' : 'codice' };
+        if (v) Object.assign(mm.voci.find((y) => y.id === v.id), dati); else mm.voci.push({ id: uid(), ...dati });
+        await salvaM(n);
+      },
+      onElimina: v ? async () => { if (!UI.conferma(`Togliere la voce «${v.testo}» dal modello?`)) return false; const n = copiaM(); const mm = n.find((y) => y.id === m.id); mm.voci = mm.voci.filter((y) => y.id !== v.id); await salvaM(n); } : null,
+      testoElimina: 'Togli voce'
+    });
+    el.querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => modVoce(null, b.dataset.add)));
+    el.querySelectorAll('[data-mod-voce]').forEach((b) => (b.onclick = () => modVoce(m.voci.find((v) => v.id === b.dataset.modVoce))));
+    const sposta = async (id, d) => {
+      const n = copiaM(), mm = n.find((y) => y.id === m.id), v = mm.voci.find((y) => y.id === id);
+      const stesso = mm.voci.filter((y) => y.per === v.per), k = stesso.indexOf(v), alt = stesso[k + d]; if (!alt) return;
+      const a = mm.voci.indexOf(v), b = mm.voci.indexOf(alt); [mm.voci[a], mm.voci[b]] = [mm.voci[b], mm.voci[a]];
+      await salvaM(n);
+    };
+    el.querySelectorAll('[data-su]').forEach((b) => (b.onclick = () => sposta(b.dataset.su, -1)));
+    el.querySelectorAll('[data-giu]').forEach((b) => (b.onclick = () => sposta(b.dataset.giu, 1)));
+    el.querySelector('#btnRinomina').onclick = () => UI.modal({ titolo: 'Rinomina modello', valori: { nome: m.nome }, campi: [{ k: 'nome', label: 'Nome', req: true }],
+      onSalva: async (x) => { const n = copiaM(); n.find((y) => y.id === m.id).nome = x.nome; await salvaM(n); } });
+    el.querySelector('#btnEliminaMod')?.addEventListener('click', async () => {
+      if (uso) return UI.toast(`Lo usano ${uso} impianti: cambia prima il loro modello`, 'err');
+      if (!UI.conferma(`Eliminare il modello ${m.nome}?`)) return;
+      modelloAperto = null; await salvaM(copiaM().filter((y) => y.id !== m.id));
+    });
+    el.querySelector('#btnNuovoMod').onclick = () => UI.modal({
+      titolo: 'Nuovo modello', infoTxt: 'Il nuovo modello parte come copia di quello scelto: poi togli o aggiungi le voci.',
+      valori: { da: m.nome }, campi: [{ k: 'nome', label: 'Nome del modello', req: true, placeholder: 'es. Gru a portale' }, { k: 'da', label: 'Copia le voci da', tipo: 'select', opzioni: ms.map((x) => x.nome) }],
+      onSalva: async (x) => { const n = copiaM(); const da = n.find((y) => y.nome === x.da) || m; const nuovo = { id: uid(), nome: x.nome, voci: da.voci.map((v) => ({ ...v, id: uid() })) }; n.push(nuovo); modelloAperto = nuovo.id; await salvaM(n); }
+    });
+    return { titolo: 'Modelli di scheda', indietro: '#/controlli', live: true };
+  }
+
+  function route(el, S, parti, query) {
+    const [, a, b, x, y] = parti;
+    if (a === 'modelli') { pagModelli(el, S); return { titolo: 'Modelli di scheda', indietro: '#/controlli', live: true }; }
+    if (a === 's' && y === 'stampa') return CTRS.render(el, S, impiantiSede(S, b).map((i) => i.id), +x, '#/controlli/s/' + b + '?anno=' + x);
+    if (a === 's') return sede(el, S, b, query);
+    if (a === 'i' && y === 'stampa') return CTRS.render(el, S, [b], +x, '#/controlli/i/' + b + '?anno=' + x);
+    if (a === 'i' && x && y) { assicuraModelli(S).then(() => visita(el, S, b, +x, +y)); return { titolo: `${y}° controllo`, indietro: '#/controlli/i/' + b + '?anno=' + x, live: false }; }
+    if (a === 'i') return impianto(el, S, b, query);
+    return sedi(el, S);
+  }
+
+  return { route, piano, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+})();
