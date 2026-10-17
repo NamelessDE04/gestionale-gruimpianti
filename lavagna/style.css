@@ -632,3 +632,9 @@ body.dragging .panel.drawer{outline:2px dashed #c3cedc;outline-offset:-6px}
 /* dentro il gestionale: freccia per tornare al gestionale */
 .torna-gest{color:#fff;font-size:30px;text-decoration:none;margin-right:2px;padding-bottom:3px}
 .torna-gest:hover{background:rgba(255,255,255,.12)}
+
+/* clienti del gestionale senza mese dei controlli impostato */
+.mag.none{background:#c9d2dc;color:#33404d}
+.tag.none,.sw.none,.swatch.none{background:#c9d2dc}
+.rp-mag.none{border-color:#9aa6b2;color:#4a5562}
+.none{--lc:#9aa6b2}

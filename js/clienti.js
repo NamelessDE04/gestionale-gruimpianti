@@ -15,7 +15,7 @@ window.CLI = (function () {
   const avatar = (c, big) => c.logo
     ? `<span class="avatar logo ${big ? 'big' : ''}"><img src="${c.logo}" alt=""></span>`
     : `<span class="avatar ${big ? 'big' : ''}">${esc(nome(c).slice(0, 2).toUpperCase())}</span>`;
-  const etichettaSede = (s) => (s.sigla ? `<b class="sigla-sede">${esc(s.sigla)}</b> ` : '') + esc(s.nome || s.citta);
+  const etichettaSede = (s) => UI.magnete(s) + ' ' + esc(s.nome || s.citta);
   const salva = (c) => UI.salva('clienti', JSON.parse(JSON.stringify(c)));
   // quanti dati (sottoganci, impianti) sono collegati a una sede: se ce ne sono non si può togliere
   const usaSede = (S, sedeId) => S.sottoganci.filter((x) => x.sedeId === sedeId).length + S.impianti.filter((x) => x.sedeId === sedeId).length;
@@ -164,8 +164,8 @@ window.CLI = (function () {
   function modaleSede(S, c, sd) {
     UI.modal({
       titolo: sd ? 'Modifica sede' : 'Nuova sede',
-      infoTxt: 'Il nome della sede compare sotto il nome del cliente nelle cartelle e sugli elenchi (es. VINOVO). Il nome breve (es. GCV) è la sigla veloce che usate in officina: compare nelle tab e nelle cartelle.',
-      valori: sd || {},
+      infoTxt: 'Il nome della sede compare sotto il nome del cliente nelle cartelle e sugli elenchi (es. VINOVO). Il nome breve (es. GCV) è la sigla veloce che usate in officina: compare nelle tab, nelle cartelle e sulla lavagna. Il colore (giallo, verde, rosso) indica in che mese del trimestre si fanno i controlli ed è lo stesso dei magneti della lavagna.',
+      valori: sd ? { ...sd, trimestre: sd.pianoControlli ? ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'][sd.pianoControlli.mese1 - 1] : '' } : {},
       campi: [
         { k: 'nome', label: 'Nome sede', req: true, placeholder: 'es. VINOVO o STABILIMENTO 2', maiuscolo: true, mezza: true },
         { k: 'sigla', label: 'Nome breve sede', placeholder: 'es. GCV', maiuscolo: true, mezza: true, aiuto: 'La sigla che usate in officina' },
@@ -173,14 +173,21 @@ window.CLI = (function () {
         { k: 'cap', label: 'CAP', mezza: true, tipo: 'text' },
         { k: 'citta', label: 'Città', mezza: true },
         { k: 'provincia', label: 'Provincia', mezza: true, placeholder: 'es. TO', maiuscolo: true },
+        { k: 'trimestre', label: 'Controlli nel trimestre (colore)', tipo: 'select', mezza: true, opzioni: ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'], aiuto: 'Gen/Apr/Lug/Ott = giallo · Feb/Mag/Ago/Nov = verde · Mar/Giu/Set/Dic = rosso' },
         { k: 'km', label: 'Km dalla nostra sede', tipo: 'number', mezza: true, placeholder: 'es. 25', aiuto: 'Lo decidete voi, si cambia quando serve' },
         { k: 'note', label: 'Note sulla sede', tipo: 'textarea', placeholder: 'es. ingresso carraio, orari, chiave in portineria…' }
       ],
       onSalva: async (v) => {
         const doc = JSON.parse(JSON.stringify(c));
         doc.sedi = doc.sedi || [];
-        if (sd) Object.assign(doc.sedi.find((x) => x.id === sd.id), v);
-        else doc.sedi.push({ id: uid(), ...v });
+        const { trimestre, ...dati } = v;
+        const m = ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'].indexOf(trimestre) + 1;
+        const target = sd ? doc.sedi.find((x) => x.id === sd.id) : { id: uid() };
+        Object.assign(target, dati);
+        // il colore è lo stesso dato del "piano controlli": mese del 1° controllo dell'anno
+        if (m) target.pianoControlli = { annuale: 1, ...(target.pianoControlli || {}), mese1: m };
+        else delete target.pianoControlli;
+        if (!sd) doc.sedi.push(target);
         await salva(doc); UI.toast('Sede salvata', 'ok');
       },
       onElimina: sd ? async () => {

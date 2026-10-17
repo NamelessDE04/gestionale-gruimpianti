@@ -92,7 +92,7 @@ window.SG = (function () {
             <a class="cartella" href="#/sottoganci/c/${c.id}">
               <div class="cartella-ico">${c.anagrafica.logo ? CLI.avatar(c.anagrafica, true) : icoCartella}</div>
               <div class="cartella-txt">
-                <h2>${esc(c.nome)} ${c.sigla ? `<span class="sigla-sede">${esc(c.sigla)}</span>` : ''}</h2>
+                <h2>${UI.magnete(c.sede)} ${esc(c.nome)}</h2>
                 <p class="loc">${esc(c.localita || '')}</p>
                 <p class="muted small">${n} sottoganci · ${esc(c.titoloElenco || '')}</p>
                 <div class="fascette">${SLOT.map((s, i) => `<span class="fasc ${sl[i] ? 'fatto' : ''}" style="--c:${s.col}" title="${s.nome}">${sl[i] ? dataBreve(sl[i].data) : ''}</span>`).join('')}</div>
@@ -110,7 +110,7 @@ window.SG = (function () {
   const tabs = (S, attivo) => `
     <nav class="tabs" id="tabs">
       ${cartelleDi(S).map((c) =>
-        `<a class="tab ${c.id === attivo ? 'on' : ''}" href="#/sottoganci/c/${c.id}">${c.sigla ? `<b>${esc(c.sigla)}</b><span>${esc(c.nome)} ${esc(c.localita || '')}</span>` : `<b>${esc(c.nome)}</b><span>${esc(c.localita || '')}</span>`}</a>`).join('')}
+        `<a class="tab ${c.id === attivo ? 'on' : ''} tab-c-${UI.coloreSede(c.sede) || 'nessuno'}" href="#/sottoganci/c/${c.id}">${c.sigla ? `<b>${esc(c.sigla)}</b><span>${esc(c.nome)} ${esc(c.localita || '')}</span>` : `<b>${esc(c.nome)}</b><span>${esc(c.localita || '')}</span>`}</a>`).join('')}
       <a class="tab tab-add" href="#/sottoganci/cartella-nuova" title="Nuova cartella">+</a>
     </nav>`;
 
@@ -134,7 +134,7 @@ window.SG = (function () {
         <div class="card cart-head">
           <div class="grow">
             <h1><a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)} <span class="loc">${esc(c.localita || '')}</span></a>
-              ${c.sigla ? `<span class="sigla-sede">${esc(c.sigla)}</span>` : ''}
+              ${UI.magnete(c.sede)}
               ${UI.info('Toccando il nome apri l\'anagrafica del cliente. Le fascette colorate sono i 4 controlli dell\'anno: tocca quella tratteggiata per iniziare il prossimo controllo, oppure una già fatta per correggerla. «Elenco per il cliente» prepara il foglio da stampare o salvare in PDF. Tocca un sottogancio per modificarne i dati.')}</h1>
             <p class="muted">${esc(c.titoloElenco)} · ${S.sottoganci.filter((s) => s.sedeId === cliId && !s.dismesso).length} sottoganci attivi
               · <span class="pill st-${st.k}">${esc(st.label)}</span></p>

@@ -101,7 +101,7 @@ window.CTR = (function () {
             return `<a class="cartella" href="#/controlli/s/${s.id}">
               <div class="cartella-ico">${CLI.avatar(c, true)}</div>
               <div class="cartella-txt">
-                <h2>${esc(CLI.nome(c))} ${s.sigla ? `<span class="sigla-sede">${esc(s.sigla)}</span>` : ''}</h2>
+                <h2>${UI.magnete(s)} ${esc(CLI.nome(c))}</h2>
                 <p class="loc">${esc(s.nome || s.citta)}</p>
                 <p class="muted small">${impiantiSede(S, s.id).length} impianti · ${p.impostato ? `annuale a ${MESI[meseVisita(p, p.annuale) - 1]}` : 'piano da impostare'}</p>
                 <div class="fascette">${st.map((x) => `<span class="fasc ${x.completa ? 'fatto' : ''} t-${tipoVisita(p, x.n)}" title="${nomeTipo(tipoVisita(p, x.n))}">${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</span>`).join('')}</div>
@@ -120,14 +120,14 @@ window.CTR = (function () {
     if (query.get('anno')) annoScelto = +query.get('anno');
     const anno = annoScelto, p = piano(s), st = statoVisite(S, sedeId, anno), imp = impiantiSede(S, sedeId);
     const pr = prossima(S, sedeId, anno);
-    const tabs = sediConImpianti(S).map((x) => `<a class="tab ${x.s.id === sedeId ? 'on' : ''}" href="#/controlli/s/${x.s.id}">${x.s.sigla ? `<b>${esc(x.s.sigla)}</b><span>${esc(CLI.nome(x.c))} ${esc(x.s.nome)}</span>` : `<b>${esc(CLI.nome(x.c))}</b><span>${esc(x.s.nome || '')}</span>`}</a>`).join('');
+    const tabs = sediConImpianti(S).map((x) => `<a class="tab ${x.s.id === sedeId ? 'on' : ''} tab-c-${UI.coloreSede(x.s) || 'nessuno'}" href="#/controlli/s/${x.s.id}">${x.s.sigla ? `<b>${esc(x.s.sigla)}</b><span>${esc(CLI.nome(x.c))} ${esc(x.s.nome)}</span>` : `<b>${esc(CLI.nome(x.c))}</b><span>${esc(x.s.nome || '')}</span>`}</a>`).join('');
     el.innerHTML = `
       <section class="sg">
         <nav class="tabs">${tabs}</nav>
         <div class="card cart-head">
           <div class="grow">
             <h1><a class="link-anag" href="#/clienti/${c.id}">${esc(CLI.nome(c))} <span class="loc">${esc(s.nome || '')}</span></a>
-              ${s.sigla ? `<span class="sigla-sede">${esc(s.sigla)}</span>` : ''}
+              ${UI.magnete(s)}
               ${info('Le 4 caselle sono i controlli dell\'anno con il loro mese. Tocca un impianto per compilare il controllo o stampare la sua scheda. «Piano controlli» decide i mesi e quale controllo è l\'annuale per questa sede.')}</h1>
             <p class="muted">${imp.length} impianti · ${pr ? `<span class="pill st-${pr.k}">${esc(pr.label)}</span>` : '<span class="pill st-ok">Anno completato</span>'}</p>
           </div>

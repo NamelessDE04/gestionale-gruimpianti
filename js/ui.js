@@ -211,7 +211,17 @@ window.UI = (function () {
     });
   }
 
+  // colore del cliente/sede, come i magneti della lavagna: dipende dal mese dei controlli nel trimestre
+  // 1° mese (gen/apr/lug/ott) = giallo · 2° mese = verde · 3° mese = rosso
+  const COLORI_SEDE = { 1: ['giallo', '1° mese del trimestre'], 2: ['verde', '2° mese del trimestre'], 3: ['rosso', '3° mese del trimestre'] };
+  const coloreSede = (s) => (s?.pianoControlli ? (COLORI_SEDE[s.pianoControlli.mese1] || [''])[0] : '');
+  const magnete = (s, testo) => {
+    const c = coloreSede(s), t = testo ?? s?.sigla;
+    const tit = c ? `Controlli nel ${COLORI_SEDE[s.pianoControlli.mese1][1]} (${c})` : 'Mese dei controlli non impostato';
+    return t ? `<span class="mag-sede c-${c || 'nessuno'}" title="${esc(tit)}">${esc(t)}</span>` : `<span class="mag-sede punto c-${c || 'nessuno'}" title="${esc(tit)}"></span>`;
+  };
+
   const conferma = (msg) => window.confirm(msg);
 
-  return { info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
+  return { coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
 })();

@@ -681,3 +681,29 @@ body.sola-lettura .mini, body.sola-lettura .tl-voce { cursor: default; }
 .ruolo-master { background: var(--navy); color: #fff; } .ruolo-tecnico { background: var(--ok-bg); color: var(--ok); } .ruolo-ru { background: var(--info-bg); color: var(--info); }
 .conta-log { font-size: 18px; font-weight: 800; color: var(--navy); margin: 4px 0 0; }
 @media (min-width: 1100px) { .tiles:not(.due-tiles) { grid-template-columns: repeat(4, 1fr); } }
+
+/* =================== COLORE CLIENTE (come i magneti della lavagna) =================== */
+.mag-sede { display: inline-block; font-weight: 900; font-size: .8em; letter-spacing: .4px; padding: 1px 8px; border-radius: 6px; text-transform: uppercase; vertical-align: middle; box-shadow: 0 2px 0 rgba(0,0,0,.18); line-height: 1.5; }
+.mag-sede.c-giallo { background: #f3c623; color: #1d2733; } .mag-sede.c-verde { background: #2e9b5b; color: #fff; }
+.mag-sede.c-rosso { background: #e0464b; color: #fff; } .mag-sede.c-nessuno { background: #d5dce4; color: #44546a; }
+.mag-sede.punto { width: 14px; height: 14px; padding: 0; border-radius: 50%; box-shadow: none; }
+.chip-sede .mag-sede { font-size: 10.5px; padding: 0 5px; }
+.tab.tab-c-giallo { border-top: 5px solid #f3c623; } .tab.tab-c-verde { border-top: 5px solid #2e9b5b; } .tab.tab-c-rosso { border-top: 5px solid #e0464b; }
+
+/* =================== MEZZI =================== */
+.mezzi { display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 12px; }
+.mezzo { display: flex; gap: 14px; align-items: center; margin: 0; }
+.mezzo h2 { margin: 0; font-size: 18px; }
+.mezzo-ico svg { width: 92px; height: auto; } .mezzo-ico.big svg { width: 110px; }
+.targa { display: inline-block; font-family: ui-monospace, Menlo, monospace; font-weight: 800; letter-spacing: 1.5px; border: 2px solid var(--navy); border-left: 10px solid #1f4fa3; border-radius: 6px; padding: 1px 8px; margin: 4px 0; background: #fff; }
+.scad-mini { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .scad-mini .pill { font-size: 11.5px; }
+.mezzo.dismesso { opacity: .5; }
+.scadenze { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+@media (max-width: 640px) { .scadenze { grid-template-columns: 1fr; } }
+.scad { border-radius: 14px; padding: 12px 14px; border: 2px solid var(--linea); display: flex; flex-direction: column; gap: 3px; }
+.scad span { font-size: 12.5px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); font-weight: 700; } .scad b { font-size: 20px; }
+.scad em { font-style: normal; align-self: flex-start; }
+.st-b-scaduto { border-color: var(--ko); background: var(--ko-bg); } .st-b-scadenza { border-color: #e0a100; background: var(--warn-bg); }
+.avvisi-mezzi { display: flex; flex-direction: column; gap: 8px; margin: 0 0 16px; }
+.avviso-m { display: flex; align-items: center; gap: 12px; border: 2px solid; border-radius: 14px; padding: 10px 14px; font-size: 20px; color: var(--testo); }
+.avviso-m .grow { display: flex; flex-direction: column; font-size: 15px; } .avviso-m .grow span { font-size: 13.5px; color: var(--muted); }

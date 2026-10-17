@@ -100,6 +100,17 @@ window.ILL = (function () {
       <text x="126" y="51" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="11" fill="${N}">M</text>
       <path d="M126 70 v14 c0 8 -9 8 -9 2" fill="none" stroke="${N}" stroke-width="4" stroke-linecap="round"/>`),
 
+    furgone: svg(`
+      <ellipse cx="80" cy="104" rx="66" ry="5" fill="${L}"/>
+      <path d="M14 38 h82 v54 h-82 z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M96 52 h24 l18 18 v22 h-42 z" fill="${Y}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M102 58 h16 l12 12 h-28 z" fill="${L}" stroke="${N}" stroke-width="2.5" stroke-linejoin="round"/>
+      <rect x="14" y="64" width="82" height="7" fill="${O}"/>
+      <text x="55" y="58" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="10" fill="${N}">GRU IMPIANTI</text>
+      <rect x="132" y="80" width="8" height="5" rx="1" fill="${O}"/>
+      <circle cx="38" cy="94" r="10" fill="${N}"/><circle cx="38" cy="94" r="4" fill="${G}"/>
+      <circle cx="116" cy="94" r="10" fill="${N}"/><circle cx="116" cy="94" r="4" fill="${G}"/>`),
+
     sottoganci: svg(`
       <ellipse cx="80" cy="110" rx="50" ry="5" fill="${L}"/>
       <line x1="80" y1="2" x2="80" y2="18" stroke="${G}" stroke-width="3"/>

@@ -72,7 +72,7 @@ window.IMP = (function () {
           <a class="btn" href="#/impianti/nuovo?cliente=${c.id}">+ Nuovo impianto</a>
         </div>
         ${gruppi.filter((g) => g.lista.length || (c.sedi || []).length > 1).map((g) => `
-          <h2 class="sez">${g.s ? esc(nomeSede(g.s)) : 'Senza sede'} <span class="conta">${g.lista.length}</span></h2>
+          <h2 class="sez">${g.s ? UI.magnete(g.s) + ' ' + esc(g.s.nome || g.s.citta) : 'Senza sede'} <span class="conta">${g.lista.length}</span></h2>
           <div class="elenco">
             ${g.lista.map((i) => `
               <a class="riga imp-riga" href="#/impianti/i/${i.id}">

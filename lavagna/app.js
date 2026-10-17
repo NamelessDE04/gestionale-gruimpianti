@@ -3,15 +3,42 @@ import { firebaseConfig } from './config.js';
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '22';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '23';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
 const COLORI = {
   yellow: { nome: 'Giallo', mese: '1° mese del trimestre', mesi: 'Gen · Apr · Lug · Ott' },
   green:  { nome: 'Verde',  mese: '2° mese del trimestre', mesi: 'Feb · Mag · Ago · Nov' },
-  red:    { nome: 'Rosso',  mese: '3° mese del trimestre', mesi: 'Mar · Giu · Set · Dic' }
+  red:    { nome: 'Rosso',  mese: '3° mese del trimestre', mesi: 'Mar · Giu · Set · Dic' },
+  none:   { nome: 'Senza colore', mese: 'mese dei controlli non impostato', mesi: '' }
 };
+
+/* ============================================================
+   ANAGRAFICHE DAL GESTIONALE
+   Clienti (= sedi), persone e mezzi NON si inseriscono più qui:
+   arrivano dalle anagrafiche del gestionale.
+   - nome sulla lavagna = nome breve della sede (es. GCV)
+   - colore = mese dei controlli nel trimestre (1° giallo, 2° verde, 3° rosso)
+   - persone = utenti del gestionale (tranne Risorse Umane)
+   - mezzi = anagrafica mezzi del gestionale (quelli in uso)
+   Con il cloud queste letture passeranno alle collezioni Firestore del gestionale.
+   ============================================================ */
+const GEST = '../index.html#/';
+const MESE_COLORE = { 1: 'yellow', 2: 'green', 3: 'red' };
+const leggiG = k => { try { return JSON.parse(localStorage.getItem('gid_demo_' + k)) || []; } catch { return []; } };
+function anagraficaGestionale() {
+  const clients = leggiG('clienti').flatMap(c => (c.sedi || []).map(s => ({
+    id: s.id,
+    name: (s.sigla || `${c.nomeBreve || c.ragioneSociale || ''} ${s.nome || ''}`).trim().toUpperCase(),
+    color: MESE_COLORE[s.pianoControlli?.mese1] || 'none',
+    contacts: (c.referenti || []).filter(r => r.telefono).map(r => ({ id: r.id, name: [r.nome, r.cognome].filter(Boolean).join(' '), phone: r.telefono }))
+  })));
+  const ruolo = u => (u.ruolo === 'admin' ? 'master' : u.ruolo);
+  const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nome }));
+  const vehicles = leggiG('mezzi').filter(m => !m.dismesso).map(m => ({ id: m.id, name: [m.modello || m.marca, m.targa].filter(Boolean).join(' ') }));
+  return { clients, staff, vehicles };
+}
 const ORDINE = ['yellow', 'green', 'red'];
 const TIPI = { check: 'Controllo periodico', extra: 'Lavoro extra', pers: 'Impegno / assenza' };
 
@@ -471,7 +498,7 @@ function renderPanel() {
     state.dueCount = 0;
     panel.innerHTML = `${head}
       <p class="empty mt">Non ci sono ancora clienti.</p>
-      <button class="btn primary full mt" data-action="anag" data-tab="clients">Aggiungi clienti</button>`;
+      <button class="btn primary full mt" data-action="gest" data-href="${GEST}clienti">Aggiungili nel gestionale</button>`;
     return;
   }
   const due = byName(state.clients.filter(c => c.color === col));
@@ -700,10 +727,10 @@ function buildEditor() {
   const veh = byName(state.vehicles);
   const staffPicks = staff.length
     ? staff.map(s => `<button type="button" class="pick st ${e.staffIds.includes(s.id) ? 'on' : ''}" data-action="ed-staff" data-id="${s.id}">${esc(s.name)}</button>`).join('')
-    : `<span class="empty">Nessun dipendente. <button type="button" class="linkish" data-action="anag" data-tab="staff">Aggiungili in Anagrafica</button></span>`;
+    : `<span class="empty">Nessuna persona. <button type="button" class="linkish" data-action="gest" data-href="${GEST}utenti">Aggiungile nel gestionale</button></span>`;
   const vehPicks = veh.length
     ? veh.map(v => `<button type="button" class="pick vh ${e.vehicleIds.includes(v.id) ? 'on' : ''}" data-action="ed-veh" data-id="${v.id}">${esc(v.name)}</button>`).join('')
-    : `<span class="empty">Nessun mezzo. <button type="button" class="linkish" data-action="anag" data-tab="vehicles">Aggiungili in Anagrafica</button></span>`;
+    : `<span class="empty">Nessun mezzo. <button type="button" class="linkish" data-action="gest" data-href="${GEST}mezzi">Aggiungili nel gestionale</button></span>`;
   const typeSeg = (isNew && e.type !== 'check')
     ? `<div class="seg">${['extra', 'pers'].map(t => `<button type="button" class="seg-btn ${e.type === t ? 'on' : ''}" data-action="ed-type" data-type="${t}">${TIPI[t]}</button>`).join('')}</div>`
     : '';
@@ -1115,10 +1142,10 @@ function renderMenu() {
       ${u ? (u.photo ? `<img src="${esc(u.photo)}" alt="" referrerpolicy="no-referrer">` : `<span class="avatar">${esc((u.name || u.email || '?').charAt(0).toUpperCase())}</span>`) : '<span class="avatar">·</span>'}
       <div><b>${esc(u ? (u.name || u.email) : 'Lavagna Officina')}</b><span class="status ${st.cls}"><i></i>${esc(st.txt)}</span></div>
     </div>
-    <div class="menu-sec">Anagrafica</div>
-    <button data-action="anag" data-tab="clients">Clienti e referenti</button>
-    <button data-action="anag" data-tab="staff">Dipendenti</button>
-    <button data-action="anag" data-tab="vehicles">Mezzi</button>
+    <div class="menu-sec">Anagrafiche (nel gestionale)</div>
+    <button data-action="gest" data-href="${GEST}clienti">Clienti e sedi</button>
+    <button data-action="gest" data-href="${GEST}utenti">Persone</button>
+    <button data-action="gest" data-href="${GEST}mezzi">Mezzi</button>
     ${state.unsigned.length ? `<div class="menu-sec">Da sistemare</div>
     <button data-action="unsigned"><span class="ast">✱</span> Rapportini da firmare <span class="badge red">${state.unsigned.length}</span></button>` : ''}
     <div class="menu-sec">${MESI[state.month]} ${state.year}</div>
@@ -1408,7 +1435,8 @@ function handleAction(act, el) {
     }
 
     /* anagrafica */
-    case 'anag': openAnag(el.dataset.tab); break;
+    case 'anag': location.href = GEST + ({ clients: 'clienti', staff: 'utenti', vehicles: 'mezzi' }[el.dataset.tab] || 'clienti'); break;
+    case 'gest': location.href = el.dataset.href; break;
     case 'new-color': setNewColor(el.dataset.color); break;
     case 'open-client': openClient(id); break;
     case 'cl-color': {
@@ -1617,7 +1645,20 @@ function showLogin(msg, denied) {
 function startData() {
   if (dataStarted) return;
   dataStarted = true;
-  unsubLists = ['clients', 'staff', 'vehicles'].map(col => db.subscribe(col, list => { state[col] = list; render(); }));
+  const carica = () => { Object.assign(state, anagraficaGestionale()); render(); };
+  carica();
+  // controlli rimasti legati a vecchi clienti della lavagna (non più esistenti): li tolgo una volta sola
+  if (db.mode === 'local' && !lsGet('lavagna_gest_ok')) {
+    try {
+      const ids = new Set(state.clients.map(c => c.id));
+      const ev = JSON.parse(localStorage.getItem('lavagna_events') || '[]');
+      localStorage.setItem('lavagna_events', JSON.stringify(ev.filter(e => e.type !== 'check' || ids.has(e.clientId))));
+    } catch {}
+    lsSet('lavagna_gest_ok', '1');
+  }
+  const onStorage = e => { if (!e.key || e.key.startsWith('gid_demo_')) carica(); };
+  window.addEventListener('storage', onStorage);
+  unsubLists = [() => window.removeEventListener('storage', onStorage)];
   unsubLists.push(db.subscribeUnsigned(list => { state.unsigned = list; if (state.menuOpen) renderMenu(); if (state.modal === 'unsigned') renderUnsignedList(); }));
   subscribeMonth();
   render();

@@ -212,7 +212,7 @@ window.IMPS = (function () {
           <span class="imp-ico big">${IMP.icona(i.tipologia)}</span>
           <div class="grow">
             <h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
-            <p class="muted"><a class="link-anag" href="#/clienti/${i.clienteId}">${esc(c ? CLI.nome(c) : '(cliente)')}</a> · ${esc(IMP.nomeSede(s))}
+            <p class="muted">${s ? UI.magnete(s) : ''} <a class="link-anag" href="#/clienti/${i.clienteId}">${esc(c ? CLI.nome(c) : '(cliente)')}</a> · ${esc(s ? s.nome || s.citta : '')}
               ${i.matricola ? ' · Matr. ' + esc(i.matricola) : ''} · <b>${paranchi.map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—'}</b></p>
           </div>
           <a class="btn ghost" href="#/impianti/i/${i.id}/stampa" title="Riepilogo di tutti i dati in PDF">🖨️ Stampa</a>

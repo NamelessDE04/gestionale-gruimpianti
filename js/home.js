@@ -5,6 +5,7 @@ window.HOME = (function () {
     { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, gru a bandiera, sottoganci', ill: 'schede', attiva: true },
     { k: 'clienti', titolo: 'Anagrafica Clienti', sotto: 'Ditte, sedi e referenti', ill: 'clienti', attiva: true },
     { k: 'impianti', titolo: 'Anagrafica Impianti', sotto: 'Gru, paranchi e carriponte', ill: 'impianti', attiva: true },
+    { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
     { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, giacenze e ordini', ill: 'magazzino' },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
     { k: 'cablaggio', titolo: 'Configuratore cablaggio gru', sotto: 'Schemi di cablaggio guidati', ill: 'cablaggio' }
@@ -30,6 +31,14 @@ window.HOME = (function () {
 
   const badgeCtr = (S) => { const n = CTR.riepilogo(S); return n ? `${n} ${n === 1 ? 'sede' : 'sedi'} con controlli in ritardo` : ''; };
 
+  // avvisi in alto: bollo, revisione o assicurazione scaduti o in scadenza entro 30 giorni
+  const avvisiMezzi = (S) => {
+    const a = MEZ.avvisi(S); if (!a.length) return '';
+    return `<div class="avvisi-mezzi">${a.map((x) => `<a class="avviso-m st-b-${x.st.k}" href="#/mezzi/${x.m.id}">
+      <span class="av-ico">${x.st.k === 'scaduto' ? '⛔' : '⚠️'}</span>
+      <span class="grow"><b>${UI.esc(x.l)} ${UI.esc(MEZ.corto(x.m))}</b><span>${x.st.k === 'scaduto' ? 'scaduto il' : 'scade il'} ${UI.fmt(x.d)} · ${UI.esc(x.st.label)}</span></span>›</a>`).join('')}</div>`;
+  };
+
   function render(el, S) {
     const ora = new Date().getHours();
     el.innerHTML = `
@@ -38,7 +47,8 @@ window.HOME = (function () {
           <h1>${ora < 13 ? 'Buongiorno' : ora < 18 ? 'Buon pomeriggio' : 'Buonasera'}</h1>
           <p>Scegli cosa vuoi fare.</p>
         </div>
-        <div class="tiles">${caselle.map((c) => tile(c, c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '')).join('')}</div>
+        ${avvisiMezzi(S)}
+        <div class="tiles">${caselle.map((c) => tile(c, c.k === 'mezzi' && MEZ.avvisi(S).length ? `${MEZ.avvisi(S).length} ${MEZ.avvisi(S).length === 1 ? 'scadenza' : 'scadenze'}` : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '')).join('')}</div>
         <div class="home-tools">
           <button class="btn ghost small" id="btnExport">Esporta dati (backup)</button>
           ${UT.isMaster() ? '<a class="btn ghost small" href="#/utenti">👥 Utenti</a><a class="btn ghost small" href="#/registro">📋 Registro attività</a>' : ''}

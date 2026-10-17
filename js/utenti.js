@@ -28,7 +28,7 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente' };
+  const NOMI_COL = { clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
@@ -41,6 +41,7 @@ window.UT = (function () {
       case 'giriSottoganci': return `Controllo sottoganci ${d.slot}° ${d.anno} – ${sede(d.sedeId)}`;
       case 'schedeControllo': return `Scheda di controllo ${d.anno} – ${imp(d.impiantoId)} – ${cli(d.clienteId)}`;
       case 'utenti': return `Utente ${d.nome}`;
+      case 'mezzi': return `Mezzo ${MEZ.nome(d)} ${d.targa || ''}`;
       case 'impostazioni': return d.id === 'modelliScheda' ? 'Modelli di scheda' : d.id === 'tipologieGru' ? 'Tipologie di gru' : 'Impostazioni';
       default: return NOMI_COL[col] || col;
     }
