@@ -1,6 +1,6 @@
 // Service worker: l'app si apre anche senza rete.
 // Quando modifichi i file dell'app, aumenta il numero di versione qui sotto.
-const CACHE = 'lavagna-v23';
+const CACHE = 'lavagna-v24';
 const ASSETS = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-192.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './logo.png'
@@ -39,10 +39,10 @@ self.addEventListener('fetch', e => {
 
   // File dell'app: prima la rete (così gli aggiornamenti arrivano subito), poi la cache
   if (url.origin === self.location.origin) {
-    e.respondWith(fetch(req).then(res => {
-      const copy = res.clone();
-      caches.open(CACHE).then(c => c.put(req, copy));
+    // "no-cache": chiede sempre al sito se il file è cambiato
+    e.respondWith(fetch(req.url, { cache: 'no-cache' }).then(res => {
+      if (res.ok) { const copy = res.clone(); caches.open(CACHE).then(c => c.put(req.url, copy)); }
       return res;
-    }).catch(() => caches.match(req).then(hit => hit || caches.match('./index.html'))));
+    }).catch(() => caches.match(req, { ignoreSearch: true }).then(hit => hit || caches.match('./index.html'))));
   }
 });

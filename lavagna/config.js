@@ -1,17 +1,23 @@
 // ============================================================
 //  CONFIGURAZIONE SINCRONIZZAZIONE (Firebase)
 // ------------------------------------------------------------
-//  Dentro il GESTIONALE DEMO la lavagna lavora in MODALITÀ LOCALE
-//  (dati solo su questo dispositivo), come il resto della demo,
-//  così le prove non toccano la lavagna vera dell'officina.
-//
-//  Per collegarla alla lavagna vera (Firebase "lavagna-officina")
-//  basta sostituire "null" con la configurazione qui sotto.
+//  Dentro il GESTIONALE la lavagna usa lo STESSO cloud del gestionale
+//  (progetto Firebase "gestionale-gruimpianti"): stesso accesso Google,
+//  stesse anagrafiche, voci condivise tra tutti i dispositivi.
+//  NON tocca la lavagna vera dell'officina ("lavagna-officina"),
+//  la cui configurazione resta qui sotto solo come promemoria.
 // ============================================================
 
-export const firebaseConfig = null;
+export const firebaseConfig = {
+  apiKey: 'AIzaSyCt_bBq9_4jJiNH1Gyl1cTd8_3RJC_0WV0',
+  authDomain: 'gestionale-gruimpianti.firebaseapp.com',
+  projectId: 'gestionale-gruimpianti',
+  storageBucket: 'gestionale-gruimpianti.firebasestorage.app',
+  messagingSenderId: '724677009917',
+  appId: '1:724677009917:web:518fbe827adadf595b7994'
+};
 
-/* Configurazione della lavagna vera, da usare quando si passa al cloud:
+/* Configurazione della lavagna VERA dell'officina (NON usarla qui):
 {
   apiKey: "AIzaSyBqOhEWfIuuCHgRN8ohrczETO34rq3Gea8",
   authDomain: "lavagna-officina.firebaseapp.com",

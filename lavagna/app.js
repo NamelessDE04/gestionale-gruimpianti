@@ -1,9 +1,9 @@
-import { firebaseConfig } from './config.js';
+import { firebaseConfig } from './config.js?v=24';
 
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '23';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '24';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -26,7 +26,9 @@ const COLORI = {
    ============================================================ */
 const GEST = '../index.html#/';
 const MESE_COLORE = { 1: 'yellow', 2: 'green', 3: 'red' };
-const leggiG = k => { try { return JSON.parse(localStorage.getItem('gid_demo_' + k)) || []; } catch { return []; } };
+// con il cloud le anagrafiche arrivano in tempo reale dalle raccolte del gestionale; senza, dalla copia sul dispositivo
+const gestCloud = {};
+const leggiG = k => { if (gestCloud[k]) return gestCloud[k]; try { return JSON.parse(localStorage.getItem('gid_demo_' + k)) || []; } catch { return []; } };
 function anagraficaGestionale() {
   const clients = leggiG('clienti').flatMap(c => (c.sedi || []).map(s => ({
     id: s.id,
@@ -214,6 +216,8 @@ async function firebaseBackend(cfg) {
   };
   const toList = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
   const strip = o => { const { id, ...rest } = o; return rest; };
+  // nel database del gestionale le raccolte della lavagna hanno un nome loro, per non mescolarsi
+  const C = col => ({ events: 'lavagnaEventi', log: 'lavagnaLog' }[col] || col);
 
   return {
     mode: 'cloud',
@@ -234,33 +238,37 @@ async function firebaseBackend(cfg) {
       }
     },
     logout() { return a.signOut(auth); },
+    // anagrafiche del gestionale (clienti/sedi, utenti, mezzi)
+    subscribeGest(cb) {
+      return ['clienti', 'utenti', 'mezzi'].map(k => f.onSnapshot(f.collection(fdb, k), snap => cb(k, toList(snap)), onErr));
+    },
     subscribe(col, cb) {
-      return f.onSnapshot(f.collection(fdb, col), { includeMetadataChanges: true },
+      return f.onSnapshot(f.collection(fdb, C(col)), { includeMetadataChanges: true },
         snap => { report(snap); cb(toList(snap)); }, onErr);
     },
     subscribeEvents(s, e, cb) {
-      const q = f.query(f.collection(fdb, 'events'), f.where('date', '>=', s), f.where('date', '<=', e));
+      const q = f.query(f.collection(fdb, C('events')), f.where('date', '>=', s), f.where('date', '<=', e));
       return f.onSnapshot(q, { includeMetadataChanges: true },
         snap => { report(snap); cb(toList(snap)); }, onErr);
     },
     subscribeUnsigned(cb) {
-      const q = f.query(f.collection(fdb, 'events'), f.where('unsigned', '==', true));
+      const q = f.query(f.collection(fdb, C('events')), f.where('unsigned', '==', true));
       return f.onSnapshot(q, snap => cb(toList(snap)), err => console.error(err));
     },
-    save(col, obj) { return f.setDoc(f.doc(fdb, col, obj.id), strip(obj)); },
+    save(col, obj) { return f.setDoc(f.doc(fdb, C(col), obj.id), strip(obj)); },
     async remove(col, id) {
       if (col === 'clients') {
-        const snap = await f.getDocs(f.query(f.collection(fdb, 'events'), f.where('clientId', '==', id)));
+        const snap = await f.getDocs(f.query(f.collection(fdb, C('events')), f.where('clientId', '==', id)));
         const b = f.writeBatch(fdb);
         snap.forEach(d => b.delete(d.ref));
         b.delete(f.doc(fdb, 'clients', id));
         return b.commit();
       }
-      return f.deleteDoc(f.doc(fdb, col, id));
+      return f.deleteDoc(f.doc(fdb, C(col), id));
     },
-    addLog(entry) { return f.setDoc(f.doc(fdb, 'log', entry.id), strip(entry)); },
+    addLog(entry) { return f.setDoc(f.doc(fdb, C('log'), entry.id), strip(entry)); },
     subscribeLog(cb) {
-      const q = f.query(f.collection(fdb, 'log'), f.orderBy('ts', 'desc'), f.limit(500));
+      const q = f.query(f.collection(fdb, C('log')), f.orderBy('ts', 'desc'), f.limit(500));
       return f.onSnapshot(q, snap => cb(toList(snap)), err => { console.error(err); cb(null, err); });
     }
   };
@@ -269,7 +277,7 @@ async function firebaseBackend(cfg) {
 /* ============================================================
    STORICO MODIFICHE (visibile solo all'amministratore)
    ============================================================ */
-const ADMIN_EMAILS = ['vaisittiluca@gmail.com'];
+const ADMIN_EMAILS = ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com'];
 const isAdmin = () => db?.mode === 'local' || ADMIN_EMAILS.includes((currentEmail || '').toLowerCase());
 const COL_NOMI = { events: 'Voce', clients: 'Cliente', staff: 'Dipendente', vehicles: 'Mezzo' };
 const clean = o => o ? JSON.parse(JSON.stringify(o)) : null;
@@ -1659,6 +1667,7 @@ function startData() {
   const onStorage = e => { if (!e.key || e.key.startsWith('gid_demo_')) carica(); };
   window.addEventListener('storage', onStorage);
   unsubLists = [() => window.removeEventListener('storage', onStorage)];
+  if (db.subscribeGest) unsubLists.push(...db.subscribeGest((k, list) => { gestCloud[k] = list; carica(); }));
   unsubLists.push(db.subscribeUnsigned(list => { state.unsigned = list; if (state.menuOpen) renderMenu(); if (state.modal === 'unsigned') renderUnsignedList(); }));
   subscribeMonth();
   render();
