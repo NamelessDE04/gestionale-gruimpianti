@@ -970,3 +970,22 @@ body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; b
 }
 @media (max-width: 760px) { .ctr-testa > .imp-ico { display: none; } }
 .ctr-testa > .grow { min-width: 0; } .ctr-testa h1 { overflow-wrap: anywhere; }
+
+/* ===== sottoganci compatti (v0.21) ===== */
+.sg-testa { border-left-color: var(--c); }
+.st-v.st-sg { border-top: 6px solid var(--c); }
+.st-v.st-sg.prossimo { outline: 2px dashed var(--navy); outline-offset: -2px; background: #fffdf3; }
+.st-v.st-sg.prossimo span { color: var(--navy); font-weight: 700; }
+.st-v.st-sg.vuoto { opacity: .55; pointer-events: none; }
+.sg-inizia { display: flex; justify-content: center; width: 100%; margin: 0 0 12px; min-height: 50px; font-size: 16px; }
+.vis-tools [data-copia] { white-space: nowrap; }
+.cs-lungo { font-size: 80%; letter-spacing: -.2px; }
+/* campo valore accanto ai codici (v0.21) */
+.gi-row .valore { display: flex; align-items: center; gap: 4px; margin: 0; flex: none; }
+.gi-row .valore input { width: 78px; min-height: 46px; text-align: center; margin: 0; padding: 4px 6px; }
+.gi-row .valore span { font-size: 13px; color: var(--muted); font-weight: 600; }
+@media (max-width: 760px) {
+  .gi-row:has(.valore) { flex-wrap: wrap; row-gap: 8px; }
+  .gi-row:has(.valore) .codici-c { flex: 1 1 220px; }
+  .gi-row .valore { order: 3; } .gi-row .valore ~ .prima { order: 4; }
+}

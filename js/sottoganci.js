@@ -2,7 +2,7 @@
 // Ogni cliente (sede) ha la sua cartella con i suoi sottoganci, ordinati per numero.
 // Ogni anno ha fino a 4 controlli, contrassegnati dal colore della fascetta: blu, giallo, arancio, verde.
 window.SG = (function () {
-  const { esc, oggi, addMesi, giorniDa, uid } = UI;
+  const { esc, oggi, addMesi, giorniDa, uid, fmt } = UI;
 
   const SLOT = [
     { n: 1, nome: 'blu', col: '#00b0f0' },
@@ -106,14 +106,6 @@ window.SG = (function () {
   }
   const icoCartella = `<svg viewBox="0 0 64 52" aria-hidden="true"><path d="M3 9a4 4 0 0 1 4-4h16l6 6h28a4 4 0 0 1 4 4v30a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z" fill="#f2b705" stroke="#16324f" stroke-width="3" stroke-linejoin="round"/><path d="M3 19h58" stroke="#16324f" stroke-width="3"/><rect x="22" y="27" width="20" height="9" rx="2" fill="#fff" stroke="#16324f" stroke-width="2.5"/></svg>`;
 
-  // ---------- TAB DEI CLIENTI (in cima alla cartella) ----------
-  const tabs = (S, attivo) => `
-    <nav class="tabs" id="tabs">
-      ${cartelleDi(S).map((c) =>
-        `<a class="tab ${c.id === attivo ? 'on' : ''} tab-c-${UI.coloreSede(c.sede) || 'nessuno'}" href="#/sottoganci/c/${c.id}">${c.sigla ? `<b>${esc(c.sigla)}</b><span>${esc(c.nome)} ${esc(c.localita || '')}</span>` : `<b>${esc(c.nome)}</b><span>${esc(c.localita || '')}</span>`}</a>`).join('')}
-      <a class="tab tab-add" href="#/sottoganci/cartella-nuova" title="Nuova cartella">+</a>
-    </nav>`;
-
   // ---------- CARTELLA DEL CLIENTE ----------
   const filtroTesto = {};
   function cartella(el, S, cliId, query) {
@@ -128,41 +120,32 @@ window.SG = (function () {
       (s.numero + ' ' + s.parti.map((p) => p.denominazione + ' ' + p.dimensioni).join(' ') + ' ' + s.ubicazione + ' ' + s.portata).toLowerCase().includes(t));
     const st = statoCartella(S, cliId);
 
+    const nAtt = S.sottoganci.filter((x) => x.sedeId === cliId && !x.dismesso).length;
     el.innerHTML = `
-      <section class="sg">
-        ${tabs(S, cliId)}
-        <div class="card cart-head">
+      <section class="sg ctr">
+        <div class="card ctr-testa">
           <div class="grow">
-            <h1><a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)} <span class="loc">${esc(c.localita || '')}</span></a>
-              ${UI.magnete(c.sede)}
-              ${UI.info('Toccando il nome apri l\'anagrafica del cliente. Le fascette colorate sono i 4 controlli dell\'anno: tocca quella tratteggiata per iniziare il prossimo controllo, oppure una già fatta per correggerla. «Elenco per il cliente» prepara il foglio da stampare o salvare in PDF. Tocca un sottogancio per modificarne i dati.')}</h1>
-            <p class="muted">${esc(c.titoloElenco)} · ${S.sottoganci.filter((s) => s.sedeId === cliId && !s.dismesso).length} sottoganci attivi
-              · <span class="pill st-${st.k}">${esc(st.label)}</span></p>
+            <h1><a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)} <span class="loc">${esc(c.localita || '')}</span></a> ${UI.magnete(c.sede)}
+              ${UI.info('Le 4 caselle colorate sono i controlli dell\'anno (una per fascetta): tocca quella tratteggiata per iniziare il prossimo, oppure una già fatta per correggerla. Nel menu ⋯ trovi l\'elenco da stampare, l\'invio al cliente, l\'aggiunta di un sottogancio e il titolo dell\'elenco. Tocca una riga per modificare quel sottogancio.')}</h1>
+            <p class="muted small">${nAtt} sottoganci · <span class="pill st-${st.k}">${esc(st.label)}</span></p>
           </div>
-          <div class="anno">
-            <a class="btn ghost small" href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno precedente">‹</a>
-            <b>${anno}</b>
-            <a class="btn ghost small" href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno successivo">›</a>
-          </div>
+          <div class="anno anno-mini"><a href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
+          ${UI.menu([
+            !UT.solaLettura() && { t: '+ Nuovo sottogancio', href: `#/sottoganci/c/${cliId}/nuovo` },
+            UT.puoInviare() && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
+            UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=sottoganci&sede=${cliId}&anno=${anno}&da=${encodeURIComponent('#/sottoganci/c/' + cliId)}` },
+            { t: '⚙ Titolo dell\'elenco', href: `#/sottoganci/cartella/${cliId}` },
+            { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` }
+          ])}
         </div>
 
-        <div class="slots">
-          ${SLOT.map((s, i) => `
-            <a class="slot ${sl[i] ? 'fatto' : prossimo === s ? 'prossimo' : 'slot-vuoto'}" style="--c:${s.col}"
-               href="${sl[i] || prossimo === s ? `#/sottoganci/c/${cliId}/giro/${anno}/${s.n}` : 'javascript:void(0)'}">
-              <span class="slot-nome">${s.n}° · ${s.nome}</span>
-              <b>${sl[i] ? dataBreve(sl[i].data) : prossimo === s ? 'Da fare' : '—'}</b>
-              <span class="slot-sub">${sl[i] ? esc(sl[i].tecnico) + ' · modifica' : prossimo === s ? 'tocca per iniziare' : ''}</span>
-            </a>`).join('')}
+        <div class="striscia">
+          ${SLOT.map((s, i) => { const ok = sl[i], pr = prossimo === s;
+            return `<a class="st-v st-sg ${ok ? 'fatto' : ''} ${pr ? 'prossimo' : ''} ${!ok && !pr ? 'vuoto' : ''}" style="--c:${s.col}"
+               href="${ok || pr ? `#/sottoganci/c/${cliId}/giro/${anno}/${s.n}` : 'javascript:void(0)'}">
+              <b>${s.n}° ${s.nome}</b><span>${ok ? '✓ ' + dataBreve(ok.data) : pr ? '▶ inizia' : '—'}</span></a>`; }).join('')}
         </div>
-
-        <div class="azioni-lista">
-          ${prossimo ? `<a class="btn big" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ Inizia ${prossimo.n}° controllo (${prossimo.nome})</a>` : '<span class="pill st-ok">4 controlli completati</span>'}
-          ${UT.puoInviare() ? `<a class="btn" href="#/sottoganci/c/${cliId}/stampa/${anno}">📄 Elenco per il cliente</a>` : ''}
-          ${UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=sottoganci&sede=${cliId}&anno=${anno}&da=${encodeURIComponent('#/sottoganci/c/' + cliId)}">📧 Invia al cliente</a>` : ''}
-          <a class="btn ghost" href="#/sottoganci/c/${cliId}/nuovo">+ Sottogancio</a>
-          <a class="btn ghost" href="#/sottoganci/cartella/${cliId}" title="Titolo dell'elenco">⚙ Elenco</a>
-        </div>
+        ${prossimo ? `<a class="btn sg-inizia" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ Inizia il ${prossimo.n}° controllo · fascetta ${prossimo.nome}</a>` : ''}
 
         <input type="search" id="fTesto" class="cerca" placeholder="Cerca numero, denominazione, ubicazione…" value="${esc(filtroTesto[cliId] || '')}">
 
@@ -192,7 +175,6 @@ window.SG = (function () {
       filtroTesto[cliId] = ft.value; const pos = ft.selectionStart;
       App.ridisegna(); const n = document.getElementById('fTesto'); n.focus(); n.setSelectionRange(pos, pos);
     };
-    el.querySelector('.tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
     return { titolo: nomeCliente(c), indietro: '#/sottoganci', live: true };
   }
 
@@ -363,22 +345,26 @@ window.SG = (function () {
     el.innerHTML = `
       <form class="sg form" id="fGiro" novalidate>
         ${esistente ? CONF.avvisoAltro(esistente, `Il ${slotN}° controllo ${anno} (fascetta ${slot.nome})`) : ''}
-        <div class="card giro-head" style="--c:${slot.col}">
-          <div class="giro-fascia">${slotN}° controllo ${anno}<b>fascetta ${slot.nome}</b></div>
-          <div class="grow"><h1>${esc(c.nome)} <span class="loc">${esc(c.localita || '')}</span></h1>
-            <p class="muted small">${precedente ? `Controllo precedente: ${dataBreve(precedente.data)} (${SLOT[precedente.slot - 1].nome}${precedente.anno !== anno ? ' ' + precedente.anno : ''})` : 'Primo controllo per questo cliente'}</p></div>
-          <div class="due giro-dati">
-            <label>Data<input type="date" name="data" value="${g.data}"></label>
-          </div>
-          ${UT.campoTecnici((g.tecnici || []).map((t) => t.id), g.firmaDi)}
+        <div class="vis-testa sg-testa" style="--c:${slot.col}">
+          <div class="grow"><b>${slotN}° controllo ${anno} · fascetta ${slot.nome}</b>
+            <div class="vis-imp">${esc(c.nome)} ${esc(c.localita || '')} · ${precedente ? `prima: ${dataBreve(precedente.data)} (${SLOT[precedente.slot - 1].nome}${precedente.anno !== anno ? ' ' + precedente.anno : ''})` : 'primo controllo'}</div></div>
+          ${UI.menu([
+            { t: '✓ Righe mancanti = B (buono)', id: 'btnTutteB' },
+            esistente && !UT.solaLettura() && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' },
+            { t: '📂 Cartella del cliente', href: `#/sottoganci/c/${cliId}?anno=${anno}` }
+          ])}
         </div>
+        <details class="card dati-vis">
+          <summary><span>📅 <b id="sDat">${fmt(g.data)}</b></span><span>👷 <b id="sTec">${esc(g.tecnico || UT.breve(UT.attuale()))}</b></span><span class="link">modifica</span></summary>
+          <div class="due giro-dati"><label>Data<input type="date" name="data" value="${g.data}"></label></div>
+          ${UT.campoTecnici((g.tecnici || []).map((t) => t.id), g.firmaDi)}
+        </details>
 
-        <div class="giro-tools">
-          <span class="progress"><b id="nFatti">0</b> / ${totale()} controllati</span>
-          ${UI.info('Tocca la sigla dello stato per ogni riga (toccala di nuovo per toglierla). «Copia esiti» riporta gli stati del controllo precedente: poi cambi solo quelli diversi. Le note vengono già ricopiate dal controllo precedente. Le righe lasciate vuote, al salvataggio, diventano NC.')}
+        <div class="giro-tools vis-tools">
+          ${precedente ? '<button type="button" class="btn ghost small" data-copia>↺ Copia precedente</button>' : ''}
           <span class="grow"></span>
-          ${precedente ? '<button type="button" class="btn ghost small" id="btnCopia">Copia esiti del controllo precedente</button>' : ''}
-          <button type="button" class="btn ghost small" id="btnTutteB">Mancanti = B</button>
+          <span class="progress"><b id="nFatti">0</b>/${totale()}</span>
+          ${UI.info('Tocca la sigla dello stato per ogni riga (toccala di nuovo per toglierla). «Copia precedente» riporta gli stati del controllo prima: poi cambi solo quelli diversi. Le note sono già ricopiate dal controllo precedente. Nel menu ⋯ puoi segnare B su tutte le righe mancanti. Le righe lasciate vuote, al salvataggio, diventano NC.')}
         </div>
 
         <div class="giro-lista">
@@ -408,7 +394,7 @@ window.SG = (function () {
 
 
         <div class="azioni-form sticky">
-          ${esistente ? '<button type="button" class="btn danger ghost" id="btnElimina">Elimina</button>' : `<a class="btn ghost" href="#/sottoganci/c/${cliId}">Annulla</a>`}
+          <a class="btn ghost" href="#/sottoganci/c/${cliId}?anno=${anno}">Annulla</a>
           <span class="grow"></span>
           <button class="btn big" type="submit">Salva controllo</button>
         </div>
@@ -429,14 +415,18 @@ window.SG = (function () {
       if (g.righe[s.id].codici[pi]) setCod(s.id, pi, g.righe[s.id].codici[pi]);
     }));
     aggiorna();
-    el.querySelector('#btnCopia')?.addEventListener('click', () => items.forEach((s) => s.parti.forEach((_, pi) => {
+    const copia = () => { let k = 0; items.forEach((s) => s.parti.forEach((_, pi) => {
       const pr = precedente.righe[s.id]?.codici[pi];
-      if (pr && !g.righe[s.id].codici[pi]) setCod(s.id, pi, pr);
-    })));
+      if (pr && !g.righe[s.id].codici[pi]) { setCod(s.id, pi, pr); k++; }
+    })); UI.toast(k ? `Copiati ${k} esiti` : 'Niente da copiare', k ? 'ok' : ''); };
+    el.querySelector('[data-copia]')?.addEventListener('click', copia);
     el.querySelector('#btnTutteB').onclick = () => items.forEach((s) => s.parti.forEach((_, pi) => { if (!g.righe[s.id].codici[pi]) setCod(s.id, pi, 'B'); }));
 
     // firma (se il controllo esisteva già, mostro la firma salvata)
     const leggiTecnici = UT.collegaTecnici(el, g.firmaDi);
+    const riassunto = () => { const t = leggiTecnici(); el.querySelector('#sDat').textContent = fmt(f.data.value); el.querySelector('#sTec').textContent = t.tecnico || '— scegli —'; };
+    el.querySelector('.dati-vis').addEventListener('change', riassunto); el.querySelector('.dati-vis').addEventListener('click', () => setTimeout(riassunto, 0));
+    if (!esistente) riassunto();
 
     f.onsubmit = async (e) => {
       e.preventDefault();
@@ -449,7 +439,7 @@ window.SG = (function () {
         items.forEach((s) => s.parti.forEach((_, pi) => { if (!g.righe[s.id].codici[pi]) g.righe[s.id].codici[pi] = 'NC'; }));
       }
       const t = leggiTecnici();
-      if (!t.tecnici.length) return UI.toast('Scegli almeno un tecnico', 'err');
+      if (!t.tecnici.length) { el.querySelector('.dati-vis').open = true; return UI.toast('Scegli almeno un tecnico', 'err'); }
       const firma = t.firmaDi === g.firmaDi && g.firmaTecnico && esistente ? g.firmaTecnico : t.firma;
       if (!firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sull'elenco non comparirà. Salvare lo stesso?`)) return;
       items.forEach((s) => el.querySelectorAll(`.giro-item[data-id="${s.id}"] [data-nota]`).forEach((n, pi) => (g.righe[s.id].note[pi] = n.value.trim())));

@@ -113,12 +113,13 @@ window.DEMO = (function () {
         const per = CTR.periodiDi(CTR.tipoVisita(p, n));
         const sq = squadra(), fd = sq[0];
         const data = feriale(ANNO, mese, 3, mese === MESE ? Math.max(3, Math.min(28, OGGI.getDate() - 1)) : 26);
-        const vis = { dataScheda: data, dataEsecuzione: data, tecnici: sq.map((u) => ({ id: u.id, nome: breve(u) })), tecnico: sq.map(breve).join(' e '), firmaDi: fd.id, firma: fd.firma, esiti: {} };
+        const vis = { dataScheda: data, dataEsecuzione: data, tecnici: sq.map((u) => ({ id: u.id, nome: breve(u) })), tecnico: sq.map(breve).join(' e '), firmaDi: fd.id, firma: fd.firma, esiti: {}, valori: {} };
         sc.voci.filter((v) => per.includes(v.per)).forEach((v) => {
           vis.esiti[v.id] = Array.from({ length: np }, (_, k) => {
             const aperta = sc.osservazioni.find((o) => o.vocId === v.id && (o.p || 1) === k + 1 && !o.risoltaIl);
             if (aperta) return aperta.lettera;
-            if (v.tipo === 'misura') return String((+i.paranchi[k].fune.diametro - Math.random() * .6).toFixed(1)).replace('.', ',');
+            // campo valore: non sempre si prende (qui circa 2 volte su 3), il codice X c'è comunque
+            if (CTR.haValore(v) && prob(.65)) (vis.valori[v.id] = vis.valori[v.id] || Array(np).fill(''))[k] = String((+i.paranchi[k].fune.diametro - Math.random() * .6).toFixed(1)).replace('.', ',');
             if (prob(.04) && lettera < 6) {
               const l = String.fromCharCode(65 + lettera++);
               sc.osservazioni.push({ lettera: l, testo: pick(ANOMALIE), vocId: v.id, p: k + 1, visita: n, data, ...(prob(.5) ? { risoltaIl: feriale(ANNO, Math.min(MESE, mese + 1)) } : {}) });

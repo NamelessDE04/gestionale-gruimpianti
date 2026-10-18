@@ -12,9 +12,26 @@ window.CTR = (function () {
   const CODICI = [['X', 'esame visivo funzionale'], ['R', 'ripristinato'], ['P', 'pulito'], ['L', 'lubrificato'], ['S', 'sostituito']];
   const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 
-  const V = (per, testo, tipo = 'codice') => ({ id: uid(), per, testo, tipo });
+  const V = (per, testo, unita) => ({ id: uid(), per, testo, tipo: 'codice', ...(unita != null ? { valore: true, unita } : {}) });
+  // CAMPO VALORE: oltre al codice (X, R, P…) la voce ha una casella per scrivere un valore (es. diametro in mm).
+  // Il valore è facoltativo: se non lo prendi, basta il codice. Le voci "misura" delle versioni vecchie valgono come valore in mm.
+  const UNITA = ['mm', 'cm', 'kg', 't', '%', 'bar', '°C', 'V', 'A', 'nessuna'];
+  const haValore = (v) => !!(v && (v.valore || v.tipo === 'misura'));
+  const unitaDi = (v) => { const u = v?.unita != null ? v.unita : (v?.tipo === 'misura' ? 'mm' : ''); return u === 'nessuna' ? '' : u; };
+  const isCodice = (x) => CODICI.some(([k]) => k === x);
+  const isLett = (x) => /^[A-Z]{1,2}$/.test(x || '') && !isCodice(x);
+  // schede salvate con la vecchia "misura": il numero era nell'esito -> lo sposto nei valori e l'esito diventa X
+  function leggiVisita(vis, voci) {
+    if (!vis) return vis;
+    vis.valori = vis.valori || {};
+    voci.forEach((v) => {
+      const es = vis.esiti?.[v.id]; if (!es || !haValore(v)) return;
+      es.forEach((x, k) => { if (x && !isCodice(x) && !isLett(x)) { (vis.valori[v.id] = vis.valori[v.id] || [])[k] = x; es[k] = 'X'; } });
+    });
+    return vis;
+  }
   const VOCI_CARROPONTE = () => [
-    V('T', 'FUNE DI SOLLEVAMENTO'), V('T', 'ESITO ELASTICITÀ'), V('T', 'MISURA DIAMETRO', 'misura'), V('T', 'INTEGRITÀ GANCIO SICUREZZA'),
+    V('T', 'FUNE DI SOLLEVAMENTO'), V('T', 'ESITO ELASTICITÀ'), V('T', 'MISURA DIAMETRO', 'mm'), V('T', 'INTEGRITÀ GANCIO SICUREZZA'),
     V('T', 'FRENO SOLLEVAMENTO'), V('T', 'FRENO SOLLEVAMENTO AUX'), V('T', 'FRENO PONTE'), V('T', 'FRENO CARRO'),
     V('T', 'FINECORSA SOLLEVAMENTO'), V('T', 'FINECORSA PONTE'), V('T', 'FINECORSA CARRO'), V('T', 'PULSANTIERA DI COMANDO'),
     V('T', 'SEGNALAZIONE ACUSTICO - LUMINOSO'),
@@ -282,7 +299,9 @@ window.CTR = (function () {
     const osservazioni = sc.osservazioni;
     const aperte = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && o.visita < n);
     // valori iniziali: per le anomalie ancora aperte riporto la lettera
+    leggiVisita(vis, voci);
     voci.forEach((v) => {
+      if (haValore(v)) vis.valori[v.id] = vis.valori[v.id] || Array(np).fill('');
       vis.esiti[v.id] = vis.esiti[v.id] || Array(np).fill('');
       for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) { const a = aperte(v.id, pi)[0]; if (a && !prima) vis.esiti[v.id][pi - 1] = a.lettera; }
     });
@@ -325,9 +344,8 @@ window.CTR = (function () {
                     ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
                     ${aperte(v.id, pi).map((o) => `<div class="oss-aperta">⚠ <b>${esc(o.lettera)}</b> ${esc(o.testo)} <button type="button" class="link" data-sistema="${o.lettera}">✓ sistemata</button></div>`).join('')}
                     <div class="gi-row">
-                      ${v.tipo === 'misura'
-                        ? `<label class="misura"><input type="text" inputmode="decimal" data-mis placeholder="misura"><span>mm</span></label>${nominale(v, pi) ? `<span class="prima">nominale ${esc(nominale(v, pi))} mm</span>` : ''}`
-                        : `<div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>`}
+                      <div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>
+                      ${haValore(v) ? `<label class="valore"><input type="text" ${unitaDi(v) ? 'inputmode="decimal"' : ''} data-val placeholder="valore" aria-label="Valore${unitaDi(v) ? ' in ' + esc(unitaDi(v)) : ''}">${unitaDi(v) ? `<span>${esc(unitaDi(v))}</span>` : ''}</label>${nominale(v, pi) ? `<span class="prima">nom. ${esc(nominale(v, pi))}</span>` : ''}` : ''}
                       <button type="button" class="btn ghost small anom-btn" data-anom aria-label="Anomalia">⚠<span class="anom-txt"> Anomalia</span></button>
                       <span class="val-lettera"></span>
                     </div>
@@ -351,7 +369,7 @@ window.CTR = (function () {
     const mostra = (v, pi) => {
       const b = box(v.id, pi), val = vis.esiti[v.id][pi - 1] || '';
       b.querySelectorAll('.cod-btn').forEach((x) => x.classList.toggle('on', x.dataset.c === val));
-      const mis = b.querySelector('[data-mis]'); if (mis && !isLettera(val)) mis.value = val;
+      const vv = b.querySelector('[data-val]'); if (vv && document.activeElement !== vv) vv.value = vis.valori[v.id]?.[pi - 1] || '';
       b.querySelector('.val-lettera').innerHTML = isLettera(val) ? `<span class="lettera-on">${esc(val)}</span>` : '';
       b.classList.toggle('fatto', !!val); b.classList.remove('manca');
       el.querySelector('#nFatti').textContent = voci.reduce((t, x) => t + vis.esiti[x.id].filter(Boolean).length, 0);
@@ -383,12 +401,13 @@ window.CTR = (function () {
     voci.forEach((v) => { for (let pi = 1; pi <= np; pi++) {
       const b = box(v.id, pi);
       b.querySelectorAll('.cod-btn').forEach((x) => (x.onclick = () => { vis.esiti[v.id][pi - 1] = vis.esiti[v.id][pi - 1] === x.dataset.c ? '' : x.dataset.c; mostra(v, pi); }));
-      const mis = b.querySelector('[data-mis]'); if (mis) mis.oninput = () => { vis.esiti[v.id][pi - 1] = mis.value.trim(); mostra(v, pi); };
+      // scrivere un valore vuol dire che la voce è stata controllata: se manca il codice metto X
+      const vv = b.querySelector('[data-val]'); if (vv) vv.oninput = () => { vis.valori[v.id][pi - 1] = vv.value.trim(); if (vv.value.trim() && !vis.esiti[v.id][pi - 1]) vis.esiti[v.id][pi - 1] = 'X'; mostra(v, pi); };
       b.querySelector('[data-anom]').onclick = () => nuovaOss(v, pi);
       b.querySelectorAll('[data-sistema]').forEach((x) => (x.onclick = () => {
         const o = osservazioni.find((y) => y.lettera === x.dataset.sistema);
         o.risoltaIl = f.dataScheda.value || oggi();
-        if (vis.esiti[v.id][pi - 1] === o.lettera) vis.esiti[v.id][pi - 1] = v.tipo === 'misura' ? '' : 'R';
+        if (vis.esiti[v.id][pi - 1] === o.lettera) vis.esiti[v.id][pi - 1] = 'R';
         x.closest('.oss-aperta').innerHTML = `✓ <b>${esc(o.lettera)}</b> sistemata il ${fmt(o.risoltaIl)}`;
         mostra(v, pi); disegnaOss();
       }));
@@ -450,7 +469,7 @@ window.CTR = (function () {
             <div class="mod-voci">
               ${m.voci.filter((v) => v.per === pp).map((v) => `
                 <div class="mod-voce" data-id="${v.id}">
-                  <span class="grow">${esc(v.testo)}${v.tipo === 'misura' ? ' <span class="pill st-mai">misura</span>' : ''}</span>
+                  <span class="grow">${esc(v.testo)}${haValore(v) ? ` <span class="pill st-mai">valore${unitaDi(v) ? ' ' + esc(unitaDi(v)) : ''}</span>` : ''}</span>
                   <button class="btn ghost small" data-su="${v.id}" aria-label="Su">↑</button>
                   <button class="btn ghost small" data-giu="${v.id}" aria-label="Giù">↓</button>
                   <button class="btn ghost small" data-mod-voce="${v.id}">✏️</button>
@@ -467,12 +486,14 @@ window.CTR = (function () {
     const copiaM = () => JSON.parse(JSON.stringify(ms));
     el.querySelectorAll('[data-mod]').forEach((b) => (b.onclick = () => { modelloAperto = b.dataset.mod; App.ridisegna(); }));
     const modVoce = (v, per) => UI.modal({
-      titolo: v ? 'Modifica voce' : 'Nuova voce ' + PER[per], valori: v ? { ...v, misura: v.tipo === 'misura', per: PER_NOME[v.per] } : { per: PER_NOME[per] },
+      titolo: v ? 'Modifica voce' : 'Nuova voce ' + PER[per], valori: v ? { ...v, valore: haValore(v), unita: v.unita || (haValore(v) ? 'mm' : 'mm'), per: PER_NOME[v.per] } : { per: PER_NOME[per], unita: 'mm' },
+      infoTxt: 'Ogni voce si segna con il codice (X, R, P, L, S). Se attivi «Campo valore» accanto ai codici compare anche una casella per scrivere un valore (es. il diametro della fune): è facoltativa, la compili solo quando la prendi. Sulla scheda del cliente, se c\'è, esce il valore al posto della X.',
       campi: [{ k: 'testo', label: 'Testo della voce', req: true, maiuscolo: true }, { k: 'per', label: 'Periodicità', tipo: 'select', opzioni: Object.values(PER_NOME), mezza: true },
-        { k: 'misura', label: 'Si scrive una misura (es. diametro) invece di un codice', tipo: 'sino', mezza: true }],
+        { k: 'valore', label: 'Campo valore (oltre al codice)', tipo: 'sino', mezza: true },
+        { k: 'unita', label: 'Unità del valore', tipo: 'select', opzioni: UNITA, mezza: true }],
       onSalva: async (x) => {
         const n = copiaM(), mm = n.find((y) => y.id === m.id);
-        const dati = { testo: x.testo, per: Object.keys(PER_NOME).find((k) => PER_NOME[k] === x.per) || per || 'T', tipo: x.misura ? 'misura' : 'codice' };
+        const dati = { testo: x.testo, per: Object.keys(PER_NOME).find((k) => PER_NOME[k] === x.per) || per || 'T', tipo: 'codice', valore: !!x.valore, unita: x.valore ? (x.unita || 'mm') : null };
         if (v) Object.assign(mm.voci.find((y) => y.id === v.id), dati); else mm.voci.push({ id: uid(), ...dati });
         await salvaM(n);
       },
@@ -515,5 +536,5 @@ window.CTR = (function () {
     return sedi(el, S);
   }
 
-  return { route, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+  return { route, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
 })();

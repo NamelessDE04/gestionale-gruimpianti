@@ -92,9 +92,16 @@ window.CTRS = (function () {
       visite.forEach((vis, n) => {
         if (!vis || !dovute[n].includes(v.per)) return;
         const es = vis.esiti?.[v.id] || [];
+        const vl = vis.valori?.[v.id] || [];
         const bl = blocchi[n];
-        // SCHEDA CLIENTE: una voce dovuta e lasciata vuota esce come X (misure e lettere restano quelle scritte)
-        bl.p.forEach(([a, b], pi) => (h += T(a, ty(k), val(es[pi] || 'X'), 'cs-c', b - a)));
+        // SCHEDA CLIENTE: una voce dovuta e lasciata vuota esce come X; se è stato scritto un valore esce il valore
+        // (al posto della X). Le lettere delle anomalie e i codici R/P/L/S restano quelli scritti.
+        const vecchio = (x) => x && !CTR.CODICI.some(([c]) => c === x) && !/^[A-Z]{1,2}$/.test(x);   // vecchia "misura" nell'esito
+        bl.p.forEach(([a, b], pi) => {
+          const e = es[pi] || '', w = vl[pi] || (vecchio(e) ? e : '');
+          const txt = w && (!e || e === 'X' || vecchio(e)) ? w : (e || 'X');
+          h += T(a, ty(k), val(txt), 'cs-c' + (String(txt).length > 3 ? ' cs-lungo' : ''), b - a);
+        });
       });
     });
     // firma: una sola per ogni gruppo (TRIM / SEME / ANN) di ogni controllo, girata di 90° e in verticale.
