@@ -46,6 +46,7 @@ window.HOME = (function () {
           <h1>${ora < 13 ? 'Buongiorno' : ora < 18 ? 'Buon pomeriggio' : 'Buonasera'}</h1>
           <p>Scegli cosa vuoi fare.</p>
         </div>
+        ${UT.isMaster() && CONF.conta(S) ? `<a class="avviso-m st-b-scaduto" href="#/conflitti"><span class="av-ico">⚠️</span><span class="grow"><b>${CONF.conta(S)} ${CONF.conta(S) === 1 ? 'conflitto' : 'conflitti'} tra dispositivi</b><span>Due dispositivi offline hanno lavorato sugli stessi documenti: scegli cosa tenere</span></span>›</a>` : ''}
         ${avvisiMezzi(S)}
         <div class="tiles">${caselle.map((c) => tile(c, c.k === 'rapportini' ? RAP.badge(S) : c.k === 'mezzi' && MEZ.avvisi(S).length ? `${MEZ.avvisi(S).length} ${MEZ.avvisi(S).length === 1 ? 'scadenza' : 'scadenze'}` : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '')).join('')}</div>
         <p class="in-arrivo">In arrivo: ${caselle.filter((c) => !c.attiva).map((c) => c.titolo).join(' · ')}</p>

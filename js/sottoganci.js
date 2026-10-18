@@ -362,6 +362,7 @@ window.SG = (function () {
 
     el.innerHTML = `
       <form class="sg form" id="fGiro" novalidate>
+        ${esistente ? CONF.avvisoAltro(esistente, `Il ${slotN}° controllo ${anno} (fascetta ${slot.nome})`) : ''}
         <div class="card giro-head" style="--c:${slot.col}">
           <div class="giro-fascia">${slotN}° controllo ${anno}<b>fascetta ${slot.nome}</b></div>
           <div class="grow"><h1>${esc(c.nome)} <span class="loc">${esc(c.localita || '')}</span></h1>

@@ -298,6 +298,7 @@ window.CTR = (function () {
 
     el.innerHTML = `
       <form class="sg form" id="fVis" novalidate>
+        ${CONF.avvisoAltro(prima, `Il ${n}° controllo ${anno} di questo impianto`)}
         <div class="card giro-head t-${tipo}">
           <div class="giro-fascia">${n}° controllo ${anno}<b>${nomeTipo(tipo)}</b><span>${MESI[mese - 1]}</span></div>
           <div class="grow"><h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
@@ -411,7 +412,8 @@ window.CTR = (function () {
       // la firma del profilo viene copiata nel controllo: se poi il tecnico la rifà, i controlli vecchi non cambiano
       const firma = t.firmaDi === vis.firmaDi && vis.firma && prima ? vis.firma : t.firma;
       if (!firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sulla scheda non comparirà. Salvare lo stesso?`)) return;
-      Object.assign(vis, { dataScheda: f.dataScheda.value || oggi(), dataEsecuzione: f.dataEsecuzione.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, firma });
+      Object.assign(vis, { dataScheda: f.dataScheda.value || oggi(), dataEsecuzione: f.dataEsecuzione.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, firma,
+        _da: UT.breve(UT.attuale()), _disp: CONF.nomeDisp(), _quando: new Date().toISOString() });
       sc.visite[n] = vis; sc.osservazioni = osservazioni;
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
       App.ricordaTecnico(vis.tecnico); UI.toast('Controllo salvato', 'ok');

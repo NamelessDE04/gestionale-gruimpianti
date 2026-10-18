@@ -36,7 +36,7 @@ window.RAP = (function () {
   const nomeSede = (c, s) => (s ? (s.sigla || `${CLI.nome(c)} ${s.nome || ''}`.trim()) : '');
   const dateDi = (r) => (r.giorni || []).map((g) => g.data).filter(Boolean).sort();
   const primaData = (r) => dateDi(r)[0] || r.dataConsegna || (r.creato || '').slice(0, 10);
-  const numeroDi = (r) => `${r.numero}/${r.anno}`;
+  const numeroDi = (r) => (r.numero ? `${r.numero}/${r.anno}` : 'in arrivo');
   const tecniciDi = (r) => [...new Set((r.giorni || []).flatMap((g) => g.tecnici || []))];
   const breveId = (S, id) => { const u = S.utenti.find((x) => x.id === id); return u ? UT.breve(u) : ''; };
   const firmato = (r) => !!r.firmaReferente;
@@ -337,12 +337,17 @@ window.RAP = (function () {
       // la firma del tecnico è quella del suo profilo, fissata al momento del salvataggio
       const ft = S.utenti.find((u) => u.id === r.firmaDi);
       r.firmaTecnico = ft?.firma || r.firmaTecnico || null; r.firmatarioTecnico = ft ? UT.breve(ft) : r.firmatarioTecnico || '';
+      if (!r.numero) r.numero = S.rapportini.find((x) => x.id === r.id)?.numero || null;   // assegnato nel frattempo da un altro dispositivo
       if (nuovo) {
         const a = (r.giorni[0]?.data || oggi()).slice(0, 4);
-        r.anno = +a; r.numero = Math.max(0, ...S.rapportini.filter((x) => +x.anno === +a).map((x) => +x.numero || 0)) + 1;
+        r.anno = +a;
+        // con il cloud il numero lo dà il contatore unico (anche se più tablet lavorano offline); senza cloud, il prossimo libero
+        if (Backend.mode === 'cloud') { r.numero = null; r.numeroInAttesa = true; }
+        else r.numero = Math.max(0, ...S.rapportini.filter((x) => +x.anno === +a).map((x) => +x.numero || 0)) + 1;
         r.creato = new Date().toISOString(); r.creatoDa = UT.attuale()?.id || '';
       }
       await UI.salva('rapportini', r);
+      assegnaNumeri(S);
       UI.toast(r.firmaReferente ? 'Rapportino salvato e firmato' : 'Rapportino salvato (da firmare)', 'ok');
       location.hash = '#/rapportini/r/' + r.id;
     };
@@ -359,7 +364,7 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="stampa-recap">
         <div class="azioni-lista no-print">
-          <button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>
+          ${r.numero ? '<button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>' : '<span class="pill st-ko">⏳ Numero in arrivo: si assegna da solo appena c\'è internet</span>'}
           <a class="btn ghost" href="#/rapportini/r/${r.id}/modifica">${firmato(r) ? '✏️ Modifica' : '✍️ Completa e firma'}</a>
           <a class="btn ghost" href="#/rapportini">Elenco</a>
           ${UT.isMaster() ? `<a class="btn ghost" href="#/invio?tipo=rapportini&sede=${r.sedeId}&ids=${r.id}&da=${encodeURIComponent('#/rapportini/r/' + r.id)}">📧 ${r.inviatoIl ? 'Inviato il ' + fmt(r.inviatoIl.slice(0, 10)) + ' · reinvia' : 'Invia al cliente'}</a>` : ''}
@@ -405,12 +410,29 @@ window.RAP = (function () {
           </div>
         </article></div>
       </section>`;
-    el.querySelector('#btnStampa').onclick = () => {
+    if (el.querySelector('#btnStampa')) el.querySelector('#btnStampa').onclick = () => {
       const t = document.title;
       document.title = `Rapportino_${r.numero}-${r.anno}_${c ? CLI.nome(c) : ''}`.replace(/[^\w\-]+/g, '_');
       window.print(); setTimeout(() => (document.title = t), 1000);
     };
     return { titolo: 'Rapportino N° ' + numeroDi(r), indietro: '#/rapportini', live: true };
+  }
+
+  // assegna il numero ai rapportini creati senza rete (uno alla volta, in ordine di creazione)
+  let assegnando = false;
+  async function assegnaNumeri(S) {
+    if (assegnando || Backend.mode !== 'cloud' || !navigator.onLine || !Backend.assegnaNumero) return;
+    const attesa = S.rapportini.filter((r) => !r.numero).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
+    if (!attesa.length) return;
+    assegnando = true;
+    try {
+      for (const r of attesa) {
+        const max = Math.max(0, ...S.rapportini.filter((x) => +x.anno === +r.anno).map((x) => +x.numero || 0));
+        const n = await Backend.assegnaNumero(r.anno, r.id, max);
+        if (n) { r.numero = n; UT.registra('modifica', `Rapportino ${n}/${r.anno}: numero assegnato`, { col: 'rapportini', docId: r.id }); }
+      }
+    } catch (e) { console.warn('numeri rapportini', e); }
+    assegnando = false;
   }
 
   function route(el, S, parti, query) {
@@ -423,5 +445,5 @@ window.RAP = (function () {
     }
     return lista(el, S);
   }
-  return { route, badge, oreLavoro };
+  return { route, badge, oreLavoro, assegnaNumeri };
 })();

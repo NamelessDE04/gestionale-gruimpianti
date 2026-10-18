@@ -1,8 +1,8 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.18.0';
-  const COLLEZIONI = ['invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi'];
-  const S = { invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
+  const VERSIONE = '0.19.0';
+  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi'];
+  const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
   const el = document.getElementById('app');
   let vistaLive = true, pronti = 0;
@@ -35,6 +35,7 @@ window.App = (function () {
     else if (UT.vietato(parti)) { el.innerHTML = `<section class="vuoto"><h1>🔒 Accesso limitato</h1><p>${UT.vietato(parti)}</p><button class="btn" onclick="history.back()">Indietro</button></section>`; info = { titolo: '', indietro: '#/' }; }
     else if (parti[0] === 'utenti') info = UT.gestione(el, S) || info;
     else if (parti[0] === 'registro') { UT.registro(el, S, parti); info = { titolo: parti[1] ? 'Registro attività · PDF' : 'Registro attività', indietro: parti[1] ? '#/registro' : '#/profilo', live: false }; }
+    else if (parti[0] === 'conflitti') info = CONF.pagina(el, S) || info;
     else if (parti[0] === 'invio') info = INVIO.route(el, S, parti, query) || info;
     else if (parti[0] === 'cablaggio') info = CAB.route(el, S, parti) || info;
     else if (parti[0] === 'rapportini') info = RAP.route(el, S, parti, query) || info;
@@ -58,7 +59,10 @@ window.App = (function () {
   let ruoliFatti = false;
   const PER_LAVAGNA = { clienti: (c) => ({ ...c, logo: null }), utenti: (u) => ({ id: u.id, nome: u.nome, nomeBreve: u.nomeBreve || '', ruolo: u.ruolo, attivo: u.attivo }), mezzi: (m) => m };
   const aggiornaDati = (col) => (dati) => {
+    const prima = S[col];
     S[col] = dati;
+    CONF.verifica(col, prima, dati);   // due dispositivi hanno lavorato in parallelo sullo stesso documento?
+    if (col === 'rapportini') RAP.assegnaNumeri(S);
     if (Backend.mode === 'cloud') {
       // la Lavagna legge le anagrafiche dalla copia sul dispositivo
       if (PER_LAVAGNA[col]) try { localStorage.setItem('gid_demo_' + col, JSON.stringify(dati.map(PER_LAVAGNA[col]))); } catch (e) {}
@@ -78,7 +82,8 @@ window.App = (function () {
     document.getElementById('bannerProva').hidden = Backend.mode !== 'prova';
     document.getElementById('btnDemo').onclick = () => DEMO.apri(S);
     document.getElementById('btnEsciProva').onclick = () => DEMO.esci();
-    rete(); window.addEventListener('online', rete); window.addEventListener('offline', rete);
+    rete(); window.addEventListener('online', rete);
+    window.addEventListener('online', () => setTimeout(() => RAP.assegnaNumeri(S), 2000)); window.addEventListener('offline', rete);
     try { await Backend.init(); }
     catch (e) { el.innerHTML = '<section class="vuoto"><h1>Cloud non raggiungibile</h1><p>Il primo avvio ha bisogno di internet. Controlla la connessione e riprova.</p><button class="btn" onclick="location.reload()">Riprova</button></section>'; return; }
     UT.installa();

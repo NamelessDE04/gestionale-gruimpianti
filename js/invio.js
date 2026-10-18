@@ -63,7 +63,7 @@ window.INVIO = (function () {
   };
   const documenti = (S, tipo, sedeId, anno) => {
     if (tipo === 'rapportini') return S.rapportini.filter((r) => r.sedeId === sedeId).sort((a, b) => (b.anno - a.anno) || (b.numero - a.numero))
-      .map((r) => ({ id: r.id, t: `Rapportino N° ${r.numero}/${r.anno}`, sub: `${fmt((r.giorni || [])[0]?.data || r.dataConsegna)} · ${r.firmaReferente ? 'firmato' : 'da firmare'}${r.inviatoIl ? ' · ✉️ inviato il ' + fmt(r.inviatoIl.slice(0, 10)) : ''}`, on: !r.inviatoIl && !!r.firmaReferente }));
+      .map((r) => ({ id: r.id, senza: !r.numero, t: r.numero ? `Rapportino N° ${r.numero}/${r.anno}` : 'Rapportino (numero in arrivo)', sub: `${fmt((r.giorni || [])[0]?.data || r.dataConsegna)} · ${r.firmaReferente ? 'firmato' : 'da firmare'}${r.inviatoIl ? ' · ✉️ inviato il ' + fmt(r.inviatoIl.slice(0, 10)) : ''}`, on: !r.inviatoIl && !!r.firmaReferente && !!r.numero }));
     if (tipo === 'controlli') return S.impianti.filter((i) => i.sedeId === sedeId).sort((a, b) => String(a.numeroInterno).localeCompare(String(b.numeroInterno), 'it', { numeric: true }))
       .map((i) => { const sc = CTR.schedaDi(S, i.id, anno); const n = sc ? Object.keys(sc.visite || {}).length : 0;
         return { id: i.id, t: `${i.numeroInterno ? 'N° ' + i.numeroInterno + ' · ' : ''}${IMP.titolo(i)}`, sub: `${i.matricola ? 'matr. ' + i.matricola + ' · ' : ''}${n ? n + (n === 1 ? ' controllo' : ' controlli') + ' nel ' + anno : 'nessun controllo nel ' + anno}`, on: n > 0 }; });
@@ -131,7 +131,7 @@ window.INVIO = (function () {
         </div>
         <div class="card">
           <div class="card-head"><h2>Documenti da inviare</h2>${docs.length > 1 ? '<button type="button" class="link" id="btnTutti">Tutti / nessuno</button>' : ''}</div>
-          <div class="spunte" id="docs">${docs.map((d) => `<label class="spunta"><input type="checkbox" value="${d.id}" ${d.on ? 'checked' : ''}><span><b>${esc(d.t)}</b><small>${esc(d.sub)}</small></span></label>`).join('') || '<p class="muted">Nessun documento per questo cliente.</p>'}</div>
+          <div class="spunte" id="docs">${docs.map((d) => `<label class="spunta ${d.senza ? 'spenta' : ''}"><input type="checkbox" value="${d.id}" ${d.on ? 'checked' : ''} ${d.senza ? 'disabled' : ''}><span><b>${esc(d.t)}</b><small>${esc(d.sub)}</small></span></label>`).join('') || '<p class="muted">Nessun documento per questo cliente.</p>'}</div>
           ${docs.length ? '<button type="button" class="btn ghost small" id="btnAnteprima">👁 Scarica il PDF da controllare</button>' : ''}
         </div>
         <div class="card">

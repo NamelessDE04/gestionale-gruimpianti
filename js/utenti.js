@@ -87,6 +87,7 @@ window.UT = (function () {
     Backend.save = async (col, doc) => {
       if (!permesso(col, doc)) { UI.toast('Accesso in sola lettura: non puoi modificare', 'err'); throw new Error('sola lettura'); }
       const nuovo = !(S?.[col] || []).some((x) => x.id === doc.id);
+      CONF.marca(col, doc);   // nuova versione (serve a riconoscere i conflitti tra dispositivi offline)
       const r = await o.save(col, doc);
       registra(nuovo ? 'creazione' : 'modifica', descrivi(col, doc), { col, docId: doc.id });
       return r;
@@ -489,7 +490,19 @@ window.UT = (function () {
   // ---------- CLOUD: accesso con Google, primo avvio, livelli ----------
   let ruoloDispositivo = null;
   const capi = () => (window.UTENTI_INIZIALI || []).filter((x) => x.ruolo === 'master').map((x) => x.google.toLowerCase());
-  const ruoloAccount = async (email) => (capi().includes(email) && !Backend.isDispositivo(email) ? 'master' : await Backend.ruoloAccount(email));
+  // livello dell'account; senza rete uso l'ultimo noto (così il tablet si apre anche offline)
+  const ruoloAccount = async (email) => {
+    if (capi().includes(email) && !Backend.isDispositivo(email)) return 'master';
+    const k = 'gid_ruolo_' + email;
+    let r = null;
+    try { r = await Promise.race([Backend.ruoloAccount(email), new Promise((ok) => setTimeout(() => ok(undefined), navigator.onLine ? 15000 : 2500))]); } catch (e) { r = undefined; }
+    try {
+      if (r) localStorage.setItem(k, r);
+      else if (r === null && navigator.onLine) localStorage.removeItem(k);   // tolto dal Master: niente accesso
+      else r = localStorage.getItem(k);                                     // nessuna risposta (offline): ultimo noto
+    } catch (e) {}
+    return r || null;
+  };
   const box = (el, html) => { el.innerHTML = `<section class="login"><div class="login-box card"><img src="img/logo-grande.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">${html}</div></section>`; };
 
   function chiediGoogle(el) {
@@ -619,7 +632,7 @@ window.UT = (function () {
   // ---------- percorsi vietati per livello ----------
   function vietato(parti) {
     const r = ruoloDi(attuale()), p = parti.join('/');
-    if ((parti[0] === 'utenti' || parti[0] === 'registro' || parti[0] === 'invio') && r !== 'master') return 'Questa sezione è riservata al Master.';
+    if (['utenti', 'registro', 'invio', 'conflitti'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
     if (r !== 'ru') return null;
     const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)
       || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p);
@@ -653,7 +666,7 @@ window.UT = (function () {
   }
 
   return {
-    attuale, isMaster, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
+    descrivi, attuale, isMaster, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
     campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
 })();

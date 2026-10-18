@@ -873,3 +873,13 @@ body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; b
 .riga-tab { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--linea); padding: 10px 0; }
 .riga-tab span { display: flex; flex-direction: column; } .riga-tab small { color: var(--muted); }
 .codice-grande { font-size: 30px; font-weight: 900; letter-spacing: 4px; text-align: center; background: #fff6d9; border: 2px dashed var(--giallo); border-radius: 14px; padding: 16px 8px; margin: 10px 0; color: var(--navy); }
+
+/* =================== CONFLITTI TRA DISPOSITIVI =================== */
+.conf-tit { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.conf-due { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 8px; }
+.conf-v { border: 1.5px solid var(--linea); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; }
+.conf-v span { font-size: 12px; text-transform: uppercase; letter-spacing: .4px; color: var(--muted); } .conf-v small { color: var(--muted); }
+.conf-v.alt { border-style: dashed; border-color: #e0a64b; background: #fff8ec; } .conf-v.via { opacity: .6; }
+.avviso-altro { background: #fff3d6; border: 1.5px solid #f2b705; border-radius: 12px; padding: 10px 14px; margin-bottom: 12px; font-size: 14.5px; }
+.spunta.spenta { opacity: .55; cursor: not-allowed; }
+@media (max-width: 560px) { .conf-due { grid-template-columns: 1fr; } }

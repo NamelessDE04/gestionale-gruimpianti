@@ -146,8 +146,12 @@
       },
       // livello dell'account Google secondo il cloud (o null se non autorizzato)
       async ruoloAccount(email) {
-        try { const d = await db.collection('ruoli').doc(email).get(); return d.exists ? d.data().ruolo : null; }
-        catch (e) { return null; }
+        try {
+          const d = await db.collection('ruoli').doc(email).get();
+          if (d.exists && d.data().nome) try { localStorage.setItem('gid_nome_disp', d.data().nome); } catch (e) {}
+          return d.exists ? d.data().ruolo : (d.metadata && d.metadata.fromCache ? undefined : null);
+        }
+        catch (e) { return undefined; }   // senza risposta (es. offline): l'app usa l'ultimo livello noto
       },
       async impostaRuolo(email, ruolo, nome) { await db.collection('ruoli').doc(email).set({ ruolo, nome: nome || '', aggiornato: new Date().toISOString() }); },
       async togliRuolo(email) { await db.collection('ruoli').doc(email).delete(); },
@@ -169,6 +173,20 @@
         await scriviMolti(col, docs);
       },
       caricaMolti: scriviMolti,
+      // numero progressivo del rapportino assegnato dal cloud (contatore unico per anno, mai doppio)
+      async assegnaNumero(anno, id, maxNoto) {
+        const cRef = db.collection('contatori').doc('rapportini-' + anno), rRef = db.collection('rapportini').doc(id);
+        return db.runTransaction(async (t) => {
+          const c = await t.get(cRef), r = await t.get(rRef);
+          if (!r.exists) return null;
+          const rd = decodifica(r.data());
+          if (rd.numero) return rd.numero;                       // già assegnato da un altro dispositivo
+          const n = Math.max(c.exists ? +c.data().ultimo || 0 : 0, +maxNoto || 0) + 1;
+          t.set(cRef, { ultimo: n, aggiornato: new Date().toISOString() });
+          t.update(rRef, { numero: n, numeroInAttesa: false });
+          return n;
+        });
+      },
       async remove(col, id) { const p = db.collection(col).doc(id).delete(); if (navigator.onLine) await p; },
       append(col, doc) { db.collection(col).doc(doc.id).set(codifica(doc)).catch(() => {}); },
       async leggiTutti(col) {
