@@ -47,10 +47,13 @@ window.RAP = (function () {
     if (!t.length) return g.piattaforma ? 'SÌ' : 'NO';   // vecchi rapportini con la sola spunta
     return `${t.length} – ${[...new Set(t)].join(' / ')}`;
   };
-  const badge = (S) => { const n = S.rapportini.filter((r) => !firmato(r)).length; return n ? `${n} da firmare` : ''; };
+  // aperto = non ancora firmato dal referente (lavoro non chiuso)
+  const giorniAperto = (r) => Math.max(0, -UI.giorniDa(primaData(r)));
+  const aperti = (S) => S.rapportini.filter((r) => !firmato(r)).sort((a, b) => primaData(a).localeCompare(primaData(b)));
+  const badge = (S) => { const a = aperti(S), vecchi = a.filter((r) => giorniAperto(r) > 30).length; return a.length ? `${a.length} da firmare${vecchi ? ` · ${vecchi} da più di un mese` : ''}` : ''; };
 
   // ---------- 1. ELENCO DIVISO PER MESE ----------
-  let filtro = { anno: String(new Date().getFullYear()), mese: '', cli: '', tec: '', q: '' };
+  let filtro = { anno: String(new Date().getFullYear()), mese: '', cli: '', tec: '', stato: '', q: '' };
   function lista(el, S) {
     const anni = [...new Set([String(new Date().getFullYear()), ...S.rapportini.map((r) => primaData(r).slice(0, 4))])].filter(Boolean).sort().reverse();
     const clienti = [...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b)));
@@ -62,6 +65,8 @@ window.RAP = (function () {
       if (filtro.mese && +d.slice(5, 7) !== +filtro.mese) return false;
       if (filtro.cli && r.clienteId !== filtro.cli) return false;
       if (filtro.tec && !tecniciDi(r).includes(filtro.tec)) return false;
+      if (filtro.stato === 'aperti' && firmato(r)) return false;
+      if (filtro.stato === 'firmati' && !firmato(r)) return false;
       if (q) { const { c, s } = trova(S, r.sedeId); if (![numeroDi(r), c && CLI.nome(c), c?.ragioneSociale, s?.nome, s?.sigla, r.eseguiti, r.daEseguire].join(' ').toLowerCase().includes(q)) return false; }
       return true;
     }).sort((a, b) => primaData(b).localeCompare(primaData(a)) || b.numero - a.numero);
@@ -72,14 +77,20 @@ window.RAP = (function () {
         <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). Usa i filtri per trovare quelli di un cliente o di un tecnico. Tocca un rapportino per vederlo, stamparlo o completarlo con la firma del referente.')}</h1>
           ${UT.isMaster() ? '<a class="btn ghost small" href="#/invio?tipo=rapportini&da=%23%2Frapportini">📧 Invia ai clienti</a>' : ''}<a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
         <div class="card form filtri-rap">
+          <details class="filtri-det" ${innerWidth > 760 || ['mese', 'cli', 'tec', 'stato'].some((k) => filtro[k]) ? 'open' : ''}><summary>🔎 Filtri${['mese', 'cli', 'tec', 'stato'].filter((k) => filtro[k]).length ? ` <span class="pill st-inv">${['mese', 'cli', 'tec', 'stato'].filter((k) => filtro[k]).length} attivi</span>` : ''} <span class="muted small">anno ${esc(filtro.anno || 'tutti')}</span></summary>
           <div class="filtri-griglia">
             <label>Anno<select data-f="anno"><option value="">Tutti</option>${anni.map((a) => `<option ${a === filtro.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
             <label>Mese<select data-f="mese"><option value="">Tutti</option>${MESI.map((m, i) => `<option value="${i + 1}" ${String(i + 1) === filtro.mese ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
             <label>Cliente<select data-f="cli"><option value="">Tutti</option>${clienti.map((c) => `<option value="${c.id}" ${c.id === filtro.cli ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
             <label>Tecnico<select data-f="tec"><option value="">Tutti</option>${tec.map((u) => `<option value="${u.id}" ${u.id === filtro.tec ? 'selected' : ''}>${esc(UT.breve(u))}</option>`).join('')}</select></label>
-          </div>
+            <label>Stato<select data-f="stato">${[['', 'Tutti'], ['aperti', 'Da firmare'], ['firmati', 'Firmati']].map(([k, l]) => `<option value="${k}" ${k === filtro.stato ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          </div></details>
           <input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, lavori…" value="${esc(filtro.q)}">
         </div>
+        ${aperti(S).length && filtro.stato !== 'firmati' ? `<div class="card aperti-rap">
+          <h2>📌 Da completare <span class="muted">· ${aperti(S).length} ${aperti(S).length === 1 ? 'rapportino aperto' : 'rapportini aperti'}</span> ${info('Sono i rapportini non ancora firmati dal referente: restano qui, in cima, finché non li chiudi, qualunque mese stai guardando. Per un lavoro che continua tocca «+ giorno» e aggiungi il nuovo giorno allo stesso rapportino.')}</h2>
+          <div class="elenco">${aperti(S).map((r) => `<div class="aperto-riga ${giorniAperto(r) > 30 ? 'vecchio' : ''}">${riga(S, r)}<div class="aperto-az"><span class="small ${giorniAperto(r) > 30 ? 'txt-ko' : 'muted'}">aperto da ${giorniAperto(r)} ${giorniAperto(r) === 1 ? 'giorno' : 'giorni'}</span>${UT.solaLettura() ? '' : `<a class="btn ghost small" href="#/rapportini/r/${r.id}/modifica?giorno=1">+ giorno</a><a class="btn small" href="#/rapportini/r/${r.id}/modifica">✍️ Firma</a>`}</div></div>`).join('')}</div>
+        </div>` : ''}
         ${gruppi.length ? gruppi.map((g) => `
           <h2 class="mese-rap">${MESI[+g.k.slice(5) - 1]} ${g.k.slice(0, 4)} <span class="muted">· ${g.r.length} ${g.r.length === 1 ? 'rapportino' : 'rapportini'}</span></h2>
           <div class="elenco">${g.r.map((r) => riga(S, r)).join('')}</div>`).join('')
@@ -129,6 +140,12 @@ window.RAP = (function () {
     r = r ? JSON.parse(JSON.stringify(r)) : { id: uid(), clienteId: '', sedeId: query.get('sede') || '', giorni: [], eseguiti: '', daEseguire: '', dataConsegna: oggi(), referenteId: '', referenteNome: '', firmaReferente: null, firmaDi: UT.attuale()?.id || '' };
     if (r.sedeId && !r.clienteId) r.clienteId = trova(S, r.sedeId).c?.id || '';
     if (!r.giorni.length) r.giorni.push(giornoVuoto(trova(S, r.sedeId).s));
+    const conGiorno = !nuovo && query.get('giorno') === '1';
+    if (conGiorno) {
+      const ult = r.giorni[r.giorni.length - 1], g = giornoVuoto(trova(S, r.sedeId).s, ult);
+      if (oggi() > (ult?.data || '')) g.data = oggi();
+      r.giorni.push(g);
+    }
     let rifaiFirma = !r.firmaReferente, pad = null;
     const tecUtenti = UT.attivi().filter((u) => UT.ruoloDi(u) !== 'ru');
 
@@ -141,6 +158,7 @@ window.RAP = (function () {
               <label>Cliente *<select name="clienteId"><option value="">— scegli —</option>${[...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b))).map((c) => `<option value="${c.id}" ${c.id === r.clienteId ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
               <label>Sede *<select name="sedeId"></select></label>
             </div>
+            <div id="aperti"></div>
           </div>
           <div class="card">
             <div class="card-head"><h2>Giorni di lavoro ${info('Un rapportino può avere più giorni: ognuno diventa una riga nel PDF. Se arrivate al pomeriggio compila solo il pomeriggio. Km e viaggio vengono proposti dall\'anagrafica della sede (solo andata) e raddoppiano con A/R: puoi sempre cambiarli a mano.')}</h2></div>
@@ -191,7 +209,14 @@ window.RAP = (function () {
     f.referenteId.onchange = mostraRefNome;
     f.clienteId.onchange = () => { r.sedeId = ''; disegnaSedi(); aggiornaSede(); };
     f.sedeId.onchange = () => { r.sedeId = f.sedeId.value; aggiornaSede(); };
-    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); };
+    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); mostraAperti(); };
+    // nuovo rapportino per una sede che ne ha già uno aperto: propongo di continuare quello
+    const mostraAperti = () => {
+      const box = el.querySelector('#aperti'); if (!box) return;
+      const lista = nuovo && f.sedeId.value ? aperti(S).filter((x) => x.sedeId === f.sedeId.value) : [];
+      box.innerHTML = lista.length ? `<div class="avviso-altro">📌 Per questa sede c'è già ${lista.length === 1 ? 'un rapportino aperto' : lista.length + ' rapportini aperti'}: se il lavoro è lo stesso, continua quello.
+        ${lista.map((x) => `<div class="aperto-prop"><span><b>N° ${esc(numeroDi(x))}</b> · ${fmt(primaData(x))} · ${esc((x.eseguiti || '').slice(0, 60))}${(x.eseguiti || '').length > 60 ? '…' : ''}</span><a class="btn small" href="#/rapportini/r/${x.id}/modifica?giorno=1">+ Aggiungi un giorno</a></div>`).join('')}</div>` : '';
+    };
 
     // --- giorni
     // piattaforme dell'anagrafica mezzi (più quelle già scelte, anche se nel frattempo dismesse)
@@ -309,7 +334,8 @@ window.RAP = (function () {
       b.querySelector('#btnPulisci').onclick = () => pad.pulisci();
     }
 
-    disegnaSedi(); disegnaGiorni(); disegnaFrasi(); disegnaFirmaDi(); disegnaFirma();
+    disegnaSedi(); disegnaGiorni(); disegnaFrasi(); disegnaFirmaDi(); disegnaFirma(); mostraAperti();
+    if (conGiorno) setTimeout(() => { el.querySelector('.giorno-rap:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); UI.toast('Aggiunto il giorno di oggi: compila gli orari', ''); }, 200);
 
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il rapportino N° ${numeroDi(r)}?`)) return;
