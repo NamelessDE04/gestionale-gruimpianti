@@ -29,6 +29,23 @@ window.RAP = (function () {
   // ---------- calcoli ----------
   const minuti = (t) => { if (!t) return null; const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
   const durata = (da, a) => { const x = minuti(da), y = minuti(a); return x != null && y != null && y > x ? y - x : 0; };
+  // orari scritti a mano: "1000" o "10" -> 10:00, "830" -> 08:30, "8.30" -> 08:30; sempre a quarti d'ora
+  function ora15(txt) {
+    const t = String(txt || '').trim(); if (!t) return '';
+    let h, m;
+    const sep = t.match(/^(\d{1,2})\s*[:.,;\s]\s*(\d{0,2})$/);
+    if (sep) { h = +sep[1]; m = +(sep[2] || 0); }
+    else if (/^\d{1,4}$/.test(t)) { if (t.length <= 2) { h = +t; m = 0; } else { h = +t.slice(0, t.length - 2); m = +t.slice(-2); } }
+    else return null;
+    if (h > 24 || m > 59) return null;
+    m = Math.round(m / 15) * 15; if (m === 60) { h++; m = 0; }
+    if (h >= 24) { h = 23; m = 45; }
+    return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0');
+  }
+  // riga dei riferimenti (ordine, offerta, DDT) per l'app e per la stampa
+  const rifLista = (r) => [r.ordine && ['ORDINE N°', r.ordine], r.offerta && ['OFFERTA RIF.', r.offerta],
+    (r.ddtNumero || r.ddtData) && ['DDT N°', [r.ddtNumero, r.ddtData && 'DEL ' + UI.fmt(r.ddtData)].filter(Boolean).join(' ')]].filter(Boolean);
+  const sintesiRif = (r) => rifLista(r).map(([a, b]) => a + ' ' + b).join(' · ');
   const oreLavoro = (g) => durata(g.mattDa, g.mattA) + durata(g.pomDa, g.pomA);
   const hhmm = (m) => (m ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}` : '');
   const testoOre = (m) => (m ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') + '\'' : ''}` : '');
@@ -69,7 +86,7 @@ window.RAP = (function () {
       if (filtro.tec && !tecniciDi(r).includes(filtro.tec)) return false;
       if (filtro.stato === 'aperti' && firmato(r)) return false;
       if (filtro.stato === 'firmati' && !firmato(r)) return false;
-      if (q) { const { c, s } = trova(S, r.sedeId); if (![numeroDi(r), c && CLI.nome(c), c?.ragioneSociale, s?.nome, s?.sigla, r.eseguiti, r.daEseguire].join(' ').toLowerCase().includes(q)) return false; }
+      if (q) { const { c, s } = trova(S, r.sedeId); if (![numeroDi(r), c && CLI.nome(c), c?.ragioneSociale, s?.nome, s?.sigla, r.eseguiti, r.daEseguire, r.ordine, r.offerta, r.ddtNumero].join(' ').toLowerCase().includes(q)) return false; }
       return true;
     }).sort((a, b) => primaData(b).localeCompare(primaData(a)) || b.numero - a.numero);
     const gruppi = [];
@@ -79,7 +96,7 @@ window.RAP = (function () {
         <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). In cima, con 📌, quelli ancora da firmare: restano lì finché non li chiudi. Il simbolo accanto alla ricerca apre i filtri (anno, mese, cliente, tecnico, stato).')}</h1>
           ${UT.puoInviare() ? '<a class="btn ghost small" href="#/invio?tipo=rapportini&da=%23%2Frapportini">📧 Invia ai clienti</a>' : ''}<a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
         <div class="barra-cerca">
-          <input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, lavori…" value="${esc(filtro.q)}">
+          <input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, lavori, ordine, DDT…" value="${esc(filtro.q)}">
           <button type="button" class="btn-filtri ${filtriAperti ? 'on' : ''}" id="btnFiltri" aria-label="Filtri" title="Filtri">
             <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
             ${nAttivi ? `<span class="n-filtri">${nAttivi}</span>` : ''}
@@ -154,7 +171,7 @@ window.RAP = (function () {
       if (oggi() > (ult?.data || '')) g.data = oggi();
       r.giorni.push(g);
     }
-    let rifaiFirma = !r.firmaReferente, pad = null;
+    let rifaiFirma = false, pad = null;   // il riquadro della firma si apre solo col tasto (niente firme per sbaglio)
     const tecUtenti = UT.attivi().filter((u) => UT.ruoloDi(u) !== 'ru');
 
     el.innerHTML = `
@@ -166,6 +183,17 @@ window.RAP = (function () {
               <label>Cliente *<select name="clienteId"><option value="">— scegli —</option>${[...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b))).map((c) => `<option value="${c.id}" ${c.id === r.clienteId ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
               <label>Sede *<select name="sedeId"></select></label>
             </div>
+            <details class="rif-rap" ${r.ordine || r.offerta || r.ddtNumero ? 'open' : ''}>
+              <summary>📎 Ordine, offerta e DDT <span class="muted small" id="rifSint">${esc(sintesiRif(r))}</span></summary>
+              <div class="due">
+                <label>N° ordine del cliente<input name="ordine" value="${esc(r.ordine || '')}" autocomplete="off"></label>
+                <label>Offerta di riferimento<input name="offerta" value="${esc(r.offerta || '')}" autocomplete="off" placeholder="es. OFF. 125/2026"></label>
+              </div>
+              <div class="due">
+                <label>N° DDT<input name="ddtNumero" value="${esc(r.ddtNumero || '')}" autocomplete="off"></label>
+                <label>Data DDT<input type="date" name="ddtData" value="${esc(r.ddtData || '')}"></label>
+              </div>
+            </details>
             <div id="aperti"></div>
           </div>
           <div class="card">
@@ -202,6 +230,7 @@ window.RAP = (function () {
         </form>
       </section>`;
     const f = el.querySelector('#fRap');
+    el.querySelector('.rif-rap').addEventListener('input', () => (el.querySelector('#rifSint').textContent = sintesiRif({ ordine: f.ordine.value.trim(), offerta: f.offerta.value.trim(), ddtNumero: f.ddtNumero.value.trim(), ddtData: f.ddtData.value })));
     const sedeAttuale = () => trova(S, f.sedeId.value).s;
     const cliente = () => S.clienti.find((c) => c.id === f.clienteId.value);
 
@@ -242,8 +271,8 @@ window.RAP = (function () {
           <div class="gr-head"><b>Giorno ${i + 1}</b><span class="muted small" data-tot></span>${r.giorni.length > 1 ? `<button type="button" class="link txt-ko" data-togli="${i}">Togli</button>` : ''}</div>
           <div class="gr-riga gr-orari">
             <label class="gr-data">Data<input type="date" data-k="data" value="${esc(g.data)}"></label>
-            <fieldset class="gr-fascia"><legend>Mattina</legend><input type="time" data-k="mattDa" value="${esc(g.mattDa)}" aria-label="Mattina dalle"><span>–</span><input type="time" data-k="mattA" value="${esc(g.mattA)}" aria-label="Mattina alle"></fieldset>
-            <fieldset class="gr-fascia"><legend>Pomeriggio</legend><input type="time" data-k="pomDa" value="${esc(g.pomDa)}" aria-label="Pomeriggio dalle"><span>–</span><input type="time" data-k="pomA" value="${esc(g.pomA)}" aria-label="Pomeriggio alle"></fieldset>
+            <fieldset class="gr-fascia"><legend>Mattina</legend><input type="text" inputmode="numeric" data-k="mattDa" data-ora data-libero maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.mattDa)}" aria-label="Mattina dalle"><span>–</span><input type="text" inputmode="numeric" data-k="mattA" data-ora data-libero maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.mattA)}" aria-label="Mattina alle"></fieldset>
+            <fieldset class="gr-fascia"><legend>Pomeriggio</legend><input type="text" inputmode="numeric" data-k="pomDa" data-ora data-libero maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.pomDa)}" aria-label="Pomeriggio dalle"><span>–</span><input type="text" inputmode="numeric" data-k="pomA" data-ora data-libero maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.pomA)}" aria-label="Pomeriggio alle"></fieldset>
           </div>
           <div class="gr-riga">
             <label>Tratta<select data-k="tratta">${Object.entries(TRATTE).map(([k, l]) => `<option value="${k}" ${k === g.tratta ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
@@ -266,6 +295,23 @@ window.RAP = (function () {
           if (x.dataset.k === 'persone') g.personeAuto = false;
           tot();
         }));
+        // orari: si scrivono con la tastiera numerica; a 4 cifre si passa da soli al campo dopo
+        const ore = [...box.querySelectorAll('[data-ora]')];
+        const sistema = (x) => {
+          const v = ora15(x.value);
+          if (v === null) { x.classList.add('ora-ko'); UI.toast('Orario non valido: scrivi ad esempio 0800 o 8', 'err'); return false; }
+          x.classList.remove('ora-ko'); x.value = v; tot(); return true;
+        };
+        ore.forEach((x, k) => {
+          // entrando in un orario già scritto, la prima cifra lo sostituisce (non serve cancellare)
+          x.addEventListener('focus', () => (x.dataset.nuovo = '1'));
+          x.addEventListener('beforeinput', (e) => { if (x.dataset.nuovo && /^insert/.test(e.inputType)) x.value = ''; delete x.dataset.nuovo; });
+          x.addEventListener('change', () => sistema(x));
+          x.addEventListener('input', () => {
+            x.classList.remove('ora-ko');
+            if (/^\d{4}$/.test(x.value) || /^\d{1,2}[:.]\d{2}$/.test(x.value)) { if (sistema(x)) { if (ore[k + 1]) ore[k + 1].focus(); else x.blur(); } }
+          });
+        });
         box.querySelector('[data-k="tratta"]').addEventListener('change', () => { leggiUno(box, g); suggerisci(g, sedeAttuale()); g.auto = true; box.querySelector('[data-k="km"]').value = g.km; box.querySelector('[data-k="viaggio"]').value = g.viaggio; tot(); });
         box.querySelectorAll('[data-pt]').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); leggiUno(box, g); }));
         box.querySelectorAll('[data-tec]').forEach((b) => (b.onclick = () => {
@@ -279,7 +325,7 @@ window.RAP = (function () {
       el.querySelectorAll('[data-sugg]').forEach((b) => (b.onclick = () => { leggiGiorni(); const g = r.giorni[+b.dataset.sugg]; suggerisci(g, sedeAttuale()); g.auto = true; disegnaGiorni(); }));
     }
     function leggiUno(box, g) {
-      box.querySelectorAll('[data-k]').forEach((x) => (g[x.dataset.k] = x.type === 'checkbox' ? x.checked : x.value.trim().toUpperCase()));
+      box.querySelectorAll('[data-k]').forEach((x) => (g[x.dataset.k] = x.type === 'checkbox' ? x.checked : 'ora' in x.dataset ? (ora15(x.value) || '') : x.value.trim().toUpperCase()));
       g.tecnici = [...box.querySelectorAll('[data-tec].on')].map((b) => b.dataset.tec);
       g.piattaforme = [...box.querySelectorAll('[data-pt].on')].map((b) => b.dataset.pt);
       delete g.piattaforma;
@@ -331,15 +377,19 @@ window.RAP = (function () {
     function disegnaFirma() {
       const b = el.querySelector('#boxFirma');
       if (!rifaiFirma) {
-        b.innerHTML = `<div class="firma-salvata grande"><img src="${r.firmaReferente}" alt="Firma del referente"></div><button type="button" class="btn ghost" id="btnRifai">Rifai la firma del referente</button>`;
+        b.innerHTML = r.firmaReferente
+          ? `<div class="firma-salvata grande"><img src="${r.firmaReferente}" alt="Firma del referente"></div><button type="button" class="btn ghost" id="btnRifai">✍️ Rifai la firma del referente</button>`
+          : `<button type="button" class="btn big btn-firma" id="btnRifai">✍️ Fai firmare il referente</button><p class="muted small">Puoi salvare anche senza firma e farla firmare dopo.</p>`;
         b.querySelector('#btnRifai').onclick = () => { rifaiFirma = true; disegnaFirma(); };
         pad = null; return;
       }
       b.innerHTML = `<div class="firma firma-grande"><div class="firma-head"><b>Firma del referente</b><button type="button" class="link" id="btnPulisci">Cancella</button></div>
         <canvas id="cvRef"></canvas><span class="firma-hint">Firma qui col dito</span></div>
-        <p class="muted small">Puoi salvare anche senza firma e farla firmare dopo.</p>`;
+        <div class="azioni-form"><button type="button" class="btn ghost small" id="btnChiudiFirma">Annulla firma</button></div>`;
       pad = UI.firmaPad(b.querySelector('#cvRef'));
       b.querySelector('#btnPulisci').onclick = () => pad.pulisci();
+      b.querySelector('#btnChiudiFirma').onclick = () => { rifaiFirma = false; disegnaFirma(); };
+      b.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
     disegnaSedi(); disegnaGiorni(); disegnaFrasi(); disegnaFirmaDi(); disegnaFirma(); mostraAperti();
@@ -350,7 +400,10 @@ window.RAP = (function () {
       await Backend.remove('rapportini', r.id); UI.toast('Rapportino eliminato', 'ok'); location.hash = '#/rapportini';
     });
     f.onsubmit = async (e) => {
-      e.preventDefault(); leggiGiorni();
+      e.preventDefault();
+      const oraKo = [...el.querySelectorAll('[data-ora]')].find((x) => ora15(x.value) === null);
+      if (oraKo) { oraKo.classList.add('ora-ko'); oraKo.focus(); return UI.toast('Controlla gli orari: scrivi ad esempio 0800 o 8', 'err'); }
+      leggiGiorni();
       if (!f.clienteId.value) return UI.toast('Scegli il cliente', 'err');
       if (!f.sedeId.value) return UI.toast('Scegli la sede', 'err');
       if (r.giorni.some((g) => !g.data)) return UI.toast('Ogni giorno deve avere la data', 'err');
@@ -362,7 +415,9 @@ window.RAP = (function () {
         eseguiti: f.eseguiti.value.trim().toUpperCase(), daEseguire: f.daEseguire.value.trim().toUpperCase(),
         dataConsegna: f.dataConsegna.value, referenteId: f.referenteId.value,
         referenteNome: ref ? [ref.nome, ref.cognome].filter(Boolean).join(' ').toUpperCase() : f.referenteNome.value.trim().toUpperCase(),
-        firmaDi: f.firmaDi.value || ''
+        firmaDi: f.firmaDi.value || '',
+        ordine: f.ordine.value.trim().toUpperCase(), offerta: f.offerta.value.trim().toUpperCase(),
+        ddtNumero: f.ddtNumero.value.trim().toUpperCase(), ddtData: f.ddtData.value || ''
       });
       r.giorni.sort((a, b) => a.data.localeCompare(b.data));
       // sul rapportino va solo quante piattaforme e di che tipo: lo fisso al salvataggio
@@ -418,6 +473,7 @@ window.RAP = (function () {
               </div>
             </header>
             <div class="rap-titolo"><h1>RAPPORTINO DI INTERVENTO</h1><span>N° <b>${esc(numeroDi(r))}</b></span></div>
+            ${rifLista(r).length ? `<div class="rap-rif">${rifLista(r).map(([a, b]) => `<span>${a} <b>${esc(b)}</b></span>`).join('')}</div>` : ''}
             <table class="rap-ore">
               <thead><tr><th>Data</th><th>Mattina</th><th>Pomeriggio</th><th>Viaggio</th><th>Km</th><th>Pers.</th><th>Tecnici</th><th>Piattaforme</th><th>Note</th></tr></thead>
               <tbody>${giorni.map((g) => `<tr>

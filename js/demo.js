@@ -180,7 +180,7 @@ window.DEMO = (function () {
           piattaforme: usaP ? [pick(piatt).id] : [], piattaformeTipi: usaP ? [piatt[0].tipoPiattaforma] : [], note: prob(.2) ? 'ACCESSO DA CANCELLO 2' : '' };
       });
       const ref = pick(c.referenti), firmato = !(mese === MESE && prob(.35));
-      rap.push({ id: uid(), clienteId: c.id, sedeId: s.id, giorni, eseguiti: pick(FRASI), daEseguire: pick(DA), dataConsegna: giorni[giorni.length - 1].data,
+      rap.push({ id: uid(), clienteId: c.id, sedeId: s.id, giorni, eseguiti: pick(FRASI), daEseguire: pick(DA), dataConsegna: giorni[giorni.length - 1].data, ...(prob(.5) ? { ordine: "ODA " + (4000 + Math.floor(Math.random() * 900)) } : {}), ...(prob(.4) ? { offerta: "OFF. " + (100 + Math.floor(Math.random() * 200)) + "/" + giorni[0].data.slice(0, 4) } : {}), ...(prob(.3) ? { ddtNumero: String(10 + Math.floor(Math.random() * 300)), ddtData: giorni[giorni.length - 1].data } : {}),
         referenteId: ref.id, referenteNome: `${ref.nome} ${ref.cognome}`, firmaReferente: firmato ? firma(ref.nome + ref.cognome) : null,
         firmaDi: sq[0].id, firmaTecnico: sq[0].firma, firmatarioTecnico: breve(sq[0]), anno: ANNO, creato: d1 + 'T18:00:00.000Z' });
     }

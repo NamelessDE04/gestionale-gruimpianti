@@ -989,3 +989,14 @@ body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; b
   .gi-row:has(.valore) .codici-c { flex: 1 1 220px; }
   .gi-row .valore { order: 3; } .gi-row .valore ~ .prima { order: 4; }
 }
+
+/* ===== v0.23: orari a mano, riferimenti rapportino, firma dietro tasto ===== */
+.gr-fascia input[data-ora] { text-align: center; font-size: 17px; font-variant-numeric: tabular-nums; letter-spacing: .5px; }
+input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 !important; }
+.rif-rap { margin-top: 10px; border-top: 1px dashed #d5dde6; padding-top: 8px; }
+.rif-rap > summary { cursor: pointer; font-weight: 700; color: var(--navy); padding: 6px 0; list-style: none; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.rif-rap > summary::-webkit-details-marker { display: none; }
+.rif-rap[open] > summary #rifSint { display: none; }
+.rap-rif { display: flex; flex-wrap: wrap; gap: 2mm 8mm; font-size: 9pt; margin: -2mm 0 4mm; padding: 1.8mm 3mm; background: #f2f5f8; border-radius: 1.5mm; }
+.rap-rif b { font-size: 9.5pt; }
+.btn-firma { width: 100%; justify-content: center; }

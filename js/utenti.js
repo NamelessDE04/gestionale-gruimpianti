@@ -250,9 +250,12 @@ window.UT = (function () {
         <div class="card">
           <div class="card-head"><h2>La mia firma ${info('Firma una volta sola: verrà messa in automatico sulle schede dei controlli che fai tu. Se la rifai, vale per i controlli nuovi; quelli già salvati tengono la firma di quel giorno.')}</h2></div>
           ${u.firma ? `<div class="firma-salvata"><img src="${u.firma}" alt="La mia firma"></div>` : '<p class="muted">Non hai ancora salvato la tua firma.</p>'}
-          <div class="firma"><div class="firma-head"><b>${u.firma ? 'Rifai la firma' : 'Firma qui'}</b><button type="button" class="link" id="btnPulisci">Cancella</button></div>
-            <canvas id="cvP"></canvas><span class="firma-hint">Firma col dito</span></div>
-          <div class="azioni-form"><span class="grow"></span><button class="btn" id="btnSalvaFirma">Salva firma</button></div>
+          <div class="azioni-form" id="boxApriFirma"><button type="button" class="btn ${u.firma ? 'ghost' : ''}" id="btnApriFirma">✍️ ${u.firma ? 'Rifai la firma' : 'Fai la firma'}</button></div>
+          <div id="boxFirmaP" hidden>
+            <div class="firma"><div class="firma-head"><b>Firma qui</b><button type="button" class="link" id="btnPulisci">Cancella</button></div>
+              <canvas id="cvP"></canvas><span class="firma-hint">Firma col dito</span></div>
+            <div class="azioni-form"><button type="button" class="btn ghost" id="btnAnnullaFirma">Annulla</button><span class="grow"></span><button class="btn" id="btnSalvaFirma">Salva firma</button></div>
+          </div>
         </div>` : ''}
         <div class="card">
           <h2>${u.pinHash ? 'Cambia PIN' : 'Scegli il tuo PIN'} ${info('Il PIN serve per entrare velocemente: da 4 a 6 cifre, diverso da quello dei colleghi.')}</h2>
@@ -291,11 +294,20 @@ window.UT = (function () {
     el.querySelector('#btnEsci').onclick = esci;
     el.querySelector('#btnExport')?.addEventListener('click', () => App.esporta());
     if (r !== 'ru') {
-      const pad = UI.firmaPad(el.querySelector('#cvP'));
-      el.querySelector('#btnPulisci').onclick = () => pad.pulisci();
+      // il riquadro della firma compare solo col tasto: così non si firma per sbaglio scorrendo la pagina
+      let pad = null;
+      const box = el.querySelector('#boxFirmaP'), apri = el.querySelector('#boxApriFirma');
+      el.querySelector('#btnApriFirma').onclick = () => {
+        box.hidden = false; apri.hidden = true;
+        pad = pad || UI.firmaPad(el.querySelector('#cvP')); pad.pulisci();
+        box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      };
+      el.querySelector('#btnAnnullaFirma').onclick = () => { box.hidden = true; apri.hidden = false; };
+      el.querySelector('#btnPulisci').onclick = () => pad?.pulisci();
       el.querySelector('#btnSalvaFirma').onclick = async () => {
-        if (pad.vuota()) return UI.toast('Prima firma nel riquadro', 'err');
+        if (!pad || pad.vuota()) return UI.toast('Prima firma nel riquadro', 'err');
         await UI.salva('utenti', { ...attuale(), firma: pad.immagine() }); UI.toast('Firma salvata', 'ok');
+        setTimeout(() => App.ridisegna(), 50);   // mostro la firma nuova e richiudo il riquadro
       };
     }
     const f = el.querySelector('#fPin');
