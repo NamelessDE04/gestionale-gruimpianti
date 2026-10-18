@@ -125,6 +125,25 @@
         return (r.user.email || '').toLowerCase();
       },
       async esciGoogle() { await auth.signOut(); utenteAuth = null; },
+      // tablet condiviso: accesso con il codice di attivazione (account tecnico, nessun account Google)
+      dominioDispositivi: '@dispositivi.gruimpianti.app',
+      isDispositivo(email) { return /@dispositivi\.gruimpianti\.app$/.test(email || this.account() || ''); },
+      async loginDispositivo(codice) {
+        const c = String(codice || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+        if (c.length !== 12) throw new Error('codice');
+        const r = await auth.signInWithEmailAndPassword(c.slice(0, 8).toLowerCase() + this.dominioDispositivi, c);
+        utenteAuth = r.user; return (r.user.email || '').toLowerCase();
+      },
+      // il Master crea l'account del tablet (con un'app Firebase separata, così non esce dal suo account)
+      async creaDispositivo() {
+        const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+        const c = Array.from(crypto.getRandomValues(new Uint8Array(12)), (n) => A[n % A.length]).join('');
+        const email = c.slice(0, 8).toLowerCase() + this.dominioDispositivi;
+        const app2 = firebase.apps.find((a) => a.name === 'dispositivi') || firebase.initializeApp(cfg, 'dispositivi');
+        await app2.auth().createUserWithEmailAndPassword(email, c);
+        await app2.auth().signOut();
+        return { email, codice: c.match(/.{4}/g).join('-') };
+      },
       // livello dell'account Google secondo il cloud (o null se non autorizzato)
       async ruoloAccount(email) {
         try { const d = await db.collection('ruoli').doc(email).get(); return d.exists ? d.data().ruolo : null; }

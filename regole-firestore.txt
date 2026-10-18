@@ -2,25 +2,27 @@ rules_version = '2';
 
 // Regole di sicurezza del Gestionale Gru Impianti
 // Master: tutto. Tecnico: tutto tranne registro e gestione utenti. Risorse Umane: solo lettura.
-// I livelli degli account Google stanno nella raccolta "ruoli" (la scrive l'app quando il Master salva gli utenti).
+// Tablet condivisi: account con codice di attivazione (…@dispositivi.gruimpianti.app), come un tecnico;
+//   chi lo usa entra poi con il proprio PIN.
+// I livelli degli account stanno nella raccolta "ruoli" (la scrive l'app quando il Master salva utenti e tablet).
 // I due indirizzi qui sotto sono sempre Master: servono per il primo avvio.
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function entrato() {
-      return request.auth != null && request.auth.token.email_verified == true;
-    }
+    function entrato() { return request.auth != null && request.auth.token.email != null; }
+    function verificato() { return request.auth.token.email_verified == true; }
     function account() { return request.auth.token.email.lower(); }
-    function capo() { return account() in ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com']; }
+    function tablet() { return account().matches('^[a-z0-9]{8}@dispositivi[.]gruimpianti[.]app$'); }
+    function capo() { return verificato() && account() in ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com']; }
     function scheda() { return /databases/$(database)/documents/ruoli/$(account()); }
     function haRuolo(lista) {
-      return entrato() && (capo() || (exists(scheda()) && get(scheda()).data.ruolo in lista));
+      return entrato() && (capo() || ((verificato() || tablet()) && exists(scheda()) && get(scheda()).data.ruolo in lista));
     }
-    function legge()  { return haRuolo(['master', 'tecnico', 'ru']); }
-    function scrive() { return haRuolo(['master', 'tecnico']); }
+    function legge()  { return haRuolo(['master', 'tecnico', 'ru', 'dispositivo']); }
+    function scrive() { return haRuolo(['master', 'tecnico', 'dispositivo']); }
     function master() { return haRuolo(['master']); }
 
-    // livelli degli account Google
+    // livelli degli account (persone e tablet)
     match /ruoli/{email} {
       allow read: if entrato() && (email == account() || master());
       allow write: if master();
@@ -33,7 +35,7 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
-    // utenti: il Master gestisce tutto; gli altri possono cambiare solo firma e PIN
+    // utenti: il Master gestisce tutto; gli altri (anche dal tablet) possono cambiare solo firma e PIN
     match /utenti/{id} {
       allow read: if legge();
       allow create, delete: if master();
@@ -41,7 +43,7 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firma', 'pinSalt', 'pinHash', 'pinLen', 'aggiornato']));
     }
 
-    // tutto il resto (clienti, impianti, controlli, sottoganci, mezzi, impostazioni)
+    // tutto il resto (clienti, impianti, controlli, sottoganci, mezzi, rapportini, collaudi, invii, impostazioni, lavagna)
     match /{raccolta}/{id} {
       allow read: if legge() && !(raccolta in ['ruoli', 'log', 'utenti']);
       allow write: if scrive() && !(raccolta in ['ruoli', 'log', 'utenti']);

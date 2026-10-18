@@ -9,6 +9,25 @@ window.UT = (function () {
   const { esc, uid, info, fmt } = UI;
   const RUOLI = { master: 'Master', tecnico: 'Tecnico', ru: 'Risorse Umane' };
   const CHIAVE = 'gid_sessione';
+  // la sessione vale solo finché l'app resta aperta: a ogni nuova apertura si rimette il PIN
+  const SESS = {
+    get: () => { try { return sessionStorage.getItem(CHIAVE); } catch (e) { return SESS.m; } },
+    set: (id) => { SESS.m = id; try { sessionStorage.setItem(CHIAVE, id); } catch (e) {} },
+    del: () => { SESS.m = null; try { sessionStorage.removeItem(CHIAVE); } catch (e) {} },
+    m: null
+  };
+  try { localStorage.removeItem(CHIAVE); } catch (e) {}   // le vecchie sessioni "per sempre" non valgono più
+  // se l'app resta in sottofondo più di 5 minuti, al ritorno chiede di nuovo il PIN
+  const BLOCCO_MIN = 5;
+  let nascostaDa = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { nascostaDa = Date.now(); return; }
+    if (nascostaDa && SESS.get() && Date.now() - nascostaDa > BLOCCO_MIN * 60000) {
+      registra('uscita', 'Blocco automatico (app in sottofondo)'); SESS.del(); document.querySelectorAll('.modal-ov').forEach((m) => m.remove());
+      document.body.classList.remove('modal-aperto'); location.hash = '#/'; App.ridisegna();
+    }
+    nascostaDa = 0;
+  });
   let S = null;
 
   const hash = async (salt, x) => {
@@ -17,7 +36,7 @@ window.UT = (function () {
   };
   const ruoloDi = (u) => (u?.ruolo === 'admin' ? 'master' : u?.ruolo || 'tecnico');   // gli "admin" della v0.8 diventano Master
   const attivi = () => (S?.utenti || []).filter((u) => u.attivo !== false);
-  const attuale = () => { const id = localStorage.getItem(CHIAVE); return attivi().find((u) => u.id === id) || null; };
+  const attuale = () => { const id = SESS.get(); return attivi().find((u) => u.id === id) || null; };
   const isMaster = () => ruoloDi(attuale()) === 'master';
   const solaLettura = () => ruoloDi(attuale()) === 'ru';
   const breve = (u) => (u?.nomeBreve || u?.nome || '');   // nome breve: quello usato in lavagna, rapportini e controlli
@@ -104,7 +123,7 @@ window.UT = (function () {
             ${[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => `<button type="button" data-n="${n}">${n}</button>`).join('')}
             <button type="button" data-canc aria-label="Cancella">⌫</button><button type="button" data-n="0">0</button><button type="button" data-ok aria-label="Entra">✓</button>
           </div>
-          ${Backend.loginGoogle ? '<button class="btn ghost google" id="btnGoogle"><b>G</b> Accedi con Google</button>' : ''}
+          ${Backend.loginGoogle && !Backend.isDispositivo() ? '<button class="btn ghost google" id="btnGoogle"><b>G</b> Accedi con Google</button>' : ''}
           ${senzaPin && Backend.mode !== 'cloud' ? '<button class="link" id="btnVecchio">Non hai ancora il PIN? Entra con nome utente e password</button>' : ''}
         </div>
       </section>`;
@@ -166,7 +185,7 @@ window.UT = (function () {
       if (f.pin.value !== f.pin2.value) return UI.toast('I due PIN non coincidono', 'err');
       const pinSalt = uid();
       const u = { id: uid(), nome: f.nome.value.trim(), ruolo: 'master', pinSalt, pinHash: await hash(pinSalt, f.pin.value), pinLen: f.pin.value.length, google: '', firma: null, attivo: true };
-      localStorage.setItem(CHIAVE, u.id);
+      SESS.set(u.id);
       await Backend.save('utenti', u); entra(u, 'primo accesso');
     };
   }
@@ -194,7 +213,7 @@ window.UT = (function () {
   }
 
   function entra(u, metodo) {
-    localStorage.setItem(CHIAVE, u.id);
+    SESS.set(u.id);
     document.body.classList.remove('fuori'); document.onkeydown = null; tentativi = 0;
     registra('accesso', `Accesso con ${metodo}`);
     UI.toast('Ciao ' + u.nome.split(' ')[0], 'ok');
@@ -205,7 +224,7 @@ window.UT = (function () {
     if (!u.pinHash) setTimeout(() => UI.toast('Scegli il tuo PIN nel profilo', ''), 2700);
     location.hash = u.pinHash ? '#/' : '#/profilo'; App.ridisegna();
   }
-  function esci() { registra('uscita', 'Uscita dall\'app'); localStorage.removeItem(CHIAVE); location.hash = '#/'; App.ridisegna(); }
+  function esci() { registra('uscita', 'Uscita dall\'app'); SESS.del(); location.hash = '#/'; App.ridisegna(); }
 
   // ---------- profilo personale: firma, PIN, account Google ----------
   function profilo(el, dati) {
@@ -240,7 +259,7 @@ window.UT = (function () {
         <div class="card">
           <h2>Account Google ${info('Il tuo account Google lo associa il Master da «Utenti». Ogni dispositivo resta collegato a un account Google: serve una volta sola, poi si entra con il PIN. Su un tablet condiviso basta l\'account di uno di voi.')}</h2>
           <p>Il tuo account: <b>${esc(u.google || 'nessuno')}</b></p>
-          <p class="muted small">Questo dispositivo è collegato a <b>${esc(Backend.account() || '—')}</b> (${esc(RUOLI[ruoloDispositivo] || '—')})</p>
+          <p class="muted small">${Backend.isDispositivo() ? 'Questo è un <b>tablet condiviso</b>: ognuno entra con il suo PIN.' : `Questo dispositivo è collegato a <b>${esc(Backend.account() || '—')}</b> (${esc(RUOLI[ruoloDispositivo] || '—')})`}</p>
           <div class="azioni-form"><span class="grow"></span><button class="btn ghost" id="btnScollega">Scollega questo dispositivo</button></div>
         </div>` : `
         <div class="card">
@@ -281,7 +300,7 @@ window.UT = (function () {
     };
     el.querySelector('#btnScollega')?.addEventListener('click', async () => {
       if (!UI.conferma('Scollegare questo dispositivo dall\'account Google? Per rientrare servirà di nuovo l\'accesso con Google.')) return;
-      registra('uscita', 'Dispositivo scollegato dall\'account Google'); localStorage.removeItem(CHIAVE);
+      registra('uscita', 'Dispositivo scollegato dall\'account Google'); SESS.del();
       await Backend.esciGoogle(); location.hash = '#/'; location.reload();
     });
     const g = el.querySelector('#fGoogle');
@@ -315,8 +334,47 @@ window.UT = (function () {
       </section>`;
     el.querySelector('#btnNuovo').onclick = () => modaleUtente(null);
     el.querySelectorAll('[data-u]').forEach((r) => (r.onclick = () => modaleUtente(S.utenti.find((u) => u.id === r.dataset.u))));
+    if (Backend.mode === 'cloud') tablet(el);
     return { titolo: 'Gestione utenti', indietro: '#/', live: true };
   }
+  // ---------- tablet condivisi (solo cloud, solo Master) ----------
+  async function tablet(el) {
+    const sez = document.createElement('div'); sez.className = 'card tablet-sez';
+    el.querySelector('section').appendChild(sez);
+    const disegna = async () => {
+      let lista = [];
+      try { lista = (await Backend.elencoRuoli()).filter((r) => r.ruolo === 'dispositivo'); } catch (e) { sez.innerHTML = '<p class="muted small">Per gestire i tablet serve l\'account Google di un Master su questo dispositivo.</p>'; return; }
+      sez.innerHTML = `<div class="card-head"><h2>Tablet condivisi ${info('Sui tablet usati da più persone non serve nessun account Google: crei qui un codice di attivazione, lo scrivi una volta sul tablet e da lì in poi ognuno entra con il suo PIN. Se un tablet si perde, toccalo e scollegalo: smette subito di vedere i dati.')}</h2>
+        <button class="btn small" id="btnTab">+ Nuovo tablet</button></div>
+        ${lista.map((r) => `<div class="riga-tab"><span>📱 <b>${esc(r.nome || 'TABLET')}</b><small>attivato il ${fmt((r.aggiornato || '').slice(0, 10))}</small></span><button class="btn ghost small danger" data-scol="${esc(r.email)}">Scollega</button></div>`).join('') || '<p class="muted small">Nessun tablet condiviso.</p>'}`;
+      sez.querySelector('#btnTab').onclick = () => UI.modal({
+        titolo: 'Nuovo tablet condiviso', valori: { nome: 'TABLET OFFICINA' },
+        campi: [{ k: 'nome', label: 'Nome del tablet', req: true, placeholder: 'es. TABLET OFFICINA' }],
+        onSalva: async (v) => {
+          try {
+            const d = await Backend.creaDispositivo();
+            await Backend.impostaRuolo(d.email, 'dispositivo', v.nome);
+            registra('creazione', 'Tablet condiviso ' + v.nome);
+            setTimeout(() => mostraCodice(v.nome, d.codice), 50); disegna();
+          } catch (e) { console.error(e); UI.toast(/operation-not-allowed/.test(e.code || '') ? 'Su Firebase va attivato l\'accesso «Email/password» (vedi istruzioni)' : 'Non riesco a creare il tablet', 'err'); return false; }
+        }
+      });
+      sez.querySelectorAll('[data-scol]').forEach((b) => (b.onclick = async () => {
+        if (!UI.conferma('Scollegare questo tablet? Smetterà subito di vedere i dati; per riusarlo servirà un nuovo codice.')) return;
+        await Backend.togliRuolo(b.dataset.scol); registra('eliminazione', 'Tablet condiviso scollegato'); disegna();
+      }));
+    };
+    disegna();
+  }
+  function mostraCodice(nome, codice) {
+    const ov = document.createElement('div'); ov.className = 'modal-ov';
+    ov.innerHTML = `<div class="modal"><div class="modal-head"><h2>Codice per ${esc(nome)}</h2></div>
+      <div class="modal-body" style="display:block"><p>Sul tablet apri l'app e, in «Tablet condiviso», scrivi questo codice:</p>
+      <p class="codice-grande">${esc(codice)}</p><p class="muted small">Serve una volta sola. Non lo vedrai più: se lo perdi, crei un nuovo tablet.</p></div>
+      <div class="modal-foot"><span class="grow"></span><button class="btn" data-ok>Fatto</button></div></div>`;
+    document.body.appendChild(ov); ov.querySelector('[data-ok]').onclick = () => ov.remove();
+  }
+
   function modaleUtente(u) {
     const io = attuale();
     UI.modal({
@@ -431,18 +489,31 @@ window.UT = (function () {
   // ---------- CLOUD: accesso con Google, primo avvio, livelli ----------
   let ruoloDispositivo = null;
   const capi = () => (window.UTENTI_INIZIALI || []).filter((x) => x.ruolo === 'master').map((x) => x.google.toLowerCase());
-  const ruoloAccount = async (email) => (capi().includes(email) ? 'master' : await Backend.ruoloAccount(email));
+  const ruoloAccount = async (email) => (capi().includes(email) && !Backend.isDispositivo(email) ? 'master' : await Backend.ruoloAccount(email));
   const box = (el, html) => { el.innerHTML = `<section class="login"><div class="login-box card"><img src="img/logo-grande.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">${html}</div></section>`; };
 
   function chiediGoogle(el) {
     return new Promise((ok) => {
       box(el, `<h1>Collega il dispositivo</h1>
-        <p class="muted">La prima volta su questo dispositivo entra con il tuo account Google. Dopo basterà il PIN.</p>
-        <button class="btn big google" id="btnG"><b>G</b> Accedi con Google</button>
+        <p class="muted">Serve una volta sola. Dopo, a ogni apertura basterà il PIN.</p>
+        <button class="btn big google" id="btnG"><b>G</b> Il mio telefono: accedi con Google</button>
+        <div class="o-sep"><span>oppure</span></div>
+        <form id="fCod" class="form cod-disp" novalidate>
+          <label>Tablet condiviso: codice di attivazione<input name="codice" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" maxlength="14"></label>
+          <button class="btn ghost" type="submit">Attiva il tablet</button>
+          <p class="muted small">Il codice lo crea il Master da «Utenti → Tablet condivisi».</p>
+        </form>
         ${navigator.onLine ? '' : '<p class="txt-ko small">Serve la connessione a internet per il primo accesso.</p>'}`);
       el.querySelector('#btnG').onclick = async () => {
         try { ok(await Backend.loginGoogle()); }
         catch (e) { console.error(e); UI.toast(/popup-closed|cancelled/.test(e.code || '') ? 'Accesso annullato' : 'Accesso con Google non riuscito', 'err'); }
+      };
+      const fc = el.querySelector('#fCod');
+      fc.codice.oninput = () => { const v = fc.codice.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 12); fc.codice.value = v.match(/.{1,4}/g)?.join('-') || ''; };
+      fc.onsubmit = async (e) => {
+        e.preventDefault();
+        try { ok(await Backend.loginDispositivo(fc.codice.value)); }
+        catch (er) { console.error(er); UI.toast(er.message === 'codice' ? 'Il codice ha 12 caratteri (XXXX-XXXX-XXXX)' : /network/i.test(er.code || '') ? 'Serve la connessione a internet' : 'Codice non valido o tablet scollegato dal Master', 'err'); }
       };
     });
   }
@@ -510,6 +581,7 @@ window.UT = (function () {
       if (!email) email = await chiediGoogle(el);
       box(el, '<h1>Controllo l\'accesso…</h1>');
       const ruolo = await ruoloAccount(email);
+      if (!ruolo && Backend.isDispositivo(email)) { await aspetta(el, 'Tablet scollegato', 'Questo tablet non è più abilitato. Chiedi al Master un nuovo codice di attivazione.'); continue; }
       if (!ruolo) { await aspetta(el, 'Account non autorizzato', `L'account <b>${esc(email)}</b> non è abilitato al gestionale. Chiedi al Master di aggiungerlo da «Utenti».`); continue; }
       let vuoto = false;
       try { vuoto = (await Backend.contaServer('utenti')) === 0; } catch (e) { /* senza rete: uso la copia sul dispositivo */ }
@@ -521,7 +593,7 @@ window.UT = (function () {
         try {
           const u = (await Backend.leggiTutti('utenti')).find((x) => (x.google || '').toLowerCase() === email && x.attivo !== false);
           if (u) {
-            localStorage.setItem(CHIAVE, u.id); registra('accesso', 'Accesso con Google', { utente: u });
+            SESS.set(u.id); registra('accesso', 'Accesso con Google', { utente: u });
             UI.toast('Ciao ' + u.nome.split(' ')[0], 'ok');
             if (!u.pinHash) { location.hash = '#/profilo'; setTimeout(() => UI.toast('Scegli il tuo PIN: dalla prossima volta entrerai con quello', ''), 2700); }
           }
@@ -540,7 +612,7 @@ window.UT = (function () {
       const voluti = new Map(lista.filter((u) => u.google && u.attivo !== false).map((u) => [u.google.toLowerCase(), { ruolo: ruoloDi(u), nome: u.nome }]));
       const ora = await Backend.elencoRuoli();
       for (const [g, v] of voluti) { const r = ora.find((x) => x.email === g); if (!r || r.ruolo !== v.ruolo || r.nome !== v.nome) await Backend.impostaRuolo(g, v.ruolo, v.nome); }
-      for (const r of ora) if (!voluti.has(r.email)) await Backend.togliRuolo(r.email);
+      for (const r of ora) if (!voluti.has(r.email) && r.ruolo !== 'dispositivo') await Backend.togliRuolo(r.email);
     } catch (e) { console.error(e); UI.toast('Livelli nel cloud non aggiornati: serve un account Google Master su questo dispositivo', 'err'); }
   }
 

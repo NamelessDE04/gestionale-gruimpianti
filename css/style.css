@@ -864,3 +864,12 @@ body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; b
 .st-inv { background: #e6effa; color: #22476e; }
 .invio textarea { text-transform: none; } .invio input#oggetto { text-transform: none; }
 @media (max-width: 760px) { .seg button { font-size: 13px; padding: 0 4px; } }
+
+/* =================== TABLET CONDIVISI =================== */
+.o-sep { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 13px; margin: 14px 0 6px; }
+.o-sep::before, .o-sep::after { content: ''; flex: 1; height: 1px; background: var(--linea); }
+.cod-disp input { text-align: center; font-size: 20px; letter-spacing: 3px; font-weight: 700; }
+.cod-disp .btn { width: 100%; margin-top: 8px; }
+.riga-tab { display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--linea); padding: 10px 0; }
+.riga-tab span { display: flex; flex-direction: column; } .riga-tab small { color: var(--muted); }
+.codice-grande { font-size: 30px; font-weight: 900; letter-spacing: 4px; text-align: center; background: #fff6d9; border: 2px dashed var(--giallo); border-radius: 14px; padding: 16px 8px; margin: 10px 0; color: var(--navy); }
