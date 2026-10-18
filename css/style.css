@@ -831,3 +831,12 @@ body.sola-lettura a.btn[href*="/rapportini/r/"][href$="/modifica"] { display: no
   body.scrive .azioni-form.sticky, body.scrive .barra-salva, body.scrive .giro-tools { position: static; }
   body.scrive .tape { display: none; }
 }
+
+/* =================== CONFIGURATORE CABLAGGIO =================== */
+.cab-barra { display: flex; align-items: center; justify-content: flex-end; gap: 8px; margin-bottom: 10px; }
+.cab-modulo { background: #fff; border-radius: 20px; box-shadow: var(--ombra); overflow: hidden;
+  --cg-bg: #ffffff; --cg-fg: #16324f; --cg-on-fg: #ffffff; --cg-line: #16324f; --cg-dim: #c9d2dc; --cg-radius: 20px; --cg-max: 620px;
+  --cg-tab-radius: 999px; --cg-tab-border: 1.5px; --cg-tab-on-bg: #16324f; --cg-tab-on-fg: #ffffff; }
+.cab-modulo .nessuno { margin: 0; }
+.avatar.ok { background: var(--ok); color: #fff; font-size: 20px; }
+@media (max-width: 760px) { .cab-modulo { --cg-pad: 14px; border-radius: 16px; } }

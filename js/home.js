@@ -8,7 +8,7 @@ window.HOME = (function () {
     { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
     { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, giacenze e ordini', ill: 'magazzino' },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
-    { k: 'cablaggio', titolo: 'Configuratore cablaggio gru', sotto: 'Schemi di cablaggio guidati', ill: 'cablaggio' }
+    { k: 'cablaggio', titolo: 'Configuratore cablaggio gru', sotto: 'Schemi di cablaggio e collaudo', ill: 'cablaggio', attiva: true }
   ];
   // sotto-voci di "Schede di controllo"
   const schede = [
