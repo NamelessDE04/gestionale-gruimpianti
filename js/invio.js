@@ -103,7 +103,7 @@ window.INVIO = (function () {
   // ---------- pagina ----------
   const stato = {};
   function pagina(el, S, query) {
-    if (!UT.isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master può inviare i documenti ai clienti.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
+    if (!UT.puoInviare()) { el.innerHTML = '<p class="nessuno">Solo il Master e Risorse Umane possono inviare i documenti ai clienti.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
     const st = Object.assign(stato, {
       tipo: query.get('tipo') || stato.tipo || 'rapportini', sede: query.get('sede') || stato.sede || '',
       anno: +(query.get('anno') || stato.anno || new Date().getFullYear()), da: query.get('da') || (query.get('tipo') ? '#/' : stato.da || '#/')

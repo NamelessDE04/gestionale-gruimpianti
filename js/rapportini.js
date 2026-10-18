@@ -77,7 +77,7 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="cli">
         <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). In cima, con 📌, quelli ancora da firmare: restano lì finché non li chiudi. Il simbolo accanto alla ricerca apre i filtri (anno, mese, cliente, tecnico, stato).')}</h1>
-          ${UT.isMaster() ? '<a class="btn ghost small" href="#/invio?tipo=rapportini&da=%23%2Frapportini">📧 Invia ai clienti</a>' : ''}<a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
+          ${UT.puoInviare() ? '<a class="btn ghost small" href="#/invio?tipo=rapportini&da=%23%2Frapportini">📧 Invia ai clienti</a>' : ''}<a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
         <div class="barra-cerca">
           <input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, lavori…" value="${esc(filtro.q)}">
           <button type="button" class="btn-filtri ${filtriAperti ? 'on' : ''}" id="btnFiltri" aria-label="Filtri" title="Filtri">
@@ -398,10 +398,10 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="stampa-recap">
         <div class="azioni-lista no-print">
-          ${r.numero ? '<button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>' : '<span class="pill st-ko">⏳ Numero in arrivo: si assegna da solo appena c\'è internet</span>'}
+          ${!UT.puoInviare() ? '' : r.numero ? '<button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>' : '<span class="pill st-ko">⏳ Numero in arrivo: si assegna da solo appena c\'è internet</span>'}
           <a class="btn ghost" href="#/rapportini/r/${r.id}/modifica">${firmato(r) ? '✏️ Modifica' : '✍️ Completa e firma'}</a>
           <a class="btn ghost" href="#/rapportini">Elenco</a>
-          ${UT.isMaster() ? `<a class="btn ghost" href="#/invio?tipo=rapportini&sede=${r.sedeId}&ids=${r.id}&da=${encodeURIComponent('#/rapportini/r/' + r.id)}">📧 ${r.inviatoIl ? 'Inviato il ' + fmt(r.inviatoIl.slice(0, 10)) + ' · reinvia' : 'Invia al cliente'}</a>` : ''}
+          ${UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=rapportini&sede=${r.sedeId}&ids=${r.id}&da=${encodeURIComponent('#/rapportini/r/' + r.id)}">📧 ${r.inviatoIl ? 'Inviato il ' + fmt(r.inviatoIl.slice(0, 10)) + ' · reinvia' : 'Invia al cliente'}</a>` : ''}
           ${firmato(r) ? '' : '<span class="pill st-ko">Da firmare</span>'}
           ${info('Scegli «Salva come PDF» nella finestra di stampa, formato A4 verticale, margini predefiniti.')}
         </div>

@@ -158,8 +158,8 @@ window.SG = (function () {
 
         <div class="azioni-lista">
           ${prossimo ? `<a class="btn big" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ Inizia ${prossimo.n}° controllo (${prossimo.nome})</a>` : '<span class="pill st-ok">4 controlli completati</span>'}
-          <a class="btn" href="#/sottoganci/c/${cliId}/stampa/${anno}">📄 Elenco per il cliente</a>
-          ${UT.isMaster() ? `<a class="btn ghost" href="#/invio?tipo=sottoganci&sede=${cliId}&anno=${anno}&da=${encodeURIComponent('#/sottoganci/c/' + cliId)}">📧 Invia al cliente</a>` : ''}
+          ${UT.puoInviare() ? `<a class="btn" href="#/sottoganci/c/${cliId}/stampa/${anno}">📄 Elenco per il cliente</a>` : ''}
+          ${UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=sottoganci&sede=${cliId}&anno=${anno}&da=${encodeURIComponent('#/sottoganci/c/' + cliId)}">📧 Invia al cliente</a>` : ''}
           <a class="btn ghost" href="#/sottoganci/c/${cliId}/nuovo">+ Sottogancio</a>
           <a class="btn ghost" href="#/sottoganci/cartella/${cliId}" title="Titolo dell'elenco">⚙ Elenco</a>
         </div>

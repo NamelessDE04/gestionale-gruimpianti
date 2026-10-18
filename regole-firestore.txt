@@ -43,6 +43,16 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firma', 'pinSalt', 'pinHash', 'pinLen', 'aggiornato']));
     }
 
+    // invio ai clienti: anche Risorse Umane (che per il resto è in sola lettura) registra gli invii
+    // e segna il rapportino come inviato, senza poter cambiare altro
+    match /invii/{id} {
+      allow create: if legge();
+    }
+    match /rapportini/{id} {
+      allow update: if legge() && request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['inviatoIl', 'inviatoA', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando']);
+    }
+
     // tutto il resto (clienti, impianti, controlli, sottoganci, mezzi, rapportini, collaudi, invii, impostazioni, lavagna)
     match /{raccolta}/{id} {
       allow read: if legge() && !(raccolta in ['ruoli', 'log', 'utenti']);

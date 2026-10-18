@@ -139,8 +139,8 @@ window.CTR = (function () {
         <div class="slots slots-c">${st.map((x) => slotHtml(p, x.n, x, anno)).join('')}</div>
         <div class="azioni-lista">
           <button class="btn ghost" id="btnPiano">📅 Piano controlli</button>
-          ${imp.length ? `<a class="btn" href="#/controlli/s/${sedeId}/${anno}/stampa">🖨️ Stampa tutte le schede ${anno}</a>` : ''}
-          ${imp.length && UT.isMaster() ? `<a class="btn ghost" href="#/invio?tipo=controlli&sede=${sedeId}&anno=${anno}&da=${encodeURIComponent('#/controlli/s/' + sedeId)}">📧 Invia al cliente</a>` : ''}
+          ${imp.length && UT.puoInviare() ? `<a class="btn" href="#/controlli/s/${sedeId}/${anno}/stampa">🖨️ Stampa tutte le schede ${anno}</a>` : ''}
+          ${imp.length && UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=controlli&sede=${sedeId}&anno=${anno}&da=${encodeURIComponent('#/controlli/s/' + sedeId)}">📧 Invia al cliente</a>` : ''}
         </div>
         <div class="elenco">
           ${imp.map((i) => {
@@ -216,8 +216,8 @@ window.CTR = (function () {
             <span class="sc-st">${vis ? `✓ ${fmt(vis.dataScheda)}${vis.dataScheda !== vis.dataEsecuzione ? ` <i>(fatto il ${fmt(vis.dataEsecuzione)})</i>` : ''}${vis.tecnico ? `<br>${esc(vis.tecnico)}` : ''}${nonFatte(n) ? `<br><b class="txt-ko">${nonFatte(n)} voci non eseguite</b>` : ''}` : 'tocca per compilare'}</span></a>`;
         }).join('')}</div>
         <div class="azioni-lista">
-          <a class="btn" href="#/controlli/i/${impId}/${anno}/stampa">🖨️ Stampa scheda ${anno}</a>
-          ${UT.isMaster() ? `<a class="btn ghost" href="#/invio?tipo=controlli&sede=${i.sedeId}&anno=${anno}&ids=${impId}&da=${encodeURIComponent('#/controlli/i/' + impId + '/' + anno)}">📧 Invia al cliente</a>` : ''}
+          ${UT.puoInviare() ? `<a class="btn" href="#/controlli/i/${impId}/${anno}/stampa">🖨️ Stampa scheda ${anno}</a>` : ''}
+          ${UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=controlli&sede=${i.sedeId}&anno=${anno}&ids=${impId}&da=${encodeURIComponent('#/controlli/i/' + impId + '/' + anno)}">📧 Invia al cliente</a>` : ''}
           <button class="btn ghost" id="btnVoci">⚙ Voci di questo impianto</button>
           <a class="btn ghost" href="#/impianti/i/${impId}">Anagrafica impianto</a>
         </div>

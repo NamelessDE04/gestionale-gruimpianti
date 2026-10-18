@@ -39,6 +39,8 @@ window.UT = (function () {
   const attuale = () => { const id = SESS.get(); return attivi().find((u) => u.id === id) || null; };
   const isMaster = () => ruoloDi(attuale()) === 'master';
   const solaLettura = () => ruoloDi(attuale()) === 'ru';
+  // stampare e inviare ai clienti rapportini, schede di controllo e sottoganci: solo Master e Risorse Umane
+  const puoInviare = () => ['master', 'ru'].includes(ruoloDi(attuale()));
   const breve = (u) => (u?.nomeBreve || u?.nome || '');   // nome breve: quello usato in lavagna, rapportini e controlli
   const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
   const pinValido = (p) => /^\d{4,6}$/.test(p);
@@ -82,7 +84,14 @@ window.UT = (function () {
     const o = { save: Backend.save, saveMany: Backend.saveMany, remove: Backend.remove };
     const permesso = (col, doc) => {
       if (!solaLettura()) return true;
-      return col === 'utenti' && doc?.id === attuale()?.id; // RU può solo aggiornare il proprio profilo (PIN, firma)
+      if (col === 'utenti') return doc?.id === attuale()?.id; // RU può solo aggiornare il proprio profilo (PIN, firma)
+      if (col === 'invii') return true;                         // RU invia i documenti ai clienti
+      if (col === 'rapportini') {                               // ... e segna il rapportino come inviato, nient'altro
+        const prima = (S?.rapportini || []).find((x) => x.id === doc?.id); if (!prima) return false;
+        const libere = ['inviatoIl', 'inviatoA', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando'];
+        return [...new Set([...Object.keys(prima), ...Object.keys(doc)])].every((k) => libere.includes(k) || JSON.stringify(prima[k]) === JSON.stringify(doc[k]));
+      }
+      return false;
     };
     Backend.save = async (col, doc) => {
       if (!permesso(col, doc)) { UI.toast('Accesso in sola lettura: non puoi modificare', 'err'); throw new Error('sola lettura'); }
@@ -632,7 +641,10 @@ window.UT = (function () {
   // ---------- percorsi vietati per livello ----------
   function vietato(parti) {
     const r = ruoloDi(attuale()), p = parti.join('/');
-    if (['utenti', 'registro', 'invio', 'conflitti'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
+    if (['utenti', 'registro', 'conflitti'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
+    // stampa e invio ai clienti: solo Master e Risorse Umane
+    const stampa = parti[0] === 'invio' || (['controlli', 'sottoganci'].includes(parti[0]) && parti.includes('stampa'));
+    if (stampa && !['master', 'ru'].includes(r)) return 'Stampa e invio ai clienti sono riservati al Master e a Risorse Umane.';
     if (r !== 'ru') return null;
     const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)
       || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p);
@@ -666,7 +678,7 @@ window.UT = (function () {
   }
 
   return {
-    descrivi, attuale, isMaster, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
+    descrivi, attuale, isMaster, puoInviare, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
     campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
 })();
