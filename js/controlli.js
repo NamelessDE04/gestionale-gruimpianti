@@ -508,5 +508,5 @@ window.CTR = (function () {
     return sedi(el, S);
   }
 
-  return { route, piano, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+  return { route, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
 })();

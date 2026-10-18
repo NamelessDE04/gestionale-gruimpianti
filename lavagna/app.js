@@ -1,9 +1,9 @@
-import { firebaseConfig } from './config.js?v=25';
+import { firebaseConfig } from './config.js?v=26';
 
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '25';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '26';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -28,7 +28,9 @@ const GEST = '../index.html#/';
 const MESE_COLORE = { 1: 'yellow', 2: 'green', 3: 'red' };
 // con il cloud le anagrafiche arrivano in tempo reale dalle raccolte del gestionale; senza, dalla copia sul dispositivo
 const gestCloud = {};
-const leggiG = k => { if (gestCloud[k]) return gestCloud[k]; try { return JSON.parse(localStorage.getItem('gid_demo_' + k)) || []; } catch { return []; } };
+// modalità dimostrazione del gestionale: dati inventati in uno spazio separato
+const PROVA = (() => { try { return localStorage.getItem('gid_modo_prova') === '1'; } catch { return false; } })();
+const leggiG = k => { if (gestCloud[k]) return gestCloud[k]; try { return JSON.parse(localStorage.getItem((PROVA ? 'gid_prova_' : 'gid_demo_') + k)) || []; } catch { return []; } };
 function anagraficaGestionale() {
   const clients = leggiG('clienti').flatMap(c => (c.sedi || []).map(s => ({
     id: s.id,
@@ -152,7 +154,7 @@ function contHtml({ e, i, n }, cls = 'cont') {
    BACKEND LOCALE (nessuna sincronizzazione)
    ============================================================ */
 function localBackend() {
-  const key = c => 'lavagna_' + c;
+  const key = c => (PROVA ? 'lavagna_prova_' : 'lavagna_') + c;
   const read = c => { try { return JSON.parse(localStorage.getItem(key(c))) || []; } catch { return []; } };
   const write = (c, v) => { try { localStorage.setItem(key(c), JSON.stringify(v)); } catch {} };
   const subs = new Map();
@@ -1656,7 +1658,7 @@ function startData() {
   const carica = () => { Object.assign(state, anagraficaGestionale()); render(); };
   carica();
   // controlli rimasti legati a vecchi clienti della lavagna (non più esistenti): li tolgo una volta sola
-  if (db.mode === 'local' && !lsGet('lavagna_gest_ok')) {
+  if (db.mode === 'local' && !PROVA && !lsGet('lavagna_gest_ok')) {
     try {
       const ids = new Set(state.clients.map(c => c.id));
       const ev = JSON.parse(localStorage.getItem('lavagna_events') || '[]');
@@ -1683,7 +1685,7 @@ function stopData() {
 
 async function init() {
   render();
-  const useCloud = !!(firebaseConfig && firebaseConfig.apiKey);
+  const useCloud = !PROVA && !!(firebaseConfig && firebaseConfig.apiKey);
   setStatus(useCloud ? 'connecting' : 'local');
   try {
     db = useCloud ? await firebaseBackend(firebaseConfig) : localBackend();
@@ -1698,6 +1700,7 @@ async function init() {
 
   if (db.mode === 'local') {
     $('#localBanner').hidden = false;
+    if (PROVA) $('#localBanner').textContent = '🎬 DIMOSTRAZIONE: dati inventati (dal gestionale tocca DEMO per tornare ai vostri dati)';
     startData();
     return;
   }

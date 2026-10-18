@@ -30,6 +30,7 @@ code { background: var(--grigio-bg); padding: 1px 6px; border-radius: 5px; }
 .back { background: rgba(255,255,255,.12); color: #fff; border: 0; width: 44px; height: 44px; border-radius: 12px; font-size: 32px; line-height: 1; cursor: pointer; padding-bottom: 4px; }
 .back:active { background: rgba(255,255,255,.25); }
 .demo-badge {
+  font-family: inherit; cursor: pointer;
   background: var(--giallo); color: #111; font-weight: 900; letter-spacing: 3px; font-size: 15px;
   padding: 7px 12px 7px 15px; border-radius: 8px; border: 2px solid #111; box-shadow: 0 0 0 2px var(--giallo);
 }
@@ -840,3 +841,13 @@ body.sola-lettura a.btn[href*="/rapportini/r/"][href$="/modifica"] { display: no
 .cab-modulo .nessuno { margin: 0; }
 .avatar.ok { background: var(--ok); color: #fff; font-size: 20px; }
 @media (max-width: 760px) { .cab-modulo { --cg-pad: 14px; border-radius: 16px; } }
+
+/* =================== MODALITÀ DIMOSTRAZIONE =================== */
+.demo-badge:active { transform: scale(.96); }
+body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; box-shadow: 0 0 0 2px #ff5a36; animation: pulsa 2.4s infinite; }
+@keyframes pulsa { 50% { box-shadow: 0 0 0 6px rgba(255,90,54,.35); } }
+.banner-prova { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; background: #ff5a36; color: #fff; padding: 7px 14px; font-size: 14px; }
+.banner-prova[hidden] { display: none; }
+.banner-prova button { font: inherit; font-weight: 800; background: #fff; color: #c2361a; border: 0; border-radius: 99px; padding: 6px 14px; cursor: pointer; }
+.demo-modal .modal-body.uno { display: block; } .demo-modal p { margin: 0 0 10px; line-height: 1.45; }
+@media print { .banner-prova { display: none !important; } }

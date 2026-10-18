@@ -5,7 +5,7 @@
 (function () {
   const PREFIX = 'gid_demo_';
 
-  function LocalBackend() {
+  function LocalBackend(PREFIX, MODO) {
     const listeners = {};
     const read = (col) => {
       try { return JSON.parse(localStorage.getItem(PREFIX + col) || '[]'); }
@@ -16,7 +16,7 @@
       (listeners[col] || []).forEach((cb) => cb(arr.slice()));
     };
     return {
-      mode: 'locale',
+      mode: MODO || 'locale',
       async init() {},
       subscribe(col, cb) {
         (listeners[col] = listeners[col] || []).push(cb);
@@ -168,5 +168,7 @@
     conta(cols) { const o = {}; cols.forEach((c) => (o[c] = this.leggi(c).length)); return o; }
   };
 
-  window.Backend = window.firebaseConfig ? FirebaseBackend(window.firebaseConfig) : LocalBackend();
+  // modalità dimostrazione (pulsante DEMO): dati inventati in uno spazio separato, mai nel cloud
+  let prova = false; try { prova = localStorage.getItem('gid_modo_prova') === '1'; } catch (e) {}
+  window.Backend = prova ? LocalBackend('gid_prova_', 'prova') : window.firebaseConfig ? FirebaseBackend(window.firebaseConfig) : LocalBackend(PREFIX, 'locale');
 })();

@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="img/favicon-64.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-<link rel="stylesheet" href="css/style.css?v=0.15.0">
+<link rel="stylesheet" href="css/style.css?v=0.16.0">
 </head>
 <body>
 <header class="topbar">
@@ -22,9 +22,10 @@
   <div class="title" id="pageTitle"></div>
   <span class="rete-off" id="reteOff" hidden title="Senza rete: i dati si sincronizzano al ritorno della connessione">📴</span>
   <a href="#/profilo" class="utente-chip" id="btnUtente" hidden></a>
-  <span class="demo-badge" title="Versione dimostrativa">DEMO</span>
+  <button type="button" class="demo-badge" id="btnDemo" title="Modalità dimostrazione">DEMO</button>
 </header>
 <div class="tape" aria-hidden="true"></div>
+<div class="banner-prova" id="bannerProva" hidden><span>🎬 <b>DIMOSTRAZIONE</b> · dati inventati</span><button type="button" id="btnEsciProva">Torna ai nostri dati</button></div>
 
 <main id="app"></main>
 
@@ -36,23 +37,24 @@
 
 <div id="toast" role="status"></div>
 
-<script src="js/config.js?v=0.15.0"></script>
-<script src="js/backend.js?v=0.15.0"></script>
-<script src="js/ui.js?v=0.15.0"></script>
-<script src="js/illustrazioni.js?v=0.15.0"></script>
-<script src="js/utenti.js?v=0.15.0"></script>
-<script src="js/home.js?v=0.15.0"></script>
-<script src="js/clienti.js?v=0.15.0"></script>
-<script src="js/allegati.js?v=0.15.0"></script>
-<script src="js/mezzi.js?v=0.15.0"></script>
-<script src="js/impianti.js?v=0.15.0"></script>
-<script src="js/impianti-scheda.js?v=0.15.0"></script>
-<script src="js/controlli.js?v=0.15.0"></script>
-<script src="js/controlli-stampa.js?v=0.15.0"></script>
-<script src="js/rapportini.js?v=0.15.0"></script>
-<script src="js/cablaggio.js?v=0.15.0"></script>
-<script src="js/sottoganci.js?v=0.15.0"></script>
-<script src="js/sottoganci-stampa.js?v=0.15.0"></script>
-<script src="js/app.js?v=0.15.0"></script>
+<script src="js/config.js?v=0.16.0"></script>
+<script src="js/backend.js?v=0.16.0"></script>
+<script src="js/ui.js?v=0.16.0"></script>
+<script src="js/illustrazioni.js?v=0.16.0"></script>
+<script src="js/utenti.js?v=0.16.0"></script>
+<script src="js/home.js?v=0.16.0"></script>
+<script src="js/clienti.js?v=0.16.0"></script>
+<script src="js/allegati.js?v=0.16.0"></script>
+<script src="js/mezzi.js?v=0.16.0"></script>
+<script src="js/impianti.js?v=0.16.0"></script>
+<script src="js/impianti-scheda.js?v=0.16.0"></script>
+<script src="js/controlli.js?v=0.16.0"></script>
+<script src="js/controlli-stampa.js?v=0.16.0"></script>
+<script src="js/rapportini.js?v=0.16.0"></script>
+<script src="js/cablaggio.js?v=0.16.0"></script>
+<script src="js/sottoganci.js?v=0.16.0"></script>
+<script src="js/sottoganci-stampa.js?v=0.16.0"></script>
+<script src="js/demo.js?v=0.16.0"></script>
+<script src="js/app.js?v=0.16.0"></script>
 </body>
 </html>
