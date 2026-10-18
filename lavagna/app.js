@@ -1,9 +1,9 @@
-import { firebaseConfig } from './config.js?v=26';
+import { firebaseConfig } from './config.js?v=27';
 
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '26';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '27';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -40,7 +40,8 @@ function anagraficaGestionale() {
   })));
   const ruolo = u => (u.ruolo === 'admin' ? 'master' : u.ruolo);
   const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nomeBreve || u.nome }));
-  const vehicles = leggiG('mezzi').filter(m => !m.dismesso).map(m => ({ id: m.id, name: [m.modello || m.marca, m.targa].filter(Boolean).join(' ') }));
+  // mezzi: marca e modello, senza targa; le piattaforme aeree non compaiono sulla lavagna
+  const vehicles = leggiG('mezzi').filter(m => !m.dismesso && m.categoria !== 'piattaforma').map(m => ({ id: m.id, name: [m.marca, m.modello].filter(Boolean).join(' ') || 'Mezzo' }));
   return { clients, staff, vehicles };
 }
 const ORDINE = ['yellow', 'green', 'red'];

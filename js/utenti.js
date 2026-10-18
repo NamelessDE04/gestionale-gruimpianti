@@ -29,7 +29,7 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo' };
+  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
@@ -42,6 +42,7 @@ window.UT = (function () {
       case 'giriSottoganci': return `Controllo sottoganci ${d.slot}° ${d.anno} – ${sede(d.sedeId)}`;
       case 'schedeControllo': return `Scheda di controllo ${d.anno} – ${imp(d.impiantoId)} – ${cli(d.clienteId)}`;
       case 'utenti': return `Utente ${d.nome}`;
+      case 'invii': return `Invio email «${d.oggetto || ''}» a ${(d.a || []).join(', ')}`;
       case 'collaudi': return `Rapporto di collaudo ${d.cliente || ''} ${d.matricola ? 'matr. ' + d.matricola : ''}`;
       case 'rapportini': return `Rapportino ${d.numero || ''}/${d.anno || ''} – ${sede(d.sedeId)}`;
       case 'mezzi': return `Mezzo ${MEZ.nome(d)} ${d.targa || ''}`;
@@ -546,7 +547,7 @@ window.UT = (function () {
   // ---------- percorsi vietati per livello ----------
   function vietato(parti) {
     const r = ruoloDi(attuale()), p = parti.join('/');
-    if ((parti[0] === 'utenti' || parti[0] === 'registro') && r !== 'master') return 'Questa sezione è riservata al Master.';
+    if ((parti[0] === 'utenti' || parti[0] === 'registro' || parti[0] === 'invio') && r !== 'master') return 'Questa sezione è riservata al Master.';
     if (r !== 'ru') return null;
     const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)
       || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p);

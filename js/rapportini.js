@@ -40,6 +40,8 @@ window.RAP = (function () {
   const tecniciDi = (r) => [...new Set((r.giorni || []).flatMap((g) => g.tecnici || []))];
   const breveId = (S, id) => { const u = S.utenti.find((x) => x.id === id); return u ? UT.breve(u) : ''; };
   const firmato = (r) => !!r.firmaReferente;
+  // sul PDF solo quante piattaforme (nessuna descrizione)
+  const nPiatt = (g) => (g.piattaformeTipi || g.piattaforme || []).length || (g.piattaforma ? 1 : "");
   const testoPiatt = (g) => {
     const t = g.piattaformeTipi || [];
     if (!t.length) return g.piattaforma ? 'SÌ' : 'NO';   // vecchi rapportini con la sola spunta
@@ -68,7 +70,7 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="cli">
         <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). Usa i filtri per trovare quelli di un cliente o di un tecnico. Tocca un rapportino per vederlo, stamparlo o completarlo con la firma del referente.')}</h1>
-          <a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
+          ${UT.isMaster() ? '<a class="btn ghost small" href="#/invio?tipo=rapportini&da=%23%2Frapportini">📧 Invia ai clienti</a>' : ''}<a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
         <div class="card form filtri-rap">
           <div class="filtri-griglia">
             <label>Anno<select data-f="anno"><option value="">Tutti</option>${anni.map((a) => `<option ${a === filtro.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
@@ -101,7 +103,7 @@ window.RAP = (function () {
       ${c ? CLI.avatar(c) : '<span class="avatar">?</span>'}
       <div class="riga-main">
         <div class="riga-top"><b>N° ${esc(numeroDi(r))}</b> · ${esc(c ? CLI.nome(c) : 'cliente eliminato')}${s ? ` <span class="muted">${esc(nomeSede(c, s))}</span>` : ''}
-          <span class="pill ${firmato(r) ? 'st-ok' : 'st-ko'}">${firmato(r) ? 'Firmato' : 'Da firmare'}</span></div>
+          <span class="pill ${firmato(r) ? 'st-ok' : 'st-ko'}">${firmato(r) ? 'Firmato' : 'Da firmare'}</span>${r.inviatoIl ? '<span class="pill st-inv">✉️ Inviato</span>' : ''}</div>
         <div class="muted small">${periodo}${d.length > 1 ? ` · ${new Set(d).size} giorni` : ''}${ore ? ` · ${testoOre(ore)} di lavoro` : ''} · ${esc(tecniciDi(r).map((id) => breveId(S, id)).filter(Boolean).join(', ') || '—')}</div>
       </div>›</a>`;
   }
@@ -360,6 +362,7 @@ window.RAP = (function () {
           <button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>
           <a class="btn ghost" href="#/rapportini/r/${r.id}/modifica">${firmato(r) ? '✏️ Modifica' : '✍️ Completa e firma'}</a>
           <a class="btn ghost" href="#/rapportini">Elenco</a>
+          ${UT.isMaster() ? `<a class="btn ghost" href="#/invio?tipo=rapportini&sede=${r.sedeId}&ids=${r.id}&da=${encodeURIComponent('#/rapportini/r/' + r.id)}">📧 ${r.inviatoIl ? 'Inviato il ' + fmt(r.inviatoIl.slice(0, 10)) + ' · reinvia' : 'Invia al cliente'}</a>` : ''}
           ${firmato(r) ? '' : '<span class="pill st-ko">Da firmare</span>'}
           ${info('Scegli «Salva come PDF» nella finestra di stampa, formato A4 verticale, margini predefiniti.')}
         </div>
@@ -377,13 +380,13 @@ window.RAP = (function () {
             </header>
             <div class="rap-titolo"><h1>RAPPORTINO DI INTERVENTO</h1><span>N° <b>${esc(numeroDi(r))}</b></span></div>
             <table class="rap-ore">
-              <thead><tr><th>Data</th><th>Mattina</th><th>Pomeriggio</th><th>Ore lavoro</th><th>Viaggio</th><th>Km</th><th>Tratta</th><th>Pers.</th><th>Tecnici</th><th>Piattaforma</th><th>Note</th></tr></thead>
+              <thead><tr><th>Data</th><th>Mattina</th><th>Pomeriggio</th><th>Viaggio</th><th>Km</th><th>Pers.</th><th>Tecnici</th><th>Piattaforme</th><th>Note</th></tr></thead>
               <tbody>${giorni.map((g) => `<tr>
                 <td>${fmt(g.data)}</td><td>${fascia(g.mattDa, g.mattA)}</td><td>${fascia(g.pomDa, g.pomA)}</td>
-                <td class="num">${hhmm(oreLavoro(g))}</td><td class="num">${g.viaggio ? hhmm(+g.viaggio) : ''}</td><td class="num">${esc(g.km)}</td>
-                <td>${esc(g.viaggio || g.km ? TRATTE[g.tratta] || '' : '')}</td><td class="num">${esc(g.persone)}</td>
-                <td>${esc((g.tecnici || []).map((id) => breveId(S, id)).filter(Boolean).join(', '))}</td><td class="rap-piatt">${esc(testoPiatt(g))}</td><td class="rap-nota">${esc(g.note)}</td></tr>`).join('')}
-              ${giorni.length > 1 ? `<tr class="rap-tot"><td colspan="3">TOTALE</td><td class="num">${hhmm(tot.lav)}</td><td class="num">${hhmm(tot.via)}</td><td class="num">${tot.km || ''}</td><td colspan="5"></td></tr>` : ''}</tbody>
+                <td class="num">${g.viaggio ? hhmm(+g.viaggio) : ''}</td><td class="num">${esc(g.km)}</td>
+                <td class="num">${esc(g.persone)}</td>
+                <td>${esc((g.tecnici || []).map((id) => breveId(S, id)).filter(Boolean).join(', '))}</td><td class="num">${nPiatt(g)}</td><td class="rap-nota">${esc(g.note)}</td></tr>`).join('')}
+              ${giorni.length > 1 ? `<tr class="rap-tot"><td colspan="3">TOTALE</td><td class="num">${hhmm(tot.via)}</td><td class="num">${tot.km || ''}</td><td colspan="4"></td></tr>` : ''}</tbody>
             </table>
             <div class="rap-box"><h2>LAVORI ESEGUITI</h2><div class="rap-testo">${esc(r.eseguiti) || '&nbsp;'}</div></div>
             <div class="rap-box"><h2>LAVORI DA ESEGUIRE</h2><div class="rap-testo corto">${esc(r.daEseguire) || '&nbsp;'}</div></div>
