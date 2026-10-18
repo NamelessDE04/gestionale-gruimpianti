@@ -638,3 +638,8 @@ body.dragging .panel.drawer{outline:2px dashed #c3cedc;outline-offset:-6px}
 .tag.none,.sw.none,.swatch.none{background:#c9d2dc}
 .rp-mag.none{border-color:#9aa6b2;color:#4a5562}
 .none{--lc:#9aa6b2}
+/* PDF del mese: ogni foglio è esattamente un A4 orizzontale (297 x 210 mm) con 8 mm di margine */
+.rp-page.pdf{box-sizing:border-box;width:297mm;padding:8mm;background:#fff}
+.rp-page.pdf.rp-cal{height:210mm}
+.rp-page.pdf.fissa{height:210mm;overflow:hidden}
+.rp-page.pdf .rp-head h1 small{font-size:9pt;color:#6a7381;font-weight:600}

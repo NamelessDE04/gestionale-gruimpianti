@@ -10,7 +10,7 @@
   <link rel="manifest" href="manifest.json">
   <link rel="icon" type="image/png" href="icons/favicon-64.png">
   <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
-  <link rel="stylesheet" href="style.css?v=27">
+  <link rel="stylesheet" href="style.css?v=28">
   <script>
     // dentro il gestionale: senza accesso (PIN) si torna alla schermata di ingresso del gestionale
     try { if (!sessionStorage.getItem('gid_sessione')) location.replace('../index.html#/'); } catch (e) {}
@@ -74,6 +74,7 @@
   <div id="toast" class="toast" hidden></div>
   <div id="printArea" aria-hidden="true"></div>
 
-  <script type="module" src="app.js?v=27"></script>
+  <script src="../js/pdf.js?v=0.22.0"></script>
+  <script type="module" src="app.js?v=28"></script>
 </body>
 </html>

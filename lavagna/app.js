@@ -3,7 +3,7 @@ import { firebaseConfig } from './config.js?v=27';
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '27';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '28';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -281,6 +281,12 @@ async function firebaseBackend(cfg) {
    STORICO MODIFICHE (visibile solo all'amministratore)
    ============================================================ */
 const ADMIN_EMAILS = ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com'];
+// stampa/PDF ed Excel del mese: come nel gestionale, solo Master e Risorse Umane (l'utente è quello entrato col PIN)
+const puoStampare = () => {
+  let id = ''; try { id = sessionStorage.getItem('gid_sessione') || ''; } catch { }
+  const u = leggiG('utenti').find(x => x.id === id);
+  return !!u && ['admin', 'master', 'ru'].includes(u.ruolo);
+};
 const isAdmin = () => db?.mode === 'local' || ADMIN_EMAILS.includes((currentEmail || '').toLowerCase());
 const COL_NOMI = { events: 'Voce', clients: 'Cliente', staff: 'Dipendente', vehicles: 'Mezzo' };
 const clean = o => o ? JSON.parse(JSON.stringify(o)) : null;
@@ -1067,7 +1073,60 @@ function buildReport() {
     </section>`;
 }
 
+/* PDF del mese già in A4 orizzontale: la pagina viene "fotografata" e messa in un PDF
+   (così non dipende da come il browser imposta la stampa: verticale, margini, scala…) */
+const MMPX = 96 / 25.4;
+function impagina(box) {
+  box.innerHTML = $('#printArea').innerHTML;
+  const pagine = [...box.querySelectorAll('.rp-page')];
+  pagine.forEach(p => p.classList.add('pdf'));
+  alignArrows(box, '.rp-cell', '.rp-cont');
+  // il registro può essere lungo: lo divido in più fogli orizzontali senza tagliare le righe
+  const reg = box.querySelector('.rp-reg');
+  if (reg) {
+    const max = 210 * MMPX - 2;
+    const righe = [...reg.querySelectorAll('tbody tr')];
+    const modello = reg.cloneNode(true);
+    modello.querySelector('tbody').innerHTML = ''; modello.querySelector('.rp-summary')?.remove();
+    let pag = reg, tb = reg.querySelector('tbody'), dopo = reg;
+    righe.forEach(r => r.remove());
+    righe.forEach(r => {
+      tb.appendChild(r);
+      if (pag.offsetHeight > max && tb.children.length > 1) {
+        r.remove();
+        pag = modello.cloneNode(true); dopo.after(pag); dopo = pag;
+        tb = pag.querySelector('tbody'); tb.appendChild(r);
+      }
+    });
+  }
+  box.querySelectorAll('.rp-page').forEach((p, i, tutte) => {
+    p.classList.add('fissa');
+    if (tutte.length > 2 && p.classList.contains('rp-reg')) {
+      const h1 = p.querySelector('.rp-head h1');
+      const n = [...tutte].filter(x => x.classList.contains('rp-reg')).indexOf(p) + 1, tot = tutte.length - 1;
+      h1.insertAdjacentHTML('beforeend', ` <small>(${n}/${tot})</small>`);
+    }
+  });
+}
+
 async function exportPdf() {
+  if (window.PDFX) {
+    const nome = `Lavagna_${MESI[state.month]}_${state.year}.pdf`;
+    let w = null;
+    try { w = window.open('', '_blank'); if (w) w.document.write('<p style="font:16px system-ui;padding:24px">Preparo il PDF della lavagna…</p>'); } catch { w = null; }
+    try {
+      buildReport();
+      const bytes = await window.PDFX.daStampa(impagina, '.rp-page', false);
+      const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
+      if (w && !w.closed) w.location.href = url;
+      else { const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); }
+      setTimeout(() => URL.revokeObjectURL(url), 120000);
+      return;
+    } catch (er) {
+      console.warn('PDF non riuscito, uso la stampa del browser', er);
+      if (w && !w.closed) w.close();
+    }
+  }
   buildReport();
   const pa = $('#printArea');
   await Promise.all([...pa.querySelectorAll('img')].map(i => (i.decode ? i.decode() : Promise.resolve()).catch(() => {})));
@@ -1159,9 +1218,9 @@ function renderMenu() {
     <button data-action="gest" data-href="${GEST}mezzi">Mezzi</button>
     ${state.unsigned.length ? `<div class="menu-sec">Da sistemare</div>
     <button data-action="unsigned"><span class="ast">✱</span> Rapportini da firmare <span class="badge red">${state.unsigned.length}</span></button>` : ''}
-    <div class="menu-sec">${MESI[state.month]} ${state.year}</div>
-    <button data-action="pdf">PDF del mese</button>
-    <button data-action="csv">Registro per Excel</button>
+    ${puoStampare() ? `<div class="menu-sec">${MESI[state.month]} ${state.year}</div>
+    <button data-action="pdf">PDF del mese (da stampare)</button>
+    <button data-action="csv">Registro per Excel</button>` : ''}
     ${isAdmin() ? '<div class="menu-sep"></div><button data-action="log">Storico modifiche</button>' : ''}
     ${u ? '<div class="menu-sep"></div><button data-action="logout" class="danger-txt">Esci</button>' : ''}
     <div class="menu-ver">Versione ${APP_VERSION}</div>`;
@@ -1381,8 +1440,8 @@ function handleAction(act, el) {
     case 'drawer-close': state.drawerOpen = false; render(); break;
     case 'info': openInfo(el.dataset.topic); break;
     case 'info-close': closeInfo(); break;
-    case 'pdf': exportPdf(); break;
-    case 'csv': exportCsv(); break;
+    case 'pdf': if (puoStampare()) exportPdf(); break;
+    case 'csv': if (puoStampare()) exportCsv(); break;
     case 'log': openLog(); break;
     case 'log-filter': state.logFilter = el.dataset.f; renderLogList(); break;
     case 'log-restore': restoreLog(id); break;
