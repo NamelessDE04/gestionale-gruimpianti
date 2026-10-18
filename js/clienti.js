@@ -32,7 +32,7 @@ window.CLI = (function () {
       <section class="cli">
         <div class="sez-head">
           <h1>Anagrafica clienti ${info('Tocca un cliente per vedere e modificare i suoi dati, le sedi e i referenti. Quello che cambi qui si aggiorna in tutto il programma (cartelle sottoganci, stampe…).')}</h1>
-          <button class="btn" id="btnNuovo">+ Nuovo cliente</button>
+          <button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo cliente</span></button>
         </div>
         <input type="search" id="fCerca" class="cerca" placeholder="Cerca cliente, sede, referente, P.IVA…" value="${esc(cerca)}">
         <div class="elenco">

@@ -28,7 +28,7 @@ window.UI = (function () {
   const toast = (msg, tipo) => {
     const t = document.getElementById('toast');
     t.textContent = msg; t.className = 'show ' + (tipo || '');
-    clearTimeout(tt); tt = setTimeout(() => (t.className = ''), 2600);
+    clearTimeout(tt); tt = setTimeout(() => (t.className = ''), tipo === 'err' ? 3200 : 2200);
   };
 
   const salva = async (col, doc) => {
@@ -236,6 +236,17 @@ window.UI = (function () {
   };
 
   const conferma = (msg) => window.confirm(msg);
+
+  // ===== TASTIERA APERTA (telefono) =====
+  // mentre si scrive spariscono barre fisse e pulsanti galleggianti, e il campo viene portato al centro
+  const scrivibile = (el) => el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'file', 'range'].includes(el.type)));
+  let ttTast;
+  document.addEventListener('focusin', (e) => {
+    if (!scrivibile(e.target) || innerWidth > 760) return;
+    clearTimeout(ttTast); document.body.classList.add('scrive');
+    if (e.target.tagName !== 'SELECT') setTimeout(() => { try { e.target.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (x) {} }, 320);
+  });
+  document.addEventListener('focusout', () => { clearTimeout(ttTast); ttTast = setTimeout(() => { if (!scrivibile(document.activeElement)) document.body.classList.remove('scrive'); }, 150); });
 
   // ===== TUTTO MAIUSCOLO =====
   // Tutti i campi di testo sono in maiuscolo. Restano come sono: email, PIN/password,

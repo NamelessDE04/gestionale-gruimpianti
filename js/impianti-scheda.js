@@ -357,7 +357,7 @@ window.IMPS = (function () {
     const doc = `
       <article class="recap">
         <header class="r-head">
-          <img src="img/logo.png" alt="">
+          <img src="img/logo-grande.png" alt="">
           <div class="grow">
             <h1>Scheda impianto</h1>
             <p>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}${i.matricola ? ' · Matr. ' + esc(i.matricola) : ''}</p>

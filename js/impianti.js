@@ -69,7 +69,7 @@ window.IMP = (function () {
           ${CLI.avatar(c, true)}
           <div class="grow"><h1><a class="link-anag" href="#/clienti/${c.id}">${esc(CLI.nome(c))}</a></h1>
             <p class="muted">${imp.length} impianti · ${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}</p></div>
-          <a class="btn" href="#/impianti/nuovo?cliente=${c.id}">+ Nuovo impianto</a>
+          <a class="btn fab" href="#/impianti/nuovo?cliente=${c.id}"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo impianto</span></a>
         </div>
         ${gruppi.filter((g) => g.lista.length || (c.sedi || []).length > 1).map((g) => `
           <h2 class="sez">${g.s ? UI.magnete(g.s) + ' ' + esc(g.s.nome || g.s.citta) : 'Senza sede'} <span class="conta">${g.lista.length}</span></h2>

@@ -81,7 +81,7 @@ window.SG = (function () {
       <section class="sg">
         <div class="sez-head">
           <h1>Cartelle clienti ${UI.info('Ogni cartella è una sede di un cliente con i suoi sottoganci. Le 4 caselle colorate sono i controlli dell\'anno (fascette blu, giallo, arancio, verde).')}</h1>
-          <a class="btn" href="#/sottoganci/cartella-nuova">+ Nuova cartella</a>
+          <a class="btn fab" href="#/sottoganci/cartella-nuova"><span class="fab-piu">+</span><span class="fab-txt"> Nuova cartella</span></a>
         </div>
         ${lista.length ? '' : `<p class="nessuno">Nessuna cartella. ${S.clienti.length ? 'Creane una con «+ Nuova cartella» scegliendo la sede del cliente.' : 'Prima aggiungi i clienti e le loro sedi in <a class="link" href="#/clienti">Anagrafica clienti</a>.'}</p>`}
         <div class="cartelle">

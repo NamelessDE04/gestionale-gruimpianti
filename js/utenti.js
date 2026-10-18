@@ -95,7 +95,7 @@ window.UT = (function () {
     el.innerHTML = `
       <section class="login">
         <div class="login-box card">
-          <img src="img/logo.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">
+          <img src="img/logo-grande.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">
           <h1>Inserisci il PIN</h1>
           <div class="pin-punti" id="punti"></div>
           <div class="tastierino">
@@ -145,7 +145,7 @@ window.UT = (function () {
     el.innerHTML = `
       <section class="login">
         <div class="login-box card">
-          <img src="img/logo.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">
+          <img src="img/logo-grande.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">
           <h1>Benvenuto</h1>
           <p class="muted">Crea il primo accesso: sarai il <b>Master</b>. Poi potrai aggiungere i colleghi con il loro livello.</p>
           <form id="fPrimo" novalidate>
@@ -196,7 +196,10 @@ window.UT = (function () {
     document.body.classList.remove('fuori'); document.onkeydown = null; tentativi = 0;
     registra('accesso', `Accesso con ${metodo}`);
     UI.toast('Ciao ' + u.nome.split(' ')[0], 'ok');
-    if (!u.firma && ruoloDi(u) !== 'ru') setTimeout(() => UI.toast('Ricordati di salvare la tua firma nel profilo', ''), 2700);
+    // promemoria firma: al massimo una volta al giorno
+    const kf = 'gid_promemoria_firma_' + u.id;
+    let giaDetto = false; try { giaDetto = localStorage.getItem(kf) === UI.oggi(); localStorage.setItem(kf, UI.oggi()); } catch (e) {}
+    if (!u.firma && ruoloDi(u) !== 'ru' && !giaDetto) setTimeout(() => UI.toast('Ricordati di salvare la tua firma nel profilo', ''), 2700);
     if (!u.pinHash) setTimeout(() => UI.toast('Scegli il tuo PIN nel profilo', ''), 2700);
     location.hash = u.pinHash ? '#/' : '#/profilo'; App.ridisegna();
   }
@@ -246,11 +249,16 @@ window.UT = (function () {
             <p class="muted small">L'accesso con Google si attiverà con il collegamento al cloud.</p>
           </form>
         </div>`}
-        <div class="azioni-lista">
-          ${r === 'master' ? '<a class="btn ghost" href="#/utenti">👥 Gestione utenti</a><a class="btn ghost" href="#/registro">📋 Registro attività</a>' : ''}
-        </div>
+        ${r === 'master' ? `<div class="card">
+          <h2>Strumenti del Master</h2>
+          <div class="azioni-lista">
+            <a class="btn ghost" href="#/utenti">👥 Gestione utenti</a><a class="btn ghost" href="#/registro">📋 Registro attività</a>
+            <button class="btn ghost" id="btnExport">💾 Esporta dati (backup)</button>
+            ${info('«Esporta dati» scarica una copia di tutto quello che è stato inserito. Tienila al sicuro. I documenti allegati non sono compresi.')}
+          </div></div>` : ''}
       </section>`;
     el.querySelector('#btnEsci').onclick = esci;
+    el.querySelector('#btnExport')?.addEventListener('click', () => App.esporta());
     if (r !== 'ru') {
       const pad = UI.firmaPad(el.querySelector('#cvP'));
       el.querySelector('#btnPulisci').onclick = () => pad.pulisci();
@@ -292,7 +300,7 @@ window.UT = (function () {
     el.innerHTML = `
       <section class="cli">
         <div class="sez-head"><h1>Utenti ${info('Master: fa tutto, gestisce gli utenti e vede il registro attività. Tecnico: fa tutto tranne registro e gestione utenti. Risorse Umane: vede anagrafiche, sottoganci e controlli e può stampare, ma non può modificare nulla. Ognuno salva firma e PIN dal proprio profilo.')}</h1>
-          <button class="btn" id="btnNuovo">+ Nuovo utente</button></div>
+          <button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo utente</span></button></div>
         <div class="elenco">
           ${lista.map((u) => `
             <a class="riga cli-riga ${u.attivo === false ? 'dismesso' : ''}" href="javascript:void(0)" data-u="${u.id}">
@@ -403,7 +411,7 @@ window.UT = (function () {
           ${info('Scegli «Salva come PDF» nella finestra di stampa, formato A4 verticale.')}
         </div>
         <div class="recap-wrap"><article class="recap">
-          <header class="r-head"><img src="img/logo.png" alt="">
+          <header class="r-head"><img src="img/logo-grande.png" alt="">
             <div class="grow"><h1>Registro attività</h1><p>${esc(persona)} · ${esc(TIPI_LOG[q.tipo])}</p></div>
             <div class="r-cli"><b>${q.dal || q.al ? `${q.dal ? 'dal ' + fmt(q.dal) : ''} ${q.al ? 'al ' + fmt(q.al) : ''}` : 'Tutto il periodo'}</b><span>${righe.length} operazioni</span><small>Creato il ${fmt(UI.oggi())} · DEMO</small></div>
           </header>
@@ -422,7 +430,7 @@ window.UT = (function () {
   let ruoloDispositivo = null;
   const capi = () => (window.UTENTI_INIZIALI || []).filter((x) => x.ruolo === 'master').map((x) => x.google.toLowerCase());
   const ruoloAccount = async (email) => (capi().includes(email) ? 'master' : await Backend.ruoloAccount(email));
-  const box = (el, html) => { el.innerHTML = `<section class="login"><div class="login-box card"><img src="img/logo.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">${html}</div></section>`; };
+  const box = (el, html) => { el.innerHTML = `<section class="login"><div class="login-box card"><img src="img/logo-grande.png" alt="Gru Impianti" class="login-logo" onerror="this.remove()">${html}</div></section>`; };
 
   function chiediGoogle(el) {
     return new Promise((ok) => {

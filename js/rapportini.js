@@ -68,7 +68,7 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="cli">
         <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). Usa i filtri per trovare quelli di un cliente o di un tecnico. Tocca un rapportino per vederlo, stamparlo o completarlo con la firma del referente.')}</h1>
-          <a class="btn" href="#/rapportini/nuovo" id="btnNuovo">+ Nuovo rapportino</a></div>
+          <a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
         <div class="card form filtri-rap">
           <div class="filtri-griglia">
             <label>Anno<select data-f="anno"><option value="">Tutti</option>${anni.map((a) => `<option ${a === filtro.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
@@ -146,13 +146,13 @@ window.RAP = (function () {
             <button type="button" class="btn ghost aggiungi-riga" id="btnGiorno">+ Aggiungi giorno</button>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Lavori eseguiti</h2><button type="button" class="link" data-modfrasi="frasiEseguiti">✏️ Scorciatoie</button></div>
-            <div class="scorciatoie" data-per="eseguiti"></div>
+            <div class="card-head"><h2>Lavori eseguiti</h2><button type="button" class="link" data-modfrasi="frasiEseguiti">✏️ Modifica frasi</button></div>
+            <details class="frasi" ${innerWidth > 760 ? 'open' : ''}><summary>＋ Frasi pronte</summary><div class="scorciatoie" data-per="eseguiti"></div></details>
             <textarea name="eseguiti" rows="6" placeholder="Descrivi i lavori eseguiti o tocca una scorciatoia">${esc(r.eseguiti)}</textarea>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Lavori da eseguire</h2><button type="button" class="link" data-modfrasi="frasiDaEseguire">✏️ Scorciatoie</button></div>
-            <div class="scorciatoie" data-per="daEseguire"></div>
+            <div class="card-head"><h2>Lavori da eseguire</h2><button type="button" class="link" data-modfrasi="frasiDaEseguire">✏️ Modifica frasi</button></div>
+            <details class="frasi" ${innerWidth > 760 ? 'open' : ''}><summary>＋ Frasi pronte</summary><div class="scorciatoie" data-per="daEseguire"></div></details>
             <textarea name="daEseguire" rows="4" placeholder="Lavori da fare in seguito (se ce ne sono)">${esc(r.daEseguire)}</textarea>
           </div>
           <div class="card">
@@ -366,7 +366,7 @@ window.RAP = (function () {
         <div class="recap-wrap"><article class="recap rap-pdf">
           <div class="rap-pagina">
             <header class="rap-testa">
-              <img src="img/logo.png" alt="Gru Impianti" class="rap-logo">
+              <img src="img/logo-grande.png" alt="Gru Impianti" class="rap-logo">
               <div class="rap-spett">
                 <span>Spett.le</span>
                 <b>${esc(c?.ragioneSociale || '')}</b>

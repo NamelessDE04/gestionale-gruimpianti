@@ -92,7 +92,7 @@ window.CTR = (function () {
       <section class="sg">
         <div class="sez-head">
           <h1>Controllo carriponte e gru a bandiera ${info('Qui trovi le sedi che hanno impianti. Ogni sede ha il suo piano dei controlli (in che mese si parte e quale controllo è l\'annuale). Le voci da controllare stanno nei «Modelli di scheda», uguali per tutti gli impianti dello stesso tipo.')}</h1>
-          ${UT.solaLettura() ? '' : '<a class="btn ghost" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
+          ${UT.solaLettura() ? '' : '<a class="btn ghost small" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
         </div>
         ${lista.length ? '' : `<p class="nessuno">Nessun impianto inserito. Aggiungi prima gli impianti in <a class="link" href="#/impianti">Anagrafica impianti</a>.</p>`}
         <div class="cartelle">
@@ -325,7 +325,7 @@ window.CTR = (function () {
                       ${v.tipo === 'misura'
                         ? `<label class="misura"><input type="text" inputmode="decimal" data-mis placeholder="misura"><span>mm</span></label>${nominale(v, pi) ? `<span class="prima">nominale ${esc(nominale(v, pi))} mm</span>` : ''}`
                         : `<div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>`}
-                      <button type="button" class="btn ghost small anom-btn" data-anom>⚠ Anomalia</button>
+                      <button type="button" class="btn ghost small anom-btn" data-anom aria-label="Anomalia">⚠<span class="anom-txt"> Anomalia</span></button>
                       <span class="val-lettera"></span>
                     </div>
                   </div>`).join('')}

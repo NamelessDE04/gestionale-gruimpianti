@@ -55,7 +55,7 @@ window.MEZ = (function () {
       <section class="cli">
         <div class="sez-head">
           <h1>Anagrafica mezzi ${info('I mezzi aziendali con le loro scadenze: per furgoni e auto bollo, revisione e assicurazione; per le piattaforme aeree il controllo periodico. Se una scadenza arriva entro 30 giorni (o è già passata) compare un avviso in home. Gli stessi mezzi si scelgono sulla Lavagna, le piattaforme anche nei rapportini.')}</h1>
-          <button class="btn" id="btnNuovo">+ Nuovo mezzo</button>
+          <button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo mezzo</span></button>
         </div>
         <h2 class="mese-rap">Furgoni e auto</h2>
         <div class="mezzi">${veicoli.map(carta).join('') || '<p class="nessuno">Nessun mezzo. Aggiungi il primo con «+ Nuovo mezzo».</p>'}</div>

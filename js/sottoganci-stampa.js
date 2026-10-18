@@ -97,7 +97,7 @@ window.SGStampa = (function () {
       return `
       <div class="foglio">
         ${pi === 0 ? `
-          <img class="p-logo" src="img/logo.png" alt="">
+          <img class="p-logo" src="img/logo-grande.png" alt="">
           <div class="p-box"></div><div class="p-box-fondo"></div><div class="p-box-tick"></div>
           <img class="p-logo30" src="img/logo-30.png" alt="" onerror="this.remove()">
           <div class="p-titolo">${esc(c.titoloElenco || 'ELENCO SOTTOGANCI')}&nbsp; ${anno}</div>

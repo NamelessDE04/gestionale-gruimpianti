@@ -2,24 +2,25 @@
 <html lang="it">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
 <meta name="theme-color" content="#16324f">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <title>Gestionale Gru Impianti – DEMO</title>
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="img/favicon-64.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-<link rel="stylesheet" href="css/style.css?v=0.13.1">
+<link rel="stylesheet" href="css/style.css?v=0.14.1">
 </head>
 <body>
 <header class="topbar">
   <button class="back" id="btnBack" hidden aria-label="Indietro">&#8249;</button>
   <a href="#/" class="brand" aria-label="Home">
-    <img src="img/logo.png" alt="Gru Impianti" id="logo"
+    <img src="img/logo-grande.png" alt="Gru Impianti" id="logo"
          onerror="this.hidden=true;document.getElementById('logoTxt').hidden=false">
     <span id="logoTxt" class="logo-txt" hidden>GRU&nbsp;IMPIANTI</span>
   </a>
   <div class="title" id="pageTitle"></div>
+  <span class="rete-off" id="reteOff" hidden title="Senza rete: i dati si sincronizzano al ritorno della connessione">📴</span>
   <a href="#/profilo" class="utente-chip" id="btnUtente" hidden></a>
   <span class="demo-badge" title="Versione dimostrativa">DEMO</span>
 </header>
@@ -35,22 +36,22 @@
 
 <div id="toast" role="status"></div>
 
-<script src="js/config.js?v=0.13.1"></script>
-<script src="js/backend.js?v=0.13.1"></script>
-<script src="js/ui.js?v=0.13.1"></script>
-<script src="js/illustrazioni.js?v=0.13.1"></script>
-<script src="js/utenti.js?v=0.13.1"></script>
-<script src="js/home.js?v=0.13.1"></script>
-<script src="js/clienti.js?v=0.13.1"></script>
-<script src="js/allegati.js?v=0.13.1"></script>
-<script src="js/mezzi.js?v=0.13.1"></script>
-<script src="js/impianti.js?v=0.13.1"></script>
-<script src="js/impianti-scheda.js?v=0.13.1"></script>
-<script src="js/controlli.js?v=0.13.1"></script>
-<script src="js/controlli-stampa.js?v=0.13.1"></script>
-<script src="js/rapportini.js?v=0.13.1"></script>
-<script src="js/sottoganci.js?v=0.13.1"></script>
-<script src="js/sottoganci-stampa.js?v=0.13.1"></script>
-<script src="js/app.js?v=0.13.1"></script>
+<script src="js/config.js?v=0.14.1"></script>
+<script src="js/backend.js?v=0.14.1"></script>
+<script src="js/ui.js?v=0.14.1"></script>
+<script src="js/illustrazioni.js?v=0.14.1"></script>
+<script src="js/utenti.js?v=0.14.1"></script>
+<script src="js/home.js?v=0.14.1"></script>
+<script src="js/clienti.js?v=0.14.1"></script>
+<script src="js/allegati.js?v=0.14.1"></script>
+<script src="js/mezzi.js?v=0.14.1"></script>
+<script src="js/impianti.js?v=0.14.1"></script>
+<script src="js/impianti-scheda.js?v=0.14.1"></script>
+<script src="js/controlli.js?v=0.14.1"></script>
+<script src="js/controlli-stampa.js?v=0.14.1"></script>
+<script src="js/rapportini.js?v=0.14.1"></script>
+<script src="js/sottoganci.js?v=0.14.1"></script>
+<script src="js/sottoganci-stampa.js?v=0.14.1"></script>
+<script src="js/app.js?v=0.14.1"></script>
 </body>
 </html>

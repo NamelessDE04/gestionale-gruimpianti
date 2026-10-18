@@ -19,8 +19,7 @@ window.HOME = (function () {
   const tile = (c, badge) => `
     <a class="tile ${c.attiva ? 'attiva' : 'presto'}" href="${c.href || '#/' + c.k}" data-k="${c.k}">
       <div class="tile-ill">${ILL[c.ill]}</div>
-      <div class="tile-txt"><h2>${c.titolo}</h2><p>${c.sotto}</p></div>
-      ${badge ? `<span class="tile-badge">${badge}</span>` : ''}
+      <div class="tile-txt"><h2>${c.titolo}</h2><p>${c.sotto}</p>${badge ? `<span class="tile-badge">${badge}</span>` : ''}</div>
       ${c.attiva ? '' : '<span class="tile-presto">Prossimamente</span>'}
     </a>`;
 
@@ -49,13 +48,8 @@ window.HOME = (function () {
         </div>
         ${avvisiMezzi(S)}
         <div class="tiles">${caselle.map((c) => tile(c, c.k === 'rapportini' ? RAP.badge(S) : c.k === 'mezzi' && MEZ.avvisi(S).length ? `${MEZ.avvisi(S).length} ${MEZ.avvisi(S).length === 1 ? 'scadenza' : 'scadenze'}` : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '')).join('')}</div>
-        <div class="home-tools">
-          <button class="btn ghost small" id="btnExport">Esporta dati (backup)</button>
-          ${UT.isMaster() ? '<a class="btn ghost small" href="#/utenti">👥 Utenti</a><a class="btn ghost small" href="#/registro">📋 Registro attività</a>' : ''}
-          ${UI.info('«Esporta dati» scarica una copia di tutto quello che hai inserito (clienti, impianti, controlli). Tienila al sicuro' + (Backend.mode === 'cloud' ? ': i dati sono nel cloud, il backup è una copia in più.' : ': per ora i dati sono solo su questo dispositivo.') + ' I documenti allegati non sono compresi.')}
-        </div>
+        <p class="in-arrivo">In arrivo: ${caselle.filter((c) => !c.attiva).map((c) => c.titolo).join(' · ')}</p>
       </section>`;
-    el.querySelector('#btnExport').onclick = () => App.esporta();
   }
 
   // pagina "Schede di controllo": sceglie il tipo di controllo
