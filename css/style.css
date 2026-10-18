@@ -896,3 +896,18 @@ body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; b
 .filtri-det > summary::-webkit-details-marker { display: none; }
 .filtri-det[open] > summary { margin-bottom: 8px; }
 @media (min-width: 761px) { .filtri-det > summary { display: none; } }
+
+/* rapportini: ricerca + filtri a scomparsa + promemoria piccoli */
+.barra-cerca { display: flex; gap: 8px; align-items: center; margin-bottom: 10px; }
+.barra-cerca .cerca { flex: 1; margin: 0 !important; }
+.btn-filtri { position: relative; flex: none; width: 52px; height: 52px; border-radius: 14px; border: 1.5px solid var(--linea); background: #fff; color: var(--navy); display: grid; place-items: center; cursor: pointer; }
+.btn-filtri.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.n-filtri { position: absolute; top: -6px; right: -6px; background: var(--giallo); color: #14202e; font-size: 12px; font-weight: 800; min-width: 20px; height: 20px; border-radius: 99px; display: grid; place-items: center; padding: 0 5px; }
+.filtri-rap[hidden] { display: none; }
+.filtri-rap .link { margin-top: 8px; }
+.promemoria { display: flex; flex-direction: column; gap: 6px; margin: 4px 0 6px; }
+.prom { display: flex; align-items: center; gap: 8px; background: #fff8e1; border: 1.5px solid #f2d27a; border-radius: 12px; padding: 8px 12px; color: inherit; text-decoration: none; font-size: 14px; min-height: 44px; }
+.prom.vecchio { background: #fdecec; border-color: #f0a3a3; }
+.prom-cli { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3a4a5c; }
+.prom-gg { flex: none; font-size: 12.5px; color: var(--muted); } .prom.vecchio .prom-gg { color: var(--ko); font-weight: 700; }
+.prom-ico { font-size: 14px; }

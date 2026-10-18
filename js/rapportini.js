@@ -54,11 +54,13 @@ window.RAP = (function () {
 
   // ---------- 1. ELENCO DIVISO PER MESE ----------
   let filtro = { anno: String(new Date().getFullYear()), mese: '', cli: '', tec: '', stato: '', q: '' };
+  let filtriAperti = false;
   function lista(el, S) {
     const anni = [...new Set([String(new Date().getFullYear()), ...S.rapportini.map((r) => primaData(r).slice(0, 4))])].filter(Boolean).sort().reverse();
     const clienti = [...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b)));
     const tec = UT.attivi().filter((u) => UT.ruoloDi(u) !== 'ru');
     const q = filtro.q.trim().toLowerCase();
+    const nAttivi = ['mese', 'cli', 'tec', 'stato'].filter((k) => filtro[k]).length + (filtro.anno !== String(new Date().getFullYear()) ? 1 : 0);
     const elenco = S.rapportini.filter((r) => {
       const d = primaData(r);
       if (filtro.anno && d.slice(0, 4) !== filtro.anno) return false;
@@ -74,28 +76,34 @@ window.RAP = (function () {
     elenco.forEach((r) => { const k = primaData(r).slice(0, 7); let g = gruppi.find((x) => x.k === k); if (!g) gruppi.push((g = { k, r: [] })); g.r.push(r); });
     el.innerHTML = `
       <section class="cli">
-        <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). Usa i filtri per trovare quelli di un cliente o di un tecnico. Tocca un rapportino per vederlo, stamparlo o completarlo con la firma del referente.')}</h1>
+        <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). In cima, con 📌, quelli ancora da firmare: restano lì finché non li chiudi. Il simbolo accanto alla ricerca apre i filtri (anno, mese, cliente, tecnico, stato).')}</h1>
           ${UT.isMaster() ? '<a class="btn ghost small" href="#/invio?tipo=rapportini&da=%23%2Frapportini">📧 Invia ai clienti</a>' : ''}<a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
-        <div class="card form filtri-rap">
-          <details class="filtri-det" ${innerWidth > 760 || ['mese', 'cli', 'tec', 'stato'].some((k) => filtro[k]) ? 'open' : ''}><summary>🔎 Filtri${['mese', 'cli', 'tec', 'stato'].filter((k) => filtro[k]).length ? ` <span class="pill st-inv">${['mese', 'cli', 'tec', 'stato'].filter((k) => filtro[k]).length} attivi</span>` : ''} <span class="muted small">anno ${esc(filtro.anno || 'tutti')}</span></summary>
+        <div class="barra-cerca">
+          <input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, lavori…" value="${esc(filtro.q)}">
+          <button type="button" class="btn-filtri ${filtriAperti ? 'on' : ''}" id="btnFiltri" aria-label="Filtri" title="Filtri">
+            <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M3 5h18l-7 8v6l-4-2v-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></svg>
+            ${nAttivi ? `<span class="n-filtri">${nAttivi}</span>` : ''}
+          </button>
+        </div>
+        <div class="card form filtri-rap" ${filtriAperti ? '' : 'hidden'}>
           <div class="filtri-griglia">
             <label>Anno<select data-f="anno"><option value="">Tutti</option>${anni.map((a) => `<option ${a === filtro.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
             <label>Mese<select data-f="mese"><option value="">Tutti</option>${MESI.map((m, i) => `<option value="${i + 1}" ${String(i + 1) === filtro.mese ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
             <label>Cliente<select data-f="cli"><option value="">Tutti</option>${clienti.map((c) => `<option value="${c.id}" ${c.id === filtro.cli ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
             <label>Tecnico<select data-f="tec"><option value="">Tutti</option>${tec.map((u) => `<option value="${u.id}" ${u.id === filtro.tec ? 'selected' : ''}>${esc(UT.breve(u))}</option>`).join('')}</select></label>
             <label>Stato<select data-f="stato">${[['', 'Tutti'], ['aperti', 'Da firmare'], ['firmati', 'Firmati']].map(([k, l]) => `<option value="${k}" ${k === filtro.stato ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-          </div></details>
-          <input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, lavori…" value="${esc(filtro.q)}">
+          </div>
+          ${nAttivi ? '<button type="button" class="link" id="btnAzzera">Togli i filtri</button>' : ''}
         </div>
-        ${aperti(S).length && filtro.stato !== 'firmati' ? `<div class="card aperti-rap">
-          <h2>📌 Da completare <span class="muted">· ${aperti(S).length} ${aperti(S).length === 1 ? 'rapportino aperto' : 'rapportini aperti'}</span> ${info('Sono i rapportini non ancora firmati dal referente: restano qui, in cima, finché non li chiudi, qualunque mese stai guardando. Per un lavoro che continua tocca «+ giorno» e aggiungi il nuovo giorno allo stesso rapportino.')}</h2>
-          <div class="elenco">${aperti(S).map((r) => `<div class="aperto-riga ${giorniAperto(r) > 30 ? 'vecchio' : ''}">${riga(S, r)}<div class="aperto-az"><span class="small ${giorniAperto(r) > 30 ? 'txt-ko' : 'muted'}">aperto da ${giorniAperto(r)} ${giorniAperto(r) === 1 ? 'giorno' : 'giorni'}</span>${UT.solaLettura() ? '' : `<a class="btn ghost small" href="#/rapportini/r/${r.id}/modifica?giorno=1">+ giorno</a><a class="btn small" href="#/rapportini/r/${r.id}/modifica">✍️ Firma</a>`}</div></div>`).join('')}</div>
-        </div>` : ''}
+        ${aperti(S).length ? `<div class="promemoria">${aperti(S).map((r) => { const { c, s } = trova(S, r.sedeId), g = giorniAperto(r);
+          return `<a class="prom ${g > 30 ? 'vecchio' : ''}" href="#/rapportini/r/${r.id}"><span class="prom-ico">📌</span><b>N° ${esc(numeroDi(r))}</b><span class="prom-cli">${esc(c ? CLI.nome(c) : '')}${s?.sigla ? ' ' + esc(s.sigla) : ''}</span><span class="prom-gg">da firmare · ${g} gg</span></a>`; }).join('')}</div>` : ''}
         ${gruppi.length ? gruppi.map((g) => `
           <h2 class="mese-rap">${MESI[+g.k.slice(5) - 1]} ${g.k.slice(0, 4)} <span class="muted">· ${g.r.length} ${g.r.length === 1 ? 'rapportino' : 'rapportini'}</span></h2>
           <div class="elenco">${g.r.map((r) => riga(S, r)).join('')}</div>`).join('')
         : `<p class="nessuno">${S.rapportini.length ? 'Nessun rapportino con questi filtri.' : 'Ancora nessun rapportino. Crea il primo con «+ Nuovo rapportino».'}</p>`}
       </section>`;
+    el.querySelector('#btnFiltri').onclick = () => { filtriAperti = !filtriAperti; App.ridisegna(); };
+    el.querySelector('#btnAzzera')?.addEventListener('click', () => { Object.assign(filtro, { anno: String(new Date().getFullYear()), mese: '', cli: '', tec: '', stato: '' }); App.ridisegna(); });
     el.querySelectorAll('[data-f]').forEach((x) => {
       const ev = x.tagName === 'INPUT' ? 'input' : 'change';
       x.addEventListener(ev, () => {
