@@ -120,46 +120,45 @@ window.CTR = (function () {
     if (query.get('anno')) annoScelto = +query.get('anno');
     const anno = annoScelto, p = piano(s), st = statoVisite(S, sedeId, anno), imp = impiantiSede(S, sedeId);
     const pr = prossima(S, sedeId, anno);
-    const tabs = sediConImpianti(S).map((x) => `<a class="tab ${x.s.id === sedeId ? 'on' : ''} tab-c-${UI.coloreSede(x.s) || 'nessuno'}" href="#/controlli/s/${x.s.id}">${x.s.sigla ? `<b>${esc(x.s.sigla)}</b><span>${esc(CLI.nome(x.c))} ${esc(x.s.nome)}</span>` : `<b>${esc(CLI.nome(x.c))}</b><span>${esc(x.s.nome || '')}</span>`}</a>`).join('');
+    const corr = pr && pr.n;   // il prossimo controllo da fare
     el.innerHTML = `
-      <section class="sg">
-        <nav class="tabs">${tabs}</nav>
-        <div class="card cart-head">
+      <section class="sg ctr">
+        <div class="card ctr-testa">
           <div class="grow">
-            <h1><a class="link-anag" href="#/clienti/${c.id}">${esc(CLI.nome(c))} <span class="loc">${esc(s.nome || '')}</span></a>
-              ${UI.magnete(s)}
-              ${info('Le 4 caselle sono i controlli dell\'anno con il loro mese. Tocca un impianto per compilare il controllo o stampare la sua scheda. «Piano controlli» decide i mesi e quale controllo è l\'annuale per questa sede.')}</h1>
-            <p class="muted">${imp.length} impianti · ${pr ? `<span class="pill st-${pr.k}">${esc(pr.label)}</span>` : '<span class="pill st-ok">Anno completato</span>'}</p>
+            <h1><a class="link-anag" href="#/clienti/${c.id}">${esc(CLI.nome(c))} <span class="loc">${esc(s.nome || '')}</span></a> ${UI.magnete(s)}</h1>
+            <p class="muted small">${imp.length} impianti · ${pr ? `<span class="pill st-${pr.k}">${esc(pr.label)}</span>` : '<span class="pill st-ok">Anno completato</span>'}</p>
           </div>
-          <div class="anno">
-            <a class="btn ghost small" href="#/controlli/s/${sedeId}?anno=${anno - 1}">‹</a><b>${anno}</b><a class="btn ghost small" href="#/controlli/s/${sedeId}?anno=${anno + 1}">›</a>
-          </div>
+          <div class="anno anno-mini"><a href="#/controlli/s/${sedeId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/s/${sedeId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
+          ${UI.menu([
+            { t: '📅 Piano controlli', id: 'btnPiano' },
+            imp.length && UT.puoInviare() && { t: `🖨️ Stampa tutte le schede ${anno}`, href: `#/controlli/s/${sedeId}/${anno}/stampa` },
+            imp.length && UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=controlli&sede=${sedeId}&anno=${anno}&da=${encodeURIComponent('#/controlli/s/' + sedeId)}` },
+            { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.id}` }
+          ])}
         </div>
-        ${p.impostato ? '' : `<div class="avviso">Il piano dei controlli di questa sede non è ancora impostato: per ora vale «1° controllo a gennaio, annuale il 1°». <button class="btn small" id="btnPiano2">Imposta piano</button></div>`}
-        <div class="slots slots-c">${st.map((x) => slotHtml(p, x.n, x, anno)).join('')}</div>
-        <div class="azioni-lista">
-          <button class="btn ghost" id="btnPiano">📅 Piano controlli</button>
-          ${imp.length && UT.puoInviare() ? `<a class="btn" href="#/controlli/s/${sedeId}/${anno}/stampa">🖨️ Stampa tutte le schede ${anno}</a>` : ''}
-          ${imp.length && UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=controlli&sede=${sedeId}&anno=${anno}&da=${encodeURIComponent('#/controlli/s/' + sedeId)}">📧 Invia al cliente</a>` : ''}
-        </div>
+        ${p.impostato ? '' : `<div class="avviso avviso-mini">Piano dei controlli non impostato (ora: 1° a gennaio, annuale il 1°). <button class="link" id="btnPiano2">Imposta</button></div>`}
+        <div class="striscia">${st.map((x) => { const t = tipoVisita(p, x.n);
+          return `<div class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''}" title="${nomeTipo(t)}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></div>`; }).join('')}</div>
         <div class="elenco">
           ${imp.map((i) => {
-            const sc = schedaDi(S, i.id, anno);
-            return `<a class="riga imp-riga" href="#/controlli/i/${i.id}?anno=${anno}">
-              <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
-              <div class="riga-main">
-                <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}<b>${esc(IMP.titolo(i))}</b></div>
-                <div class="muted small">${i.matricola ? 'Matr. ' + esc(i.matricola) + ' · ' : ''}${esc(modelloDi(S, i).nome)}${(sc?.osservazioni || []).filter((o) => !o.risoltaIl).length ? ` · <b class="txt-ko">${sc.osservazioni.filter((o) => !o.risoltaIl).length} osservazioni aperte</b>` : ''}</div>
-              </div>
-              <div class="visite-mini">${[1, 2, 3, 4].map((n) => `<span class="vm ${sc?.visite?.[n] ? 'fatto' : ''} t-${tipoVisita(p, n)}" title="${n}° controllo">${sc?.visite?.[n] ? '✓' : n}</span>`).join('')}</div>
-            </a>`;
+            const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl).length;
+            return `<div class="riga imp-riga">
+              <a class="imp-link" href="#/controlli/i/${i.id}?anno=${anno}">
+                <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
+                <div class="riga-main">
+                  <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}${esc(IMP.titolo(i))}</div>
+                  <div class="muted small">${i.matricola ? 'Matr. ' + esc(i.matricola) : ''}${aperteN ? ` · <b class="txt-ko">${aperteN} oss. aperte</b>` : ''}</div>
+                </div>
+              </a>
+              <div class="visite-mini">${[1, 2, 3, 4].map((n) => `<a class="vm ${sc?.visite?.[n] ? 'fatto' : ''} ${n === corr && !sc?.visite?.[n] ? 'corrente' : ''} t-${tipoVisita(p, n)}" href="#/controlli/i/${i.id}/${anno}/${n}" title="${n}° controllo">${sc?.visite?.[n] ? '✓' : n}</a>`).join('')}</div>
+            </div>`;
           }).join('')}
         </div>
+        <p class="muted small centro">Tocca il numero del controllo per compilarlo, oppure l'impianto per la sua scheda dell'anno.</p>
       </section>`;
     const apriPiano = () => modalePiano(S, c, s);
     el.querySelector('#btnPiano').onclick = apriPiano;
     el.querySelector('#btnPiano2')?.addEventListener('click', apriPiano);
-    el.querySelector('.tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
     return { titolo: 'Controlli · ' + nomeSede(c, s), indietro: '#/controlli', live: true };
   }
 
@@ -198,29 +197,23 @@ window.CTR = (function () {
     const nonFatte = (n) => { const vis = sc?.visite?.[n]; if (!vis) return 0; const per = periodiDi(tipoVisita(p, n));
       return voci.filter((v) => per.includes(v.per)).reduce((t, v) => t + Array.from({ length: np }, (_, k) => (vis.esiti?.[v.id] || [])[k]).filter((x) => !x).length, 0); };
     el.innerHTML = `
-      <section class="sg">
-        <div class="card cli-head">
-          <span class="imp-ico big">${IMP.icona(i.tipologia)}</span>
+      <section class="sg ctr">
+        <div class="card ctr-testa">
+          <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
           <div class="grow">
             <h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
-            <p class="muted"><a class="link-anag" href="#/controlli/s/${i.sedeId}?anno=${anno}">${esc(c ? nomeSede(c, s) : '')}</a> · Scheda ${anno} · ${esc(modelloDi(S, i).nome)}</p>
+            <p class="muted small"><a class="link-anag" href="#/controlli/s/${i.sedeId}?anno=${anno}">${esc(c ? nomeSede(c, s) : '')}</a>${i.matricola ? ' · matr. ' + esc(i.matricola) : ''}</p>
           </div>
-          <div class="anno">
-            <a class="btn ghost small" href="#/controlli/i/${impId}?anno=${anno - 1}">‹</a><b>${anno}</b><a class="btn ghost small" href="#/controlli/i/${impId}?anno=${anno + 1}">›</a>
-          </div>
+          <div class="anno anno-mini"><a href="#/controlli/i/${impId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/i/${impId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
+          ${UI.menu([
+            UT.puoInviare() && { t: `🖨️ Stampa scheda ${anno}`, href: `#/controlli/i/${impId}/${anno}/stampa` },
+            UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=controlli&sede=${i.sedeId}&anno=${anno}&ids=${impId}&da=${encodeURIComponent('#/controlli/i/' + impId + '/' + anno)}` },
+            !UT.solaLettura() && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
+            { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
+          ])}
         </div>
-        <div class="slots slots-c">${[1, 2, 3, 4].map((n) => {
-          const vis = sc?.visite?.[n];
-          return `<a class="slot-c ${vis ? 'fatto' : ''} t-${tipoVisita(p, n)}" href="#/controlli/i/${impId}/${anno}/${n}">
-            <span class="sc-n">${n}° · ${MESI[meseVisita(p, n) - 1]}</span><b>${nomeTipo(tipoVisita(p, n))}</b>
-            <span class="sc-st">${vis ? `✓ ${fmt(vis.dataScheda)}${vis.dataScheda !== vis.dataEsecuzione ? ` <i>(fatto il ${fmt(vis.dataEsecuzione)})</i>` : ''}${vis.tecnico ? `<br>${esc(vis.tecnico)}` : ''}${nonFatte(n) ? `<br><b class="txt-ko">${nonFatte(n)} voci non eseguite</b>` : ''}` : 'tocca per compilare'}</span></a>`;
-        }).join('')}</div>
-        <div class="azioni-lista">
-          ${UT.puoInviare() ? `<a class="btn" href="#/controlli/i/${impId}/${anno}/stampa">🖨️ Stampa scheda ${anno}</a>` : ''}
-          ${UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=controlli&sede=${i.sedeId}&anno=${anno}&ids=${impId}&da=${encodeURIComponent('#/controlli/i/' + impId + '/' + anno)}">📧 Invia al cliente</a>` : ''}
-          <button class="btn ghost" id="btnVoci">⚙ Voci di questo impianto</button>
-          <a class="btn ghost" href="#/impianti/i/${impId}">Anagrafica impianto</a>
-        </div>
+        <div class="striscia">${[1, 2, 3, 4].map((n) => { const vis = sc?.visite?.[n], t = tipoVisita(p, n), nf = nonFatte(n);
+          return `<a class="st-v t-${t} ${vis ? 'fatto' : ''}" href="#/controlli/i/${impId}/${anno}/${n}" title="${nomeTipo(t)}${vis?.tecnico ? ' · ' + esc(vis.tecnico) : ''}"><b>${n}° ${MESI[meseVisita(p, n) - 1].slice(0, 3)}</b><span>${vis ? '✓ ' + fmt(vis.dataScheda).slice(0, 5) : (t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN')}${nf ? ` · <b class="txt-ko">${nf}✗</b>` : ''}</span></a>`; }).join('')}</div>
         <div class="card">
           <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con la data della sistemazione.')}</h2></div>
           ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
@@ -229,7 +222,7 @@ window.CTR = (function () {
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
       </section>`;
-    el.querySelector('#btnVoci').onclick = () => modaleVoci(S, i);
+    el.querySelector('#btnVoci')?.addEventListener('click', () => modaleVoci(S, i));
     el.querySelectorAll('[data-oss]').forEach((b) => (b.onclick = () => toggleOss(S, sc, b.dataset.oss)));
     return { titolo: 'Scheda ' + anno + ' · ' + IMP.titolo(i), indietro: '#/controlli/s/' + i.sedeId + '?anno=' + anno, live: true };
   }
@@ -294,28 +287,35 @@ window.CTR = (function () {
       for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) { const a = aperte(v.id, pi)[0]; if (a && !prima) vis.esiti[v.id][pi - 1] = a.lettera; }
     });
     const nominale = (v, pi) => (/DIAMETRO/i.test(v.testo) ? i.paranchi?.[pi - 1]?.fune?.diametro : '');
+    // per lavorare in fila: il prossimo impianto della sede che non ha ancora questo controllo
+    const fila = impiantiSede(S, i.sedeId), pos = fila.findIndex((x) => x.id === i.id);
+    const prossimoImp = [...fila.slice(pos + 1), ...fila.slice(0, pos)].find((x) => !schedaDi(S, x.id, anno)?.visite?.[n]) || null;
     const prossimaLettera = () => { const usate = osservazioni.map((o) => o.lettera); let k = 0; let l; do { l = k < 26 ? String.fromCharCode(65 + k) : 'A' + String.fromCharCode(65 + k - 26); k++; } while (usate.includes(l)); return l; };
 
     el.innerHTML = `
       <form class="sg form" id="fVis" novalidate>
         ${CONF.avvisoAltro(prima, `Il ${n}° controllo ${anno} di questo impianto`)}
-        <div class="card giro-head t-${tipo}">
-          <div class="giro-fascia">${n}° controllo ${anno}<b>${nomeTipo(tipo)}</b><span>${MESI[mese - 1]}</span></div>
-          <div class="grow"><h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
-            <p class="muted small">${esc(c ? nomeSede(c, s) : '')} · ${voci.length} voci (${periodi.map((x) => PER[x]).join(' + ')})${np > 1 ? ' · ' + np + ' paranchi' : ''}</p></div>
+        <div class="vis-testa t-${tipo}">
+          <div class="grow"><b>${n}° controllo ${anno} · ${nomeTipo(tipo)}</b> <span>${MESI[mese - 1]}</span>
+            <div class="vis-imp">${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))} · ${esc(c ? nomeSede(c, s) : '')}</div></div>
+          ${UI.menu([prima && !UT.solaLettura() && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' }, { t: '📋 Scheda dell\'anno', href: `#/controlli/i/${impId}?anno=${anno}` }, { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }])}
+        </div>
+        <details class="card dati-vis" ${prima ? '' : ''}>
+          <summary><span>📅 <b id="sDat">${fmt(vis.dataScheda)}</b></span><span>👷 <b id="sTec">${esc(vis.tecnico || UT.breve(UT.attuale()))}</b></span><span class="link">modifica</span></summary>
           <div class="due giro-dati">
             <label>Data sulla scheda ${info('È la data che compare sulla scheda del cliente. Se siete in ritardo (es. scadenza a ottobre, controllo fatto a novembre) puoi mettere una data del mese di scadenza.')}<input type="date" name="dataScheda" value="${vis.dataScheda}"></label>
             <label>Eseguito il<input type="date" name="dataEsecuzione" value="${vis.dataEsecuzione}"></label>
           </div>
           ${UT.campoTecnici((vis.tecnici || []).map((t) => t.id), vis.firmaDi)}
-        </div>
-        <div class="giro-tools">
-          <span class="progress"><b id="nFatti">0</b> / ${voci.length * np} compilate</span>
-          ${info('Per ogni voce tocca l\'esito: X esame visivo funzionale · R ripristinato · P pulito · L lubrificato · S sostituito. Per un problema tocca «⚠ Anomalia»: scrivi la nota e l\'app le dà una lettera (A, B, C…) che compare nelle osservazioni. Le anomalie ancora aperte dei controlli precedenti sono già riportate. Le voci che non riesci a fare lasciale vuote: nell\'app risultano non eseguite, sulla scheda del cliente escono con la X.')}
-
+        </details>
+        <div class="giro-tools vis-tools">
+          ${['T', 'S', 'A'].filter((pp) => periodi.includes(pp)).map((pp) => `<a class="salta" href="javascript:void(0)" data-salta="${pp}">${pp === 'T' ? 'TRIM' : pp === 'S' ? 'SEME' : 'ANN'}</a>`).join('')}
+          <span class="grow"></span>
+          <span class="progress"><b id="nFatti">0</b>/${voci.length * np}</span>
+          ${info('Per ogni voce tocca l\'esito: X esame visivo funzionale · R ripristinato · P pulito · L lubrificato · S sostituito. Per un problema tocca ⚠: scrivi la nota e l\'app le dà una lettera (A, B, C…) che compare nelle osservazioni. Le anomalie ancora aperte dei controlli precedenti sono già riportate. Le voci che non riesci a fare lasciale vuote: nell\'app risultano non eseguite, sulla scheda del cliente escono con la X.')}
         </div>
         ${['T', 'S', 'A'].filter((pp) => periodi.includes(pp)).map((pp) => `
-          <h2 class="sez sez-paranco">${PER_NOME[pp]}</h2>
+          <h2 class="sez sez-paranco" id="sez-${pp}">${PER_NOME[pp]}</h2>
           <div class="giro-lista">
             ${voci.filter((v) => v.per === pp).map((v) => `
               <div class="giro-item cv-item" data-v="${v.id}">
@@ -339,10 +339,9 @@ window.CTR = (function () {
           <div id="ossLista"></div>
           <button type="button" class="btn ghost small" id="btnOssLibera">+ Osservazione non legata a una voce</button>
         </div>
-        <div class="azioni-form sticky">
-          ${prima ? '<button type="button" class="btn danger ghost" id="btnElimina">Elimina controllo</button>' : `<a class="btn ghost" href="#/controlli/i/${impId}?anno=${anno}">Annulla</a>`}
-          <span class="grow"></span>
-          <button class="btn big" type="submit">Salva controllo</button>
+        <div class="azioni-form sticky vis-salva">
+          <button class="btn ghost big" type="submit" data-dopo="sede">Salva</button>
+          ${prossimoImp ? `<button class="btn big" type="submit" data-dopo="prossimo">Salva e prossimo ›<small>N° ${esc(prossimoImp.numeroInterno || '')} ${esc(IMP.titolo(prossimoImp))}</small></button>` : ''}
         </div>
       </form>`;
 
@@ -398,6 +397,10 @@ window.CTR = (function () {
     disegnaOss();
     el.querySelector('#btnOssLibera').onclick = () => nuovaOss(null, null);
     const leggiTecnici = UT.collegaTecnici(el, vis.firmaDi);
+    // riga riassuntiva di data e tecnici, salti rapidi tra le sezioni
+    const riassunto = () => { const t = leggiTecnici(); el.querySelector('#sDat').textContent = fmt(f.dataScheda.value); el.querySelector('#sTec').textContent = t.tecnico || '— scegli —'; };
+    el.querySelector('.dati-vis').addEventListener('change', riassunto); el.querySelector('.dati-vis').addEventListener('click', () => setTimeout(riassunto, 0));
+    el.querySelectorAll('[data-salta]').forEach((a) => (a.onclick = () => { const h = el.querySelector('#sez-' + a.dataset.salta); if (h) window.scrollTo({ top: h.getBoundingClientRect().top + window.scrollY - 120, behavior: 'smooth' }); }));
 
     f.onsubmit = async (e) => {
       e.preventDefault();
@@ -417,7 +420,7 @@ window.CTR = (function () {
       sc.visite[n] = vis; sc.osservazioni = osservazioni;
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
       App.ricordaTecnico(vis.tecnico); UI.toast('Controllo salvato', 'ok');
-      location.hash = '#/controlli/s/' + i.sedeId + '?anno=' + anno;
+      location.hash = (e.submitter?.dataset.dopo === 'prossimo' && prossimoImp) ? `#/controlli/i/${prossimoImp.id}/${anno}/${n}` : '#/controlli/s/' + i.sedeId + '?anno=' + anno;
     };
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${n}° controllo ${anno} di questo impianto? Le osservazioni nate in questo controllo verranno tolte.`)) return;

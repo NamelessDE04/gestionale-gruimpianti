@@ -237,6 +237,18 @@ window.UI = (function () {
 
   const conferma = (msg) => window.confirm(msg);
 
+  // menu "⋯" con le azioni secondarie: voci = [{ t: 'testo', href } | { t, id }] (le voci vuote si saltano)
+  const menu = (voci, titolo = 'Altre azioni') => {
+    const v = voci.filter(Boolean);
+    if (!v.length) return '';
+    return `<details class="menu-az"><summary class="btn-menu" aria-label="${esc(titolo)}" title="${esc(titolo)}">⋯</summary><div class="menu-lista">${v.map((x) => x.href
+      ? `<a href="${x.href}"${x.cls ? ` class="${x.cls}"` : ''}>${x.t}</a>` : `<button type="button" id="${x.id}"${x.cls ? ` class="${x.cls}"` : ''}>${x.t}</button>`).join('')}</div></details>`;
+  };
+  // si chiude toccando fuori o scegliendo una voce
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('details.menu-az[open]').forEach((d) => { if (!d.contains(e.target) || e.target.closest('.menu-lista a, .menu-lista button')) d.open = false; });
+  });
+
   // ===== TASTIERA APERTA (telefono) =====
   // mentre si scrive spariscono barre fisse e pulsanti galleggianti, e il campo viene portato al centro
   const scrivibile = (el) => el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !['checkbox', 'radio', 'button', 'submit', 'file', 'range'].includes(el.type)));
@@ -260,5 +272,5 @@ window.UI = (function () {
   document.addEventListener('focusout', (e) => maiusc(e.target), true);
   document.addEventListener('submit', (e) => e.target.querySelectorAll('input, textarea').forEach(maiusc), true);
 
-  return { coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
+  return { menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
 })();

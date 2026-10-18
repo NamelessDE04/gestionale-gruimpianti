@@ -911,3 +911,62 @@ body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; b
 .prom-cli { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #3a4a5c; }
 .prom-gg { flex: none; font-size: 12.5px; color: var(--muted); } .prom.vecchio .prom-gg { color: var(--ko); font-weight: 700; }
 .prom-ico { font-size: 14px; }
+
+/* =================== CONTROLLI: PIÙ COMPATTI E VELOCI =================== */
+/* menu ⋯ con le azioni secondarie */
+.menu-az { position: relative; flex: none; }
+.menu-az > summary { list-style: none; } .menu-az > summary::-webkit-details-marker { display: none; }
+.btn-menu { width: 46px; height: 46px; border-radius: 12px; border: 1.5px solid var(--linea); background: #fff; display: grid; place-items: center; font-size: 26px; line-height: 1; font-weight: 900; color: var(--navy); cursor: pointer; padding-bottom: 6px; }
+.menu-az[open] > .btn-menu { background: var(--navy); color: #fff; border-color: var(--navy); }
+.menu-lista { position: absolute; right: 0; top: calc(100% + 6px); z-index: 30; background: #fff; border-radius: 14px; box-shadow: 0 12px 34px rgba(0,0,0,.2); padding: 6px; min-width: 250px; display: flex; flex-direction: column; }
+.menu-lista a, .menu-lista button { font: inherit; font-size: 15.5px; font-weight: 600; text-align: left; padding: 13px 14px; border-radius: 10px; color: var(--testo); text-decoration: none; background: none; border: 0; cursor: pointer; }
+.menu-lista a:active, .menu-lista button:active, .menu-lista a:hover, .menu-lista button:hover { background: #eef2f7; }
+
+/* intestazione compatta */
+.ctr-testa { display: flex; align-items: center; gap: 10px; padding: 12px 14px; }
+.ctr-testa h1 { margin: 0; font-size: 19px; line-height: 1.25; } .ctr-testa p { margin: 3px 0 0; }
+.ctr-testa .imp-ico { flex: none; }
+.anno-mini { display: flex; align-items: center; gap: 2px; flex: none; }
+.anno-mini a { width: 34px; height: 40px; display: grid; place-items: center; font-size: 22px; color: var(--navy); text-decoration: none; border-radius: 10px; }
+.anno-mini a:active { background: #eef2f7; } .anno-mini b { font-size: 17px; }
+.avviso-mini { padding: 8px 12px; font-size: 14px; }
+
+/* striscia dei 4 controlli */
+.striscia { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin: 0 0 12px; }
+.st-v { display: flex; flex-direction: column; background: #fff; border-radius: 10px; padding: 6px 8px; border-top: 4px solid #9fb0c3; box-shadow: var(--ombra); text-decoration: none; color: inherit; min-width: 0; }
+.st-v b { font-size: 13.5px; } .st-v span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.st-v.t-A { border-top-color: var(--navy); } .st-v.t-S { border-top-color: var(--arancio); } .st-v.t-T { border-top-color: var(--giallo); }
+.st-v.fatto { background: var(--ok-bg); } .st-v.fatto span { color: var(--ok); font-weight: 700; }
+.st-v.corrente { outline: 2px solid var(--navy); }
+
+/* righe impianto: il numero del controllo si tocca direttamente */
+.imp-riga { display: flex; align-items: center; gap: 8px; padding: 0 10px 0 0; }
+.imp-link { display: flex; align-items: center; gap: 12px; flex: 1; min-width: 0; padding: 12px 0 12px 12px; color: inherit; text-decoration: none; }
+.imp-riga .visite-mini { flex: none; display: flex; gap: 5px; }
+.imp-riga .vm { width: 38px; height: 38px; font-size: 15px; display: grid; place-items: center; text-decoration: none; }
+.vm.corrente { box-shadow: 0 0 0 2px var(--navy); font-weight: 900; color: var(--navy); }
+
+/* compilazione */
+.vis-testa { display: flex; align-items: center; gap: 10px; background: #fff; border-radius: 14px; padding: 10px 12px; border-left: 8px solid var(--giallo); box-shadow: var(--ombra); margin-bottom: 10px; }
+.vis-testa.t-A { border-left-color: var(--navy); } .vis-testa.t-S { border-left-color: var(--arancio); }
+.vis-testa b { font-size: 16px; } .vis-testa > .grow > span { color: var(--muted); font-size: 14px; }
+.vis-imp { font-size: 13.5px; color: var(--muted); margin-top: 2px; }
+.dati-vis { padding: 0; margin-bottom: 10px; }
+.dati-vis > summary { list-style: none; display: flex; align-items: center; gap: 14px; padding: 12px 14px; cursor: pointer; flex-wrap: wrap; font-size: 15px; }
+.dati-vis > summary::-webkit-details-marker { display: none; }
+.dati-vis > summary .link { margin-left: auto; font-size: 14px; }
+.dati-vis[open] > summary .link { visibility: hidden; }
+.dati-vis > .giro-dati, .dati-vis > .tecnici { padding: 0 14px 12px; }
+.vis-tools { gap: 6px; }
+.salta { font-weight: 800; font-size: 13.5px; padding: 8px 12px; border-radius: 99px; background: #e3e9f0; color: var(--navy); text-decoration: none; }
+.vis-salva { gap: 10px; }
+.vis-salva .btn { flex: 1; flex-direction: column; line-height: 1.15; }
+.vis-salva .btn small { font-size: 11.5px; font-weight: 600; opacity: .85; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 760px) {
+  .ctr-testa { padding: 10px 12px; } .ctr-testa h1 { font-size: 17px; }
+  .striscia { gap: 5px; } .st-v { padding: 5px 6px; } .st-v b { font-size: 12.5px; } .st-v span { font-size: 11px; }
+  .imp-riga .vm { width: 34px; height: 34px; font-size: 14px; } .imp-riga .visite-mini { gap: 4px; }
+  .imp-link { gap: 10px; } .imp-link .imp-ico { display: none; }
+}
+@media (max-width: 760px) { .ctr-testa > .imp-ico { display: none; } }
+.ctr-testa > .grow { min-width: 0; } .ctr-testa h1 { overflow-wrap: anywhere; }
