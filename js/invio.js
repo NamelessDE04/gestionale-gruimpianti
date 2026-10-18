@@ -36,9 +36,14 @@ window.INVIO = (function () {
         `--${conf}\r\nContent-Type: text/plain; charset="UTF-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n${righe(b64t(testo))}`;
       allegati.forEach((x) => { m += `--${conf}\r\nContent-Type: application/pdf; name="${x.nome}"\r\nContent-Disposition: attachment; filename="${x.nome}"\r\nContent-Transfer-Encoding: base64\r\n\r\n${righe(b64(x.bytes))}`; });
       m += `--${conf}--`;
-      const r = await fetch('https://gmail.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=media', {
-        method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'message/rfc822' }, body: m
-      });
+      // canale JSON di Gmail (risponde correttamente alle app web); il messaggio è già tutto in ASCII
+      const raw = btoa(m).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+      let r;
+      try {
+        r = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/messages/send', {
+          method: 'POST', headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' }, body: JSON.stringify({ raw })
+        });
+      } catch (e) { throw new Error(navigator.onLine ? 'incerto' : 'rete'); }
       if (r.status === 401) { token = null; throw new Error('scaduto'); }
       if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error(/has not been used|disabled/i.test(t) ? 'api' : /insufficient|scope/i.test(t) ? 'permesso' : 'invio ' + r.status); }
       return r.json();
@@ -189,7 +194,9 @@ window.INVIO = (function () {
           : m === 'config' ? 'Per inviare email serve il collegamento al cloud'
           : m === 'api' ? 'Su Google va attivata la «Gmail API» per questo progetto (vedi istruzioni)'
           : m === 'permesso' || m === 'token' ? 'Google non ha dato il permesso di inviare: riprova e accetta'
-          : /network|Failed to fetch/i.test(m) ? 'Serve la connessione a internet per inviare' : 'Invio non riuscito', 'err');
+          : m === 'incerto' ? 'Google non ha confermato l\'invio: controlla tra gli «Inviati» di Gmail prima di rimandarla'
+          : m === 'rete' ? 'Serve la connessione a internet per inviare'
+          : /^invio 4(13|00)/.test(m) ? 'Allegati troppo grandi per una sola email: invia meno documenti alla volta' : 'Invio non riuscito (' + m + ')', 'err');
       }
       bInv.disabled = false; fase('📧 Invia');
     };
