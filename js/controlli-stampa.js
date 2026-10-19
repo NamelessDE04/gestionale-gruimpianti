@@ -27,7 +27,7 @@ window.CTRS = (function () {
 
     // ----- intestazione -----
     let h = `
-      <img class="cs-logo" src="img/logo-scheda.png" alt="">
+      <img class="cs-logo" src="img/logo-grande.png" alt="">
       ${T(144.9, 10.0, 'SCHEDA CONTROLLO (D.Lgs.81/08)', 'cs-tit')}
       ${T(145.2, 15.4, 'MATRICOLA')}
       ${box(160.2, 15.6, 35.3, 3.7, 'cs-sottile')}${T(161.2, 15.6, val(imp.matricola), 'cs-fit', 33.6)}`;

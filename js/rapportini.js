@@ -7,24 +7,17 @@ window.RAP = (function () {
   const TRATTE = { AR: 'A/R', A: 'Andata', R: 'Ritorno' };
   const FATTORE = { AR: 2, A: 1, R: 1 };
 
-  // ---------- scorciatoie (modificabili da "Modifica scorciatoie") ----------
-  const FRASI = {
-    frasiEseguiti: [
-      { t: 'Controllo carriponte', x: 'ESEGUITO CONTROLLO PERIODICO DEI CARRIPONTE AI SENSI DEL D.LGS. 81/08, CON VERIFICA DELLO STATO DI CONSERVAZIONE E DI EFFICIENZA DELLE PARTI MECCANICHE, ELETTRICHE E DEI DISPOSITIVI DI SICUREZZA. ESITI RIPORTATI SULLE RELATIVE SCHEDE DI CONTROLLO.' },
-      { t: 'Controllo gru a bandiera', x: 'ESEGUITO CONTROLLO PERIODICO DELLE GRU A BANDIERA AI SENSI DEL D.LGS. 81/08, CON VERIFICA DELLO STATO DI CONSERVAZIONE E DI EFFICIENZA DELLE PARTI MECCANICHE, ELETTRICHE E DEI DISPOSITIVI DI SICUREZZA. ESITI RIPORTATI SULLE RELATIVE SCHEDE DI CONTROLLO.' },
-      { t: 'Controllo sottoganci', x: 'ESEGUITA VERIFICA TRIMESTRALE DI FUNI, CATENE, BRACHE E ACCESSORI DI SOLLEVAMENTO AI SENSI DEL D.LGS. 81/08, ALLEGATO VI, PUNTO 3.1.2. ESITI RIPORTATI SULL\'ELENCO DEGLI ACCESSORI.' },
-      { t: 'Prove di funzionamento', x: 'ESEGUITE PROVE DI FUNZIONAMENTO A VUOTO DI TUTTI I MOVIMENTI E DEI DISPOSITIVI DI SICUREZZA (FINECORSA, ARRESTO DI EMERGENZA, FRENI).' },
-      { t: 'Lubrificazione', x: 'ESEGUITA LUBRIFICAZIONE DELLA FUNE E DEGLI ORGANI IN MOVIMENTO.' },
-      { t: 'Sopralluogo', x: 'ESEGUITO SOPRALLUOGO TECNICO PER LA VALUTAZIONE DELL\'INTERVENTO RICHIESTO.' }
-    ],
-    frasiDaEseguire: [
-      { t: 'Nessuno', x: 'NESSUN LAVORO DA ESEGUIRE.' },
-      { t: 'Vedi schede di controllo', x: 'INTERVENTI DA ESEGUIRE COME DA OSSERVAZIONI RIPORTATE SULLE SCHEDE DI CONTROLLO.' },
-      { t: 'Sostituzione fune', x: 'SOSTITUZIONE DELLA FUNE DI SOLLEVAMENTO.' },
-      { t: 'Preventivo', x: 'SEGUIRÀ NOSTRA OFFERTA PER GLI INTERVENTI NECESSARI.' }
-    ]
-  };
-  const frasi = (S, k) => S.impostazioni.find((x) => x.id === k)?.voci || FRASI[k];
+  // ---------- frase del controllo periodico (l'unica frase pronta del rapportino) ----------
+  // CONTROLLO PERIODICO <periodicità> <cosa> CON SCADENZA <mese> COME DA CONTRATTO
+  const PERIODICITA = ['TRIMESTRALE', 'SEMESTRALE', 'ANNUALE'];
+  const OGGETTI = [
+    { k: 'cp', t: 'Carriponte', x: 'DEI VOSTRI CARRIPONTE' },
+    { k: 'gb', t: 'Gru a bandiera', x: 'DELLE VOSTRE GRU A BANDIERA' },
+    { k: 'sg', t: 'Accessori sottoganci', x: 'DEI VOSTRI ACCESSORI SOTTOGANCI' },
+    { k: 'pm', t: 'Pinze motorizzate', x: 'DELLE VOSTRE PINZE MOTORIZZATE' }
+  ];
+  const elenca = (a) => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' E ' + a[a.length - 1]);
+  const fraseControllo = (per, cosa, mese) => `CONTROLLO PERIODICO ${per}${cosa.length ? ' ' + elenca(cosa) : ''}${mese ? ' CON SCADENZA ' + mese : ''} COME DA CONTRATTO.`;
 
   // ---------- calcoli ----------
   const minuti = (t) => { if (!t) return null; const [h, m] = t.split(':').map(Number); return h * 60 + (m || 0); };
@@ -203,13 +196,20 @@ window.RAP = (function () {
             <button type="button" class="btn ghost aggiungi-riga" id="btnGiorno">+ Aggiungi giorno</button>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Lavori eseguiti</h2><button type="button" class="link" data-modfrasi="frasiEseguiti">✏️ Modifica frasi</button></div>
-            <details class="frasi" ${innerWidth > 760 ? 'open' : ''}><summary>＋ Frasi pronte</summary><div class="scorciatoie" data-per="eseguiti"></div></details>
-            <textarea name="eseguiti" rows="6" placeholder="Descrivi i lavori eseguiti o tocca una scorciatoia">${esc(r.eseguiti)}</textarea>
+            <div class="card-head"><h2>Lavori eseguiti</h2></div>
+            <details class="frasi frase-cp" ${innerWidth > 760 ? 'open' : ''}><summary>＋ Frase del controllo periodico</summary>
+              <div class="cp-box">
+                <div class="cp-riga"><span class="cp-lab">Controllo</span><div class="cp-scelte">${PERIODICITA.map((x) => `<button type="button" class="chip-s" data-cp-per="${x}">${x.charAt(0) + x.slice(1).toLowerCase()}</button>`).join('')}</div></div>
+                <div class="cp-riga"><span class="cp-lab">Di cosa</span><div class="cp-scelte">${OGGETTI.map((o) => `<button type="button" class="chip-s" data-cp-cosa="${o.k}">${o.t}</button>`).join('')}</div></div>
+                <div class="cp-riga"><span class="cp-lab">Scadenza</span><select data-cp-mese>${CTR.MESI.map((m) => `<option value="${m.toUpperCase()}">${m.charAt(0).toUpperCase() + m.slice(1)}</option>`).join('')}</select></div>
+                <p class="cp-anteprima" id="cpAnteprima"></p>
+                <button type="button" class="btn" id="cpInserisci">+ Inserisci nel rapportino</button>
+              </div>
+            </details>
+            <textarea name="eseguiti" rows="6" placeholder="Descrivi i lavori eseguiti (per i controlli usa la frase qui sopra)">${esc(r.eseguiti)}</textarea>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Lavori da eseguire</h2><button type="button" class="link" data-modfrasi="frasiDaEseguire">✏️ Modifica frasi</button></div>
-            <details class="frasi" ${innerWidth > 760 ? 'open' : ''}><summary>＋ Frasi pronte</summary><div class="scorciatoie" data-per="daEseguire"></div></details>
+            <div class="card-head"><h2>Lavori da eseguire</h2></div>
             <textarea name="daEseguire" rows="4" placeholder="Lavori da fare in seguito (se ce ne sono)">${esc(r.daEseguire)}</textarea>
           </div>
           <div class="card">
@@ -247,7 +247,7 @@ window.RAP = (function () {
     f.referenteId.onchange = mostraRefNome;
     f.clienteId.onchange = () => { r.sedeId = ''; disegnaSedi(); aggiornaSede(); };
     f.sedeId.onchange = () => { r.sedeId = f.sedeId.value; aggiornaSede(); };
-    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); mostraAperti(); };
+    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); mostraAperti(); propostaCp(); };
     // nuovo rapportino per una sede che ne ha già uno aperto: propongo di continuare quello
     const mostraAperti = () => {
       const box = el.querySelector('#aperti'); if (!box) return;
@@ -334,39 +334,43 @@ window.RAP = (function () {
     const leggiGiorni = () => el.querySelectorAll('.giorno-rap').forEach((box) => leggiUno(box, r.giorni[+box.dataset.g]));
     el.querySelector('#btnGiorno').onclick = () => { leggiGiorni(); r.giorni.push(giornoVuoto(sedeAttuale(), r.giorni[r.giorni.length - 1])); disegnaGiorni(); el.querySelector('.giorno-rap:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 
-    // --- scorciatoie
-    function disegnaFrasi() {
-      [['eseguiti', 'frasiEseguiti'], ['daEseguire', 'frasiDaEseguire']].forEach(([campo, k]) => {
-        const box = el.querySelector(`[data-per="${campo}"]`);
-        box.innerHTML = frasi(S, k).map((x, i) => `<button type="button" class="chip-s" data-i="${i}">+ ${esc(x.t)}</button>`).join('') +
-          (campo === 'eseguiti' ? '<button type="button" class="chip-s chip-imp" data-imp>+ Elenco impianti della sede</button>' : '');
-        const ta = f[campo];
-        const aggiungi = (testo) => { ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + testo.toUpperCase(); ta.focus(); ta.scrollTop = ta.scrollHeight; };
-        box.querySelectorAll('[data-i]').forEach((b) => (b.onclick = () => aggiungi(frasi(S, k)[+b.dataset.i].x)));
-        box.querySelector('[data-imp]')?.addEventListener('click', () => {
-          const imp = S.impianti.filter((i) => i.sedeId === f.sedeId.value && !i.dismesso);
-          if (!imp.length) return UI.toast('Nessun impianto registrato per questa sede', 'err');
-          aggiungi('IMPIANTI CONTROLLATI:\n' + imp.map((i) => `- ${i.numeroInterno ? 'N° ' + i.numeroInterno + ' ' : ''}${IMP.titolo(i)}${i.matricola ? ' MATR. ' + i.matricola : ''}`).join('\n'));
-        });
-      });
+    // --- frase del controllo periodico
+    // periodicità e mese di scadenza proposti dal piano controlli della sede (in base alla data del rapportino),
+    // "di cosa" in base a cosa c'è nella sede; tutto si può cambiare a mano
+    const cp = { per: 'TRIMESTRALE', cosa: [], mese: '', toccato: false };
+    function propostaCp() {
+      if (cp.toccato) return;
+      const s = sedeAttuale(), data = (r.giorni[0]?.data || oggi()), m = +data.slice(5, 7);
+      const p = CTR.piano(s);
+      // controllo del piano più vicino alla data (quello del mese o, se manca, l'ultimo prima)
+      let n = 1, dist = 99;
+      for (let k = 1; k <= 4; k++) { const d = (m - CTR.meseVisita(p, k) + 12) % 12; if (d < dist) { dist = d; n = k; } }
+      cp.per = { T: 'TRIMESTRALE', S: 'SEMESTRALE', A: 'ANNUALE' }[CTR.tipoVisita(p, n)];
+      cp.mese = CTR.MESI[CTR.meseVisita(p, n) - 1].toUpperCase();
+      const imp = s ? S.impianti.filter((i) => i.sedeId === s.id && !i.dismesso) : [];
+      const band = imp.filter((i) => /bandiera/i.test(i.tipologia || ''));
+      cp.cosa = [imp.length > band.length && 'cp', band.length && 'gb', s && S.sottoganci.some((x) => x.sedeId === s.id && !x.dismesso) && 'sg'].filter(Boolean);
+      if (!cp.cosa.length) cp.cosa = ['cp'];
+      mostraCp();
     }
-    el.querySelectorAll('[data-modfrasi]').forEach((b) => (b.onclick = () => {
-      const k = b.dataset.modfrasi;
-      UI.modal({
-        titolo: k === 'frasiEseguiti' ? 'Scorciatoie: lavori eseguiti' : 'Scorciatoie: lavori da eseguire',
-        infoTxt: 'Una scorciatoia per riga, nella forma: NOME | TESTO. Il nome è quello del pulsante, il testo è quello che viene scritto nel rapportino.',
-        largo: true,
-        valori: { voci: frasi(S, k).map((x) => `${x.t} | ${x.x}`).join('\n') },
-        campi: [{ k: 'voci', label: 'Scorciatoie', tipo: 'textarea' }],
-        onSalva: async (v) => {
-          const voci = v.voci.split('\n').map((x) => x.split('|')).filter((p) => p.length >= 2 && p[0].trim() && p.slice(1).join('|').trim()).map((p) => ({ t: p[0].trim(), x: p.slice(1).join('|').trim() }));
-          if (!voci.length) { UI.toast('Serve almeno una scorciatoia (NOME | TESTO)', 'err'); return false; }
-          await UI.salva('impostazioni', { id: k, voci });
-          S.impostazioni = [...S.impostazioni.filter((x) => x.id !== k), { id: k, voci }];
-          disegnaFrasi(); UI.toast('Scorciatoie aggiornate', 'ok');
-        }
-      });
+    function mostraCp() {
+      el.querySelectorAll('[data-cp-per]').forEach((b) => b.classList.toggle('on', b.dataset.cpPer === cp.per));
+      el.querySelectorAll('[data-cp-cosa]').forEach((b) => b.classList.toggle('on', cp.cosa.includes(b.dataset.cpCosa)));
+      el.querySelector('[data-cp-mese]').value = cp.mese || CTR.MESI[new Date().getMonth()].toUpperCase();
+      el.querySelector('#cpAnteprima').textContent = fraseControllo(cp.per, OGGETTI.filter((o) => cp.cosa.includes(o.k)).map((o) => o.x), el.querySelector('[data-cp-mese]').value);
+    }
+    el.querySelectorAll('[data-cp-per]').forEach((b) => (b.onclick = () => { cp.toccato = true; cp.per = b.dataset.cpPer; mostraCp(); }));
+    el.querySelectorAll('[data-cp-cosa]').forEach((b) => (b.onclick = () => {
+      cp.toccato = true; const k = b.dataset.cpCosa;
+      cp.cosa = cp.cosa.includes(k) ? cp.cosa.filter((x) => x !== k) : OGGETTI.map((o) => o.k).filter((x) => x === k || cp.cosa.includes(x));
+      mostraCp();
     }));
+    el.querySelector('[data-cp-mese]').onchange = (e) => { cp.toccato = true; cp.mese = e.target.value; mostraCp(); };
+    el.querySelector('#cpInserisci').onclick = () => {
+      if (!cp.cosa.length) return UI.toast('Scegli almeno una voce in «Di cosa»', 'err');
+      const ta = f.eseguiti, testo = el.querySelector('#cpAnteprima').textContent;
+      ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + testo; ta.focus(); ta.scrollTop = ta.scrollHeight;
+    };
 
     // --- firme
     function disegnaFirmaDi() {
@@ -393,7 +397,7 @@ window.RAP = (function () {
       b.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    disegnaSedi(); disegnaGiorni(); disegnaFrasi(); disegnaFirmaDi(); disegnaFirma(); mostraAperti();
+    disegnaSedi(); disegnaGiorni(); disegnaFirmaDi(); disegnaFirma(); mostraAperti(); propostaCp();
     if (conGiorno) setTimeout(() => { el.querySelector('.giorno-rap:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); UI.toast('Aggiunto il giorno di oggi: compila gli orari', ''); }, 200);
 
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {

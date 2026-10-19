@@ -3,7 +3,7 @@ import { firebaseConfig } from './config.js?v=27';
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '31';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '32';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -280,7 +280,7 @@ async function firebaseBackend(cfg) {
    STORICO MODIFICHE (visibile solo all'amministratore)
    ============================================================ */
 const ADMIN_EMAILS = ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com'];
-// stampa/PDF ed Excel del mese: come nel gestionale, solo Master e Risorse Umane (l'utente è quello entrato col PIN)
+// PDF del mese: come nel gestionale, solo Master e Risorse Umane (l'utente è quello entrato col PIN)
 const puoStampare = () => {
   let id = ''; try { id = sessionStorage.getItem('gid_sessione') || ''; } catch { }
   const u = leggiG('utenti').find(x => x.id === id);
@@ -1111,19 +1111,18 @@ function impagina(box) {
 async function exportPdf() {
   if (window.PDFX) {
     const nome = `Lavagna_${MESI[state.month]}_${state.year}.pdf`;
-    let w = null;
-    try { w = window.open('', '_blank'); if (w) w.document.write('<p style="font:16px system-ui;padding:24px">Preparo il PDF della lavagna…</p>'); } catch { w = null; }
+    toast('Preparo il PDF…');
     try {
       buildReport();
       const bytes = await window.PDFX.daStampa(impagina, '.rp-page', false);
       const url = URL.createObjectURL(new Blob([bytes], { type: 'application/pdf' }));
-      if (w && !w.closed) w.location.href = url;
-      else { const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove(); }
+      // il PDF si scarica direttamente (poi lo apri, lo stampi o lo invii)
+      const a = document.createElement('a'); a.href = url; a.download = nome; document.body.appendChild(a); a.click(); a.remove();
+      toast('PDF scaricato: ' + nome);
       setTimeout(() => URL.revokeObjectURL(url), 120000);
       return;
     } catch (er) {
       console.warn('PDF non riuscito, uso la stampa del browser', er);
-      if (w && !w.closed) w.close();
     }
   }
   buildReport();
@@ -1144,21 +1143,6 @@ async function exportPdf() {
   const restore = () => { document.title = old; window.removeEventListener('afterprint', restore); };
   window.addEventListener('afterprint', restore);
   setTimeout(() => { window.print(); setTimeout(restore, 1500); }, 60);
-}
-
-function exportCsv() {
-  const head = ['Data', 'Giorno', 'Tipo', 'Cliente / descrizione', 'Ora', 'Tecnici', 'Mezzo'];
-  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
-  const lines = [head, ...monthRows().map(r => [r.data, r.giorno, r.tipo, r.descr, r.ora, r.tecnici, r.mezzo])];
-  const csv = '﻿' + lines.map(r => r.map(q).join(';')).join('\r\n');
-  const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Lavagna_${MESI[state.month]}_${state.year}.csv`;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
 /* ============================================================
@@ -1218,8 +1202,7 @@ function renderMenu() {
     ${state.unsigned.length ? `<div class="menu-sec">Da sistemare</div>
     <button data-action="unsigned"><span class="ast">✱</span> Rapportini da firmare <span class="badge red">${state.unsigned.length}</span></button>` : ''}
     ${puoStampare() ? `<div class="menu-sec">${MESI[state.month]} ${state.year}</div>
-    <button data-action="pdf">PDF del mese (da stampare)</button>
-    <button data-action="csv">Registro per Excel</button>` : ''}
+    <button data-action="pdf">⬇️ Scarica il PDF del mese</button>` : ''}
     ${isAdmin() ? '<div class="menu-sep"></div><button data-action="log">Storico modifiche</button>' : ''}
     ${u ? '<div class="menu-sep"></div><button data-action="logout" class="danger-txt">Esci</button>' : ''}
     <div class="menu-ver">Versione ${APP_VERSION}</div>`;
@@ -1355,7 +1338,7 @@ const INFO = {
       <li><span class="mag yellow">Cliente</span><span class="mnote">nota</span> nota del controllo</li>
       <li><span class="ast">✱</span> rapportino ancora da firmare</li>
     </ul>
-    <p>Dal menu <b>☰</b> in alto a destra trovi anagrafica, PDF del mese ed Excel.</p>`],
+    <p>Dal menu <b>☰</b> in alto a destra trovi anagrafica e PDF del mese da scaricare.</p>`],
   magnets: ['Magneti del mese', `
     <p>Qui ci sono i clienti da controllare nel mese, divisi in <b>da pianificare</b>, <b>pianificati</b> e <b>fatti</b> (quelli in giorni già passati: si considerano eseguiti automaticamente).</p>
     <p><b>Per posizionare un magnete:</b> toccalo e poi tocca il giorno sul calendario. Dal computer puoi anche trascinarlo sul giorno.</p>
@@ -1440,7 +1423,6 @@ function handleAction(act, el) {
     case 'info': openInfo(el.dataset.topic); break;
     case 'info-close': closeInfo(); break;
     case 'pdf': if (puoStampare()) exportPdf(); break;
-    case 'csv': if (puoStampare()) exportCsv(); break;
     case 'log': openLog(); break;
     case 'log-filter': state.logFilter = el.dataset.f; renderLogList(); break;
     case 'log-restore': restoreLog(id); break;

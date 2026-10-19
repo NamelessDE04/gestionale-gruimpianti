@@ -370,7 +370,7 @@ em.c-e { background: #ffef00; color: #8a1b12; } em.c-s { background: var(--info-
   box-shadow: 0 2px 14px rgba(0,0,0,.18); font-family: Arial, Helvetica, "Liberation Sans", Arimo, sans-serif; color: #000;
 }
 .foglio * { box-sizing: border-box; }
-.p-logo { position: absolute; left: 27.3mm; top: 18.6mm; width: 28.7mm; height: 14.0mm; object-fit: fill; }
+.p-logo { position: absolute; left: 27.3mm; top: 17.2mm; width: 28.7mm; height: 17.4mm; object-fit: contain; }
 .p-box { position: absolute; left: 66.0mm; top: 17.2mm; width: 158.5mm; height: 17.4mm; border: .3mm solid #000; border-bottom: 0; }
 .p-box-fondo { position: absolute; left: 91.6mm; top: 34.45mm; width: 132.9mm; border-top: .3mm solid #000; }
 .p-box-tick { position: absolute; left: 66.0mm; top: 34.45mm; width: 1.4mm; border-top: .3mm solid #000; }
@@ -604,7 +604,7 @@ body.modal-aperto { overflow: hidden; }
 .foglio-p { position: relative; width: 210mm; height: 297mm; background: #fff; overflow: hidden; margin: 0 auto 8mm; box-shadow: 0 2px 14px rgba(0,0,0,.18);
   font-family: Calibri, Carlito, "Segoe UI", Arial, sans-serif; font-size: 8pt; color: #000; page: schedaP; }
 .foglio-p * { box-sizing: border-box; }
-.cs-logo { position: absolute; left: 8mm; top: 9.7mm; width: 23.1mm; height: 16mm; object-fit: fill; }
+.cs-logo { position: absolute; left: 8mm; top: 9.7mm; width: 23.1mm; height: 16mm; object-fit: contain; object-position: left center; }
 .cs-t { position: absolute; line-height: 3.45mm; white-space: nowrap; }
 .cs-ubic { overflow: hidden; text-overflow: clip; }
 .cs-c { text-align: center; }
@@ -1018,3 +1018,14 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .cs-t.cs-ubic { overflow: visible; }   /* il ritaglio lo fa il testo interno, che sta sempre nella casella */
 .cs-t.cs-fit { overflow: hidden; }
 .p-tab td.due-righe { white-space: normal; line-height: 1.02; overflow-wrap: anywhere; }
+
+/* ===== v0.27: frase del controllo periodico nel rapportino ===== */
+.cp-box { display: flex; flex-direction: column; gap: 10px; padding: 4px 0 12px; }
+.cp-riga { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cp-lab { min-width: 78px; font-weight: 700; font-size: 14px; color: #3a4a5c; }
+.cp-scelte { display: flex; flex-wrap: wrap; gap: 6px; }
+.chip-s.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.cp-riga select { width: auto; min-width: 160px; margin: 0; }
+.cp-anteprima { margin: 0; padding: 10px 12px; background: #f2f5f8; border-radius: 10px; font-weight: 600; font-size: 14px; line-height: 1.4; }
+#cpInserisci { align-self: flex-start; }
+@media (max-width: 760px) { .cp-lab { min-width: 0; width: 100%; } }
