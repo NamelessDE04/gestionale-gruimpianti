@@ -671,6 +671,14 @@ const CSS = `  #cg { --bg: var(--cg-bg, #ffffff); --fg: var(--cg-fg, #1b1f27); -
   .gru-svg .zn-c { fill: #1f5fbf; }
   .gru-svg .zn-n { fill: #fff; font-size: 15px; font-weight: 800; }
   .gru-svg .zn-t { fill: var(--fg); font-size: 14px; font-weight: 800; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; }
+  .foto-gru { position: relative; width: 100%; max-width: 900px; margin: 6px 0 14px; }
+  .foto-gru img { display: block; width: 100%; height: auto; border-radius: 12px; user-select: none; }
+  .punto { position: absolute; transform: translate(-50%, -50%); font: inherit; border: 0; background: none; padding: 0; cursor: pointer; display: flex; flex-direction: column; align-items: center; gap: 3px; }
+  .punto b { width: 42px; height: 42px; border-radius: 50%; background: #1f5fbf; color: #fff; font-size: 20px; font-weight: 900; display: grid; place-items: center; border: 3px solid #fff; box-shadow: 0 0 0 3px #1f5fbf, 0 4px 12px rgba(0,0,0,.35); animation: pulsa-p 2s ease-in-out infinite; }
+  .punto span { font-size: 11.5px; font-weight: 900; background: rgba(255,255,255,.92); color: #16324f; border-radius: 6px; padding: 2px 6px; white-space: nowrap; box-shadow: 0 1px 4px rgba(0,0,0,.2); }
+  .punto:hover b, .punto:focus b { background: #f2b705; color: #16324f; box-shadow: 0 0 0 3px #f2b705, 0 4px 12px rgba(0,0,0,.35); }
+  @keyframes pulsa-p { 50% { box-shadow: 0 0 0 7px rgba(31,95,191,.35), 0 4px 12px rgba(0,0,0,.35); } }
+  @media (max-width: 620px) { .punto span { display: none; } .punto b { width: 30px; height: 30px; font-size: 15px; border-width: 2px; opacity: .92; } }
   .aree-btn { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 760px; }
   .area-b { display: flex; align-items: center; gap: 10px; justify-content: flex-start; text-align: left; margin: 0; }
   .area-n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: #1f5fbf; color: #fff; display: grid; place-items: center; font-weight: 800; }
@@ -836,7 +844,7 @@ function mount(container, opts) {
       <div class="sr" id="ris"></div>
       <div id="voci" class="aree-box">
         <h2>Tocca la zona della gru da cablare</h2>
-        ${disegnoGru(state.tipo === 'BITRAVE')}
+        ${fotoGru(state.tipo === 'BITRAVE')}
         <div class="aree-btn">${AREE.filter(a => gruppiArea(gruppi, a).length).map(a => `<button class="btn area-b" data-area="${a.k}"><span class="area-n">${a.n}</span>${esc(a.nome)}</button>`).join('')}</div>
         <button class="btn solid gap-top" id="test">SONO PRONTO PER I TEST</button>
       </div>`);
@@ -865,7 +873,18 @@ function mount(container, opts) {
       return (z || zona) === a;
     });
   }
-  // carroponte visto dall'alto: vie di corsa, trave (o due travi), testate con i motori, quadro, carrello e derivazione pulsantiera
+  // foto della gru scelta con i punti da toccare sopra ai pezzi veri (posizioni in % della foto)
+  const PUNTI = {
+    monotrave: { img: 'monotrave.jpg', p: [['quadro', 24.7, 35], ['carrello', 49.4, 44.5], ['pulsantiera', 40.9, 76], ['ponte', 8.3, 45], ['ponte', 70.2, 6.6]] },
+    bitrave: { img: 'bitrave.jpg', p: [['quadro', 24.2, 35.8], ['carrello', 45, 24.3], ['pulsantiera', 38.5, 77], ['ponte', 11, 47.3], ['ponte', 88.5, 16]] }
+  };
+  function fotoGru(bitrave) {
+    const F = PUNTI[bitrave ? 'bitrave' : 'monotrave'];
+    return `<div class="foto-gru"><img src="${IMG + F.img}" alt="${bitrave ? 'Bitrave' : 'Monotrave'}" draggable="false">
+      ${F.p.map(([k, x, y]) => { const a = AREE.find(z => z.k === k); return `<button type="button" class="punto" data-area="${k}" style="left:${x}%;top:${y}%" aria-label="${esc(a.nome)}"><b>${a.n}</b><span>${esc(a.nome)}</span></button>`; }).join('')}
+    </div>`;
+  }
+  // (disegno schematico, non piu' usato) carroponte visto dall'alto
   function disegnoGru(bitrave) {
     const tr = bitrave ? [[150, 16], [184, 16]] : [[160, 22]];
     const zona = (k, n, nome, inner, lx, ly, anchor) => `<g class="zona" data-area="${k}" role="button" tabindex="0" aria-label="${nome}">${inner}
