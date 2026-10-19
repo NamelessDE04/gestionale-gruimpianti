@@ -407,7 +407,7 @@ window.UT = (function () {
       valori: u ? { ...u, ruolo: RUOLI[ruoloDi(u)], attivo: u.attivo !== false } : { ruolo: RUOLI.tecnico, attivo: true },
       campi: [
         { k: 'nome', label: 'Nome e cognome', req: true, mezza: true },
-        { k: 'nomeBreve', label: 'Sigla per il rapportino', mezza: true, placeholder: 'es. VL', aiuto: 'Compare solo nei rapportini di intervento. In lavagna e nel resto dell\'app si usa il nome.' },
+        { k: 'nomeBreve', label: 'Sigla per il rapportino', mezza: true, placeholder: 'es. VL', aiuto: 'Compare solo sul rapportino stampato (PDF). Nell\'app si usa sempre il nome.' },
         { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.values(RUOLI), mezza: true },
         { k: 'pin', label: u ? 'Nuovo PIN (4-6 cifre)' : 'PIN (4-6 cifre)', tipo: 'password', mezza: true },
         { k: 'google', label: Backend.mode === 'cloud' ? 'Account Google' : 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com', aiuto: Backend.mode === 'cloud' ? 'Senza account Google la persona entra solo col PIN su un dispositivo già collegato' : '' },

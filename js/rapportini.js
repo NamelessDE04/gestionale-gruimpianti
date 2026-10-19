@@ -55,7 +55,8 @@ window.RAP = (function () {
   const primaData = (r) => dateDi(r)[0] || r.dataConsegna || (r.creato || '').slice(0, 10);
   const numeroDi = (r) => (r.numero ? `${r.numero}/${r.anno}` : 'in arrivo');
   const tecniciDi = (r) => [...new Set((r.giorni || []).flatMap((g) => g.tecnici || []))];
-  const breveId = (S, id) => { const u = S.utenti.find((x) => x.id === id); return u ? UT.sigla(u) : ''; };
+  const breveId = (S, id) => { const u = S.utenti.find((x) => x.id === id); return u ? UT.breve(u) : ''; };     // nell'app: il nome (es. LUCA)
+  const siglaId = (S, id) => { const u = S.utenti.find((x) => x.id === id); return u ? UT.sigla(u) : ''; };     // sul foglio stampato: la sigla (es. VL)
   const firmato = (r) => !!r.firmaReferente;
   // sul PDF solo quante piattaforme (nessuna descrizione)
   const nPiatt = (g) => (g.piattaformeTipi || g.piattaforme || []).length || (g.piattaforma ? 1 : "");
@@ -107,7 +108,7 @@ window.RAP = (function () {
             <label>Anno<select data-f="anno"><option value="">Tutti</option>${anni.map((a) => `<option ${a === filtro.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
             <label>Mese<select data-f="mese"><option value="">Tutti</option>${MESI.map((m, i) => `<option value="${i + 1}" ${String(i + 1) === filtro.mese ? 'selected' : ''}>${m}</option>`).join('')}</select></label>
             <label>Cliente<select data-f="cli"><option value="">Tutti</option>${clienti.map((c) => `<option value="${c.id}" ${c.id === filtro.cli ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
-            <label>Tecnico<select data-f="tec"><option value="">Tutti</option>${tec.map((u) => `<option value="${u.id}" ${u.id === filtro.tec ? 'selected' : ''}>${esc(UT.sigla(u))}</option>`).join('')}</select></label>
+            <label>Tecnico<select data-f="tec"><option value="">Tutti</option>${tec.map((u) => `<option value="${u.id}" ${u.id === filtro.tec ? 'selected' : ''}>${esc(UT.breve(u))}</option>`).join('')}</select></label>
             <label>Stato<select data-f="stato">${[['', 'Tutti'], ['aperti', 'Da firmare'], ['firmati', 'Firmati']].map(([k, l]) => `<option value="${k}" ${k === filtro.stato ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
           </div>
           ${nAttivi ? '<button type="button" class="link" id="btnAzzera">Togli i filtri</button>' : ''}
@@ -263,7 +264,7 @@ window.RAP = (function () {
       if (!ps.length) return '<p class="muted gr-piatt-vuoto">Nessuna piattaforma: aggiungile in <a href="#/mezzi">Anagrafica mezzi</a>.</p>';
       return `<div class="chip-tecnici piatt">${ps.map((p) => `<button type="button" class="chip-t ${g.piattaforme.includes(p.id) ? 'on' : ''}" data-pt="${p.id}" title="${esc(MEZ.tipoP(p))}">${esc(MEZ.corto(p))}</button>`).join('')}</div>`;
     };
-    const chipTec = (g) => tecUtenti.map((u) => `<button type="button" class="chip-t ${g.tecnici.includes(u.id) ? 'on' : ''}" data-tec="${u.id}">${esc(UT.sigla(u))}</button>`).join('');
+    const chipTec = (g) => tecUtenti.map((u) => `<button type="button" class="chip-t ${g.tecnici.includes(u.id) ? 'on' : ''}" data-tec="${u.id}">${esc(UT.breve(u))}</button>`).join('');
     function disegnaGiorni() {
       const s = sedeAttuale();
       el.querySelector('#giorni').innerHTML = r.giorni.map((g, i) => `
@@ -371,7 +372,7 @@ window.RAP = (function () {
     function disegnaFirmaDi() {
       const ids = [...new Set(r.giorni.flatMap((g) => g.tecnici))];
       if (!ids.includes(r.firmaDi)) r.firmaDi = f.firmaDi.value && ids.includes(f.firmaDi.value) ? f.firmaDi.value : ids[0] || '';
-      f.firmaDi.innerHTML = ids.map((id) => { const u = S.utenti.find((x) => x.id === id); return u ? `<option value="${id}" ${id === r.firmaDi ? 'selected' : ''}>${esc(UT.sigla(u))}${u.firma ? '' : ' (senza firma nel profilo)'}</option>` : ''; }).join('') || '<option value="">— scegli prima chi è andato —</option>';
+      f.firmaDi.innerHTML = ids.map((id) => { const u = S.utenti.find((x) => x.id === id); return u ? `<option value="${id}" ${id === r.firmaDi ? 'selected' : ''}>${esc(UT.breve(u))}${u.firma ? '' : ' (senza firma nel profilo)'}</option>` : ''; }).join('') || '<option value="">— scegli prima chi è andato —</option>';
     }
     f.firmaDi.onchange = () => (r.firmaDi = f.firmaDi.value);
     function disegnaFirma() {
@@ -425,7 +426,7 @@ window.RAP = (function () {
       if (pad && !pad.vuota()) { r.firmaReferente = pad.immagine(); r.firmatoIl = new Date().toISOString(); }
       // la firma del tecnico è quella del suo profilo, fissata al momento del salvataggio
       const ft = S.utenti.find((u) => u.id === r.firmaDi);
-      r.firmaTecnico = ft?.firma || r.firmaTecnico || null; r.firmatarioTecnico = ft ? UT.sigla(ft) : r.firmatarioTecnico || '';
+      r.firmaTecnico = ft?.firma || r.firmaTecnico || null; r.firmatarioTecnico = ft ? UT.breve(ft) : r.firmatarioTecnico || '';
       if (!r.numero) r.numero = S.rapportini.find((x) => x.id === r.id)?.numero || null;   // assegnato nel frattempo da un altro dispositivo
       if (nuovo) {
         const a = (r.giorni[0]?.data || oggi()).slice(0, 4);
@@ -480,7 +481,7 @@ window.RAP = (function () {
                 <td>${fmt(g.data)}</td><td>${fascia(g.mattDa, g.mattA)}</td><td>${fascia(g.pomDa, g.pomA)}</td>
                 <td class="num">${g.viaggio ? hhmm(+g.viaggio) : ''}</td><td class="num">${esc(g.km)}</td>
                 <td class="num">${esc(g.persone)}</td>
-                <td>${esc((g.tecnici || []).map((id) => breveId(S, id)).filter(Boolean).join(', '))}</td><td class="num">${nPiatt(g)}</td><td class="rap-nota">${esc(g.note)}</td></tr>`).join('')}
+                <td>${esc((g.tecnici || []).map((id) => siglaId(S, id)).filter(Boolean).join(', '))}</td><td class="num">${nPiatt(g)}</td><td class="rap-nota">${esc(g.note)}</td></tr>`).join('')}
               ${giorni.length > 1 ? `<tr class="rap-tot"><td colspan="3">TOTALE</td><td class="num">${hhmm(tot.via)}</td><td class="num">${tot.km || ''}</td><td colspan="4"></td></tr>` : ''}</tbody>
             </table>
             <div class="rap-box"><h2>LAVORI ESEGUITI</h2><div class="rap-testo">${esc(r.eseguiti) || '&nbsp;'}</div></div>
@@ -488,7 +489,7 @@ window.RAP = (function () {
             <footer class="rap-firme">
               <div class="rap-firma">
                 <span class="rap-etich">IL TECNICO</span>
-                <b>${esc(r.firmatarioTecnico || breveId(S, r.firmaDi))}</b>
+                <b>${esc(siglaId(S, r.firmaDi) || r.firmatarioTecnico || '')}</b>
                 <div class="rap-img">${r.firmaTecnico ? `<img src="${r.firmaTecnico}" alt="">` : ''}</div>
               </div>
               <div class="rap-firma dx">
