@@ -288,11 +288,14 @@ window.UT = (function () {
           <div class="azioni-lista">
             <a class="btn ghost" href="#/utenti">👥 Gestione utenti</a><a class="btn ghost" href="#/registro">📋 Registro attività</a>
             <button class="btn ghost" id="btnExport">💾 Esporta dati (backup)</button>
+            <button class="btn ghost" id="btnDemoP">🎬 Modalità dimostrazione</button>
+            <a class="btn ghost danger" href="#/azzera">🧹 Azzera dati</a>
             ${info('«Esporta dati» scarica una copia di tutto quello che è stato inserito. Tienila al sicuro. I documenti allegati non sono compresi.')}
           </div></div>` : ''}
       </section>`;
     el.querySelector('#btnEsci').onclick = esci;
     el.querySelector('#btnExport')?.addEventListener('click', () => App.esporta());
+    el.querySelector('#btnDemoP')?.addEventListener('click', () => DEMO.apri(S));
     if (r !== 'ru') {
       // il riquadro della firma compare solo col tasto: così non si firma per sbaglio scorrendo la pagina
       let pad = null;
@@ -653,7 +656,7 @@ window.UT = (function () {
   // ---------- percorsi vietati per livello ----------
   function vietato(parti) {
     const r = ruoloDi(attuale()), p = parti.join('/');
-    if (['utenti', 'registro', 'conflitti'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
+    if (['utenti', 'registro', 'conflitti', 'azzera'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
     // stampa e invio ai clienti: solo Master e Risorse Umane
     const stampa = parti[0] === 'invio' || (['controlli', 'sottoganci'].includes(parti[0]) && parti.includes('stampa'));
     if (stampa && !['master', 'ru'].includes(r)) return 'Stampa e invio ai clienti sono riservati al Master e a Risorse Umane.';

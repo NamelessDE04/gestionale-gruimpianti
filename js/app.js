@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.23.0';
+  const VERSIONE = '0.24.0';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -36,6 +36,7 @@ window.App = (function () {
     else if (parti[0] === 'utenti') info = UT.gestione(el, S) || info;
     else if (parti[0] === 'registro') { UT.registro(el, S, parti); info = { titolo: parti[1] ? 'Registro attività · PDF' : 'Registro attività', indietro: parti[1] ? '#/registro' : '#/profilo', live: false }; }
     else if (parti[0] === 'conflitti') info = CONF.pagina(el, S) || info;
+    else if (parti[0] === 'azzera') info = AZZ.pagina(el, S) || info;
     else if (parti[0] === 'invio') info = INVIO.route(el, S, parti, query) || info;
     else if (parti[0] === 'cablaggio') info = CAB.route(el, S, parti) || info;
     else if (parti[0] === 'rapportini') info = RAP.route(el, S, parti, query) || info;
@@ -48,7 +49,13 @@ window.App = (function () {
     else if (HOME.caselle.some((c) => c.k === parti[0])) { HOME.prossimamente(el, parti[0]); info = { titolo: '', indietro: '#/' }; }
     else { location.hash = '#/'; return; }
     vistaLive = info.live !== false;
-    document.getElementById('pageTitle').textContent = info.titolo || '';
+    const tit = document.getElementById('pageTitle');
+    if (!parti.length) {
+      // in home: la data di oggi e un saluto a chi è entrato
+      const ora = new Date(), h = ora.getHours();
+      const data = ora.toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'long' });
+      tit.innerHTML = `<span class="tb-data">${UI.esc(data.charAt(0).toUpperCase() + data.slice(1))}</span><span class="tb-saluto">${h < 13 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera'}, ${UI.esc(UT.breve(io) || io.nome)}</span>`;
+    } else tit.textContent = info.titolo || '';
     const back = document.getElementById('btnBack');
     back.hidden = !info.indietro; back.onclick = () => (location.hash = info.indietro);
     document.body.classList.toggle('in-home', !parti.length);
@@ -80,7 +87,6 @@ window.App = (function () {
     // pulsante DEMO: entra / esce dalla dimostrazione
     document.body.classList.toggle('prova', Backend.mode === 'prova');
     document.getElementById('bannerProva').hidden = Backend.mode !== 'prova';
-    document.getElementById('btnDemo').onclick = () => DEMO.apri(S);
     document.getElementById('btnEsciProva').onclick = () => DEMO.esci();
     rete(); window.addEventListener('online', rete);
     window.addEventListener('online', () => setTimeout(() => RAP.assegnaNumeri(S), 2000)); window.addEventListener('offline', rete);

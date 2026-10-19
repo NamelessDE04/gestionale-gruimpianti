@@ -1000,3 +1000,22 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .rap-rif { display: flex; flex-wrap: wrap; gap: 2mm 8mm; font-size: 9pt; margin: -2mm 0 4mm; padding: 1.8mm 3mm; background: #f2f5f8; border-radius: 1.5mm; }
 .rap-rif b { font-size: 9.5pt; }
 .btn-firma { width: 100%; justify-content: center; }
+
+/* ===== v0.24: barra in alto senza DEMO, logo più grande, data e saluto in home ===== */
+.brand { height: 52px; padding: 5px 12px; }
+.brand img { height: 42px; }
+#pageTitle .tb-data { display: block; font-size: 18px; font-weight: 800; line-height: 1.15; }
+#pageTitle .tb-saluto { display: block; font-size: 13.5px; font-weight: 600; color: var(--giallo); opacity: .95; }
+@media (max-width: 760px) {
+  .brand { height: 46px; padding: 4px 9px; }
+  .brand img { height: 38px; }
+  #pageTitle .tb-data { font-size: 16px; }
+  #pageTitle .tb-saluto { font-size: 12.5px; }
+}
+.azz-avviso { margin-bottom: 12px; }
+.azz-lista { display: flex; flex-direction: column; gap: 6px; margin: 6px 0 10px; }
+.azz-voce { display: flex !important; align-items: center; gap: 12px; padding: 10px 12px; border: 1px solid var(--linea); border-radius: 12px; cursor: pointer; margin: 0 !important; }
+.azz-voce input { width: 22px; height: 22px; flex: none; margin: 0 !important; }
+.azz-voce span { flex: 1; display: flex; flex-direction: column; } .azz-voce small { color: var(--muted); font-weight: 400; }
+.azz-n { font-style: normal; font-weight: 800; color: var(--muted); min-width: 2ch; text-align: right; }
+.btn.btn-azz { background: #c0392b; color: #fff; border-color: #c0392b; } .btn.btn-azz:disabled { opacity: .6; }

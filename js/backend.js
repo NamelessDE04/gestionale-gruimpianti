@@ -49,6 +49,7 @@
         localStorage.setItem(PREFIX + col, JSON.stringify(max && arr.length > max ? arr.slice(arr.length - max) : arr));
       },
       async leggiTutti(col) { return read(col); },
+      async svuota(col) { write(col, []); },
       // solo per la demo
       isSeeded() { return localStorage.getItem(PREFIX + '_seed') === '1'; },
       markSeeded() { localStorage.setItem(PREFIX + '_seed', '1'); },
@@ -189,6 +190,11 @@
       },
       async remove(col, id) { const p = db.collection(col).doc(id).delete(); if (navigator.onLine) await p; },
       append(col, doc) { db.collection(col).doc(doc.id).set(codifica(doc)).catch(() => {}); },
+      // cancella tutti i documenti di una raccolta (a blocchi di 400)
+      async svuota(col) {
+        const r = await db.collection(col).get();
+        for (const pezzo of aPezzi(r.docs, 400)) { const b = db.batch(); pezzo.forEach((d) => b.delete(db.collection(col).doc(d.id))); await b.commit(); }
+      },
       async leggiTutti(col) {
         let q = db.collection(col);
         if (col === 'log') q = q.orderBy('t', 'desc').limit(10000);
