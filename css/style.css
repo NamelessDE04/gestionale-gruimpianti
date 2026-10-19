@@ -1074,3 +1074,6 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
   body.stampa-layout .lay-imp { animation: none; }
 }
 .lay-svg:not(.in-modifica) .lay-drag:not(.lay-imp) { pointer-events: none; }   /* in vista si toccano solo gli impianti */
+.lay-campate { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; }
+.lay-campate b { min-width: 2ch; text-align: center; font-size: 17px; }
+.lay-svg .lay-handle { cursor: nwse-resize; }
