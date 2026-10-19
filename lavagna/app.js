@@ -3,7 +3,7 @@ import { firebaseConfig } from './config.js?v=27';
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '29';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '30';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -38,7 +38,7 @@ function anagraficaGestionale() {
     contacts: (c.referenti || []).filter(r => r.telefono).map(r => ({ id: r.id, name: [r.nome, r.cognome].filter(Boolean).join(' '), phone: r.telefono }))
   })));
   const ruolo = u => (u.ruolo === 'admin' ? 'master' : u.ruolo);
-  const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nomeBreve || u.nome }));
+  const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nome }));
   // mezzi: marca e modello, senza targa; le piattaforme aeree non compaiono sulla lavagna
   const vehicles = leggiG('mezzi').filter(m => !m.dismesso && m.categoria !== 'piattaforma').map(m => ({ id: m.id, name: [m.marca, m.modello].filter(Boolean).join(' ') || 'Mezzo' }));
   return { clients, staff, vehicles };

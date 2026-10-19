@@ -41,7 +41,8 @@ window.UT = (function () {
   const solaLettura = () => ruoloDi(attuale()) === 'ru';
   // stampare e inviare ai clienti rapportini, schede di controllo e sottoganci: solo Master e Risorse Umane
   const puoInviare = () => ['master', 'ru'].includes(ruoloDi(attuale()));
-  const breve = (u) => (u?.nomeBreve || u?.nome || '');   // nome breve: quello usato in lavagna, rapportini e controlli
+  const breve = (u) => (u?.nome || '');   // il nome della persona: lavagna, controlli, sottoganci e tutto il resto
+  const sigla = (u) => (u?.nomeBreve || u?.nome || '');   // sigla (es. VL): solo nei rapportini di intervento
   const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
   const pinValido = (p) => /^\d{4,6}$/.test(p);
   async function pinGiaUsato(pin, trannId) {
@@ -406,7 +407,7 @@ window.UT = (function () {
       valori: u ? { ...u, ruolo: RUOLI[ruoloDi(u)], attivo: u.attivo !== false } : { ruolo: RUOLI.tecnico, attivo: true },
       campi: [
         { k: 'nome', label: 'Nome e cognome', req: true, mezza: true },
-        { k: 'nomeBreve', label: 'Nome breve', mezza: true, placeholder: 'es. LUCA V.', aiuto: 'Il nome usato in lavagna, nei rapportini e nei controlli' },
+        { k: 'nomeBreve', label: 'Sigla per il rapportino', mezza: true, placeholder: 'es. VL', aiuto: 'Compare solo nei rapportini di intervento. In lavagna e nel resto dell\'app si usa il nome.' },
         { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.values(RUOLI), mezza: true },
         { k: 'pin', label: u ? 'Nuovo PIN (4-6 cifre)' : 'PIN (4-6 cifre)', tipo: 'password', mezza: true },
         { k: 'google', label: Backend.mode === 'cloud' ? 'Account Google' : 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com', aiuto: Backend.mode === 'cloud' ? 'Senza account Google la persona entra solo col PIN su un dispositivo già collegato' : '' },
@@ -692,6 +693,6 @@ window.UT = (function () {
 
   return {
     descrivi, attuale, isMaster, puoInviare, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
-    campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, attivi, ruoloDi, imposta: (dati) => (S = dati)
+    campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, sigla, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
 })();
