@@ -635,6 +635,21 @@ const CSS = `  #cg { --bg: var(--cg-bg, #ffffff); --fg: var(--cg-fg, #1b1f27); -
   .wire.fc .sub { display: block; font-size: .8rem; font-weight: 600; opacity: .75; margin-top: 3px; }
   .pont { color: #ffd400; font-weight: 800; font-size: .85rem; }
   .wire.hit, .card .wire.hit { outline: 3px solid #ffd400; outline-offset: 2px; background: rgba(255,212,0,.13); }
+  /* scelte a immagini */
+  .passi { display: flex; flex-wrap: wrap; gap: 4px 6px; align-items: center; justify-content: center; margin: 0 0 12px; font-size: .78rem; font-weight: 800; letter-spacing: .03em; }
+  .passi span { border: 1.5px solid var(--line); border-radius: 99px; padding: 3px 10px; }
+  .passi i { font-style: normal; color: var(--dim); }
+  .foto-scelte { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; width: 100%; max-width: 900px; }
+  .foto-b { font: inherit; color: var(--fg); background: var(--bg); border: 2.5px solid var(--line); border-radius: 16px; padding: 14px 12px 12px; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: space-between; gap: 10px; min-height: 180px; transition: transform .1s, border-color .1s; }
+  .foto-b:hover { border-color: #1f5fbf; } .foto-b:active { transform: scale(.98); }
+  .foto-b img { width: 100%; max-height: 210px; object-fit: contain; border-radius: 8px; background: #fff; }
+  .foto-n { font-weight: 900; font-size: 1.05rem; letter-spacing: .04em; }
+  .foto-b.off { opacity: .4; cursor: not-allowed; } .foto-off { font-size: .75rem; font-weight: 700; color: var(--dim); }
+  .sv { width: 130px; height: 130px; }
+  .sv .sv-tr { fill: var(--dim); opacity: .5; } .sv .sv-ca { fill: #f2b705; stroke: var(--line); stroke-width: 2; }
+  .sv .sv-li { fill: none; stroke: var(--line); stroke-width: 3; stroke-linecap: round; }
+  .sv .sv-fr path { fill: none; stroke: #1f5fbf; stroke-width: 8; stroke-linecap: round; stroke-linejoin: round; }
+  @media (max-width: 520px) { .foto-scelte { grid-template-columns: 1fr; } .foto-b { min-height: 0; } .foto-b img { max-height: 160px; } }
   /* zone della gru vista dall'alto */
   .aree-box { width: 100%; display: flex; flex-direction: column; align-items: center; }
   .gru-svg { width: 100%; max-width: 760px; height: auto; margin: 6px 0 10px; user-select: none; }
@@ -694,9 +709,8 @@ function mount(container, opts) {
   /* ---------- Schermate base ---------- */
   function home() {
     state.tipo = state.marca = state.motore = state.cartella = state.carrello = state.sollevamento = null; state.q = ''; fcReset(); Object.keys(SCELTE).forEach(k => delete SCELTE[k]);
-    render(`
-      <h1>CONFIGURATORE CABLAGGIO GRU</h1>
-      <button class="btn" id="start">PREMERE PER INIZIARE</button>
+    q1();
+    view.insertAdjacentHTML('beforeend', `
       ${eAdmin() && state.edit ? `<div class="panel-ed">
           <p class="meta">Modifiche salvate su questo dispositivo: <strong>${nLoc()}</strong></p>
           <button class="btn ghost" id="eexp">ESPORTA MODIFICHE</button>
@@ -705,7 +719,6 @@ function mount(container, opts) {
         </div>` : ''}
       ${eAdmin() && !state.edit ? `<button class="lock" id="lock">✎ MODALITÀ MODIFICA</button>` : ''}
       ${opts.onExit ? `<button class="lock" id="logout">⎋ ESCI</button>` : ''}`);
-    $('start').onclick = () => go(q1);
     const on = (id, fn) => { const b = $(id); if (b) b.onclick = fn; };
     on('lock', () => { setEdit(true); home(); });
     on('logout', () => opts.onExit && opts.onExit());
@@ -725,27 +738,52 @@ function mount(container, opts) {
   const vel = v => (String(v).startsWith('SINGOLA') ? 'singola' : 'doppia');
   const VEL = ['SINGOLA VELOCITÀ', 'DOPPIA VELOCITÀ'];
 
+  /* ---------- Scelte a immagini: niente domande da leggere, si tocca la foto ---------- */
+  const IMG = opts.immagini || 'img/cablaggio/';
+  // simboli delle velocita': una freccia = singola, due frecce = doppia; carrello = frecce orizzontali, sollevamento = verticali
+  const simboloVel = (mov, n) => {
+    const fr = d => (mov === 'carrello' ? `<path d="M${d} 30 l16 16 l-16 16"/>` : `<path d="M74 ${d} l16 16 l16 -16"/>`);
+    const icona = mov === 'carrello'
+      ? '<rect x="10" y="92" width="100" height="8" rx="2" class="sv-tr"/><rect x="34" y="74" width="52" height="18" rx="4" class="sv-ca"/><path d="M60 100 v8 m-6 4 a6 6 0 1 0 12 0" class="sv-li"/>'
+      : '<rect x="10" y="8" width="44" height="14" rx="4" class="sv-ca"/><path d="M32 22 v64 m-8 6 a8 8 0 1 0 16 0" class="sv-li"/>';
+    const frecce = mov === 'carrello' ? (n === 1 ? fr(52) : fr(40) + fr(62)) : (n === 1 ? fr(44) : fr(32) + fr(54));
+    return `<svg class="sv" viewBox="0 0 120 120" aria-hidden="true">${icona}<g class="sv-fr">${frecce}</g></svg>`;
+  };
+  const QUAL = { carrello: 'CARRELLO', sollevamento: 'SOLLEVAMENTO' };
+  // passi gia' fatti, piccoli in alto
+  const passi = () => [state.tipo, state.marca, state.carrello && 'CARRELLO ' + (state.carrello === 'singola' ? '›' : '››'), state.sollevamento && 'SOLLEVAMENTO ' + (state.sollevamento === 'singola' ? '›' : '››')].filter(Boolean);
+  function sceltaImg(opzioni, onPick) {
+    const pp = passi();
+    render(`
+      ${pp.length ? `<div class="passi">${pp.map(x => `<span>${esc(x)}</span>`).join('<i>›</i>')}</div>` : ''}
+      <div class="foto-scelte">${opzioni.map((o, i) => `<button class="foto-b${o.off ? ' off' : ''}" data-i="${i}"${o.off ? ' disabled' : ''}>
+        ${o.img ? `<img src="${IMG + o.img}" alt="${esc(o.nome)}" draggable="false">` : o.svg}
+        <span class="foto-n">${esc(o.nome)}</span>${o.off ? '<span class="foto-off">non ancora disponibile</span>' : ''}</button>`).join('')}</div>`);
+    view.querySelectorAll('.foto-b[data-i]').forEach(b => b.onclick = () => { const o = opzioni[+b.dataset.i]; if (!o.off) onPick(o.v); });
+  }
+  const sceltaVel = (mov, onPick, off = []) => sceltaImg([1, 2].map(n => ({ v: VEL[n - 1], nome: (n === 1 ? 'SINGOLA' : 'DOPPIA') + ' · ' + QUAL[mov], svg: simboloVel(mov, n), off: off.includes(VEL[n - 1]) })), onPick);
+
   function q1() {
-    choices('Che tipologia di gru devi cablare?', 'Domanda 1', ['MONOTRAVE', 'BITRAVE'], v => { state.tipo = v; go(q2); }, ['BITRAVE']);
+    sceltaImg([{ v: 'MONOTRAVE', nome: 'MONOTRAVE', img: 'monotrave.jpg' }, { v: 'BITRAVE', nome: 'BITRAVE', img: 'bitrave.jpg', off: true }], v => { state.tipo = v; go(q2); });
   }
 
   function q2() {
-    choices('Che marca di paranco è installata?', 'Domanda 2', ['DONATI', 'MISIA'], v => { state.marca = v; go(q3); });
+    sceltaImg([{ v: 'MISIA', nome: 'MISIA', img: 'misia.jpg' }, { v: 'DONATI', nome: 'DONATI', img: 'donati.jpg' }], v => { state.marca = v; go(q3); });
   }
 
   function q3() {
-    choices('Il carrello è a:', 'Domanda 3', VEL, v => { state.carrello = vel(v); state.sollevamento = null; if (state.tipo === 'MONOTRAVE' && state.marca === 'DONATI') { state.motore = null; fineDomande(); } else go(q4); }, state.marca === 'MISIA' ? [VEL[0]] : []);   // misia: per ora solo doppia velocità
+    sceltaVel('carrello', v => { state.carrello = vel(v); state.sollevamento = null; if (state.tipo === 'MONOTRAVE' && state.marca === 'DONATI') { state.motore = null; fineDomande(); } else go(q4); }, state.marca === 'MISIA' ? [VEL[0]] : []);   // misia: per ora solo doppia velocità
   }
 
   function q4() {
-    choices('Il sollevamento è a:', 'Domanda 4', VEL, v => {
+    sceltaVel('sollevamento', v => {
       state.sollevamento = vel(v);
       if (state.marca === 'MISIA') go(q5); else { state.motore = null; fineDomande(); }
     }, state.marca === 'MISIA' ? [VEL[0]] : []);
   }
 
   function q5() {
-    choices('Che tipo di motore sollevamento è installato?', 'Domanda 5', ['CONICO', 'CILINDRICO'], v => { state.motore = v; fineDomande(); }, ['CILINDRICO']);
+    sceltaImg([{ v: 'CILINDRICO', nome: 'MOTORE CILINDRICO', img: 'cilindrico.jpg', off: true }, { v: 'CONICO', nome: 'MOTORE CONICO', img: 'conico.jpg' }], v => { state.motore = v; fineDomande(); });
   }
 
   // la configurazione e' completa: monotrave-donati, bitrave-misia-conico, ecc.
@@ -839,9 +877,9 @@ function mount(container, opts) {
       ${tr.map(([y, h]) => `<rect class="trave" x="44" y="${y}" width="552" height="${h}"/>`).join('')}
       ${zona('ponte', 4, 'MOTORI PONTE', `
         <rect class="testata" x="38" y="110" width="30" height="140" rx="4"/><rect class="testata" x="572" y="110" width="30" height="140" rx="4"/>
-        <rect class="hot" x="40" y="118" width="40" height="34" rx="5"/><rect class="hot" x="560" y="208" width="40" height="34" rx="5"/>
-        <path class="mot" d="M46 124h28v22h-28z M566 214h28v22h-28z"/>
-        <path class="guida" d="M238 56 L62 116 M402 56 L580 206"/>`, 250, 52)}
+        <rect class="hot" x="40" y="118" width="40" height="34" rx="5"/><rect class="hot" x="560" y="118" width="40" height="34" rx="5"/>
+        <path class="mot" d="M46 124h28v22h-28z M566 124h28v22h-28z"/>
+        <path class="guida" d="M238 56 L62 116 M402 56 L580 116"/>`, 250, 52)}
       ${zona('quadro', 1, 'QUADRO ELETTRICO', `<rect class="hot box" x="92" y="${bitrave ? 206 : 196}" width="64" height="44" rx="5"/>
         <path class="lin" d="M104 ${bitrave ? 216 : 206}h40 M104 ${bitrave ? 226 : 216}h40 M104 ${bitrave ? 236 : 226}h28"/>`, 124, bitrave ? 284 : 274)}
       ${zona('carrello', 2, 'ZONA CARRELLO', `<rect class="hot carr" x="276" y="${bitrave ? 138 : 140}" width="${bitrave ? 92 : 80}" height="${bitrave ? 76 : 70}" rx="6"/>
