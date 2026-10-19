@@ -80,7 +80,7 @@ window.AZZ = (function () {
         </div>`;
       document.body.appendChild(ov); document.body.classList.add('modal-aperto');
       const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
-      ov.addEventListener('click', (e) => { if (e.target === ov || e.target.closest('[data-x]')) chiudi(); });
+      ov.addEventListener('click', (e) => { if (UI.toccoFuori(e, ov) || e.target.closest('[data-x]')) chiudi(); });
       const inp = ov.querySelector('#azzConf'), si = ov.querySelector('#azzSi');
       inp.oninput = () => (si.disabled = inp.value.trim().toUpperCase() !== 'AZZERA');
       si.onclick = () => { if (si.disabled) return; chiudi(); ok(); };

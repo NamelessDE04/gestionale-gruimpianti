@@ -37,14 +37,14 @@ window.SGStampa = (function () {
     const n = sg.parti.length;
     return sg.parti.map((p, i) => {
       const rs = i === 0 && n > 1 ? ` rowspan="${n}"` : '';
-      const fisse = i === 0 ? `<td${rs}>${esc(sg.numero)}</td>` : '';
-      const fisse2 = i === 0 ? `<td${rs}>${esc(sg.portata)}</td><td${rs}>${esc(sg.ubicazione)}</td><td${rs}>${esc(sg.certificato)}</td>` : '';
+      const fisse = i === 0 ? `<td${rs} data-adatta="0.4" data-righe="2">${esc(sg.numero)}</td>` : '';
+      const fisse2 = i === 0 ? `<td${rs} data-adatta="0.4" data-righe="2">${esc(sg.portata)}</td><td${rs} data-adatta="0.4" data-righe="2">${esc(sg.ubicazione)}</td><td${rs} data-adatta="0.4" data-righe="2">${esc(sg.certificato)}</td>` : '';
       const cod = giri.map((g) => {
         const c = g?.righe[sg.id]?.codici[i] || '';
         return `<td class="${/E/.test(c) ? 'p-giallo' : ''}">${esc(c)}</td>`;
       }).join('');
-      return `<tr style="height:${H_R}mm" class="${i < n - 1 ? 'p-sub' : ''}">${fisse}<td>${esc(p.denominazione)}</td><td>${esc(p.dimensioni)}</td>${fisse2}
-        <td class="p-sp"></td>${cod}<td class="p-sp"></td><td class="p-nota">${esc(note[i] || '')}</td></tr>`;
+      return `<tr style="height:${H_R}mm" class="${i < n - 1 ? 'p-sub' : ''}">${fisse}<td data-adatta="0.4" data-righe="2">${esc(p.denominazione)}</td><td data-adatta="0.4" data-righe="2">${esc(p.dimensioni)}</td>${fisse2}
+        <td class="p-sp"></td>${cod}<td class="p-sp"></td><td class="p-nota" data-adatta="0.4" data-righe="2">${esc(note[i] || '')}</td></tr>`;
     }).join('');
   }
   const rigaVuota = () => `<tr style="height:${H_R}mm"><td></td><td></td><td></td><td></td><td></td><td></td><td class="p-sp"></td><td></td><td></td><td></td><td></td><td class="p-sp"></td><td></td></tr>`;
@@ -72,7 +72,7 @@ window.SGStampa = (function () {
       <table class="p-tab p-notetab" style="left:${SX}mm;top:${top}mm;width:${LARG}mm">
         <colgroup><col style="width:${COL[0]}mm"><col></colgroup>
         <tr style="height:5.3mm"><td colspan="2" class="p-notetit">NOTE</td></tr>
-        ${righeNote.map((t) => `<tr style="height:${H_R}mm"><td></td><td class="p-nota">${esc(t)}</td></tr>`).join('')}
+        ${righeNote.map((t) => `<tr style="height:${H_R}mm"><td></td><td class="p-nota" data-adatta="0.4" data-righe="2">${esc(t)}</td></tr>`).join('')}
       </table>
       <div class="p-banda" style="${y(43.4)};left:${SX}mm;width:${LARG}mm;background:#92d050">${LEGENDA}</div>
       ${RIGHE_PIEDE.map((t, i) => `<div class="p-riga" style="${y([49.3, 54.7, 60.4, 66.1][i])};left:${SX}mm;width:${LARG}mm">${t}</div>`).join('')}
@@ -100,9 +100,9 @@ window.SGStampa = (function () {
           <img class="p-logo" src="img/logo-grande.png" alt="">
           <div class="p-box"></div><div class="p-box-fondo"></div><div class="p-box-tick"></div>
           <img class="p-logo30" src="img/logo-30.png" alt="" onerror="this.remove()">
-          <div class="p-titolo">${esc(c.titoloElenco || 'ELENCO SOTTOGANCI')}&nbsp; ${anno}</div>
-          <div class="p-cliente">${esc(c.nome)}</div>
-          <div class="p-loc">${esc(c.localita || '')}</div>
+          <div class="p-titolo" data-adatta="0.4">${esc(c.titoloElenco || 'ELENCO SOTTOGANCI')}&nbsp; ${anno}</div>
+          <div class="p-cliente" data-adatta="0.4">${esc(c.nome)}</div>
+          <div class="p-loc" data-adatta="0.4">${esc(c.localita || '')}</div>
           <div class="p-colfasc">colore fascette</div>
           ${SG.SLOT.map((s, i) => `<div class="p-nomefasc" style="left:${(SX + 124.8 + i * 14.3).toFixed(2)}mm">${s.nome}</div>`).join('')}
         ` : ''}
@@ -143,6 +143,7 @@ window.SGStampa = (function () {
       document.title = `${(c.titoloElenco || 'ELENCO').replace(/\s+/g, '_')}_${c.nome}_${c.localita || ''}_${anno}`.replace(/_+$/, '');
       window.print(); setTimeout(() => (document.title = t), 1000);
     };
+    UI.adattaTesti(el);   // titolo, cliente e località sempre dentro i loro riquadri
     requestAnimationFrame(adatta);
     return { titolo: `${c.titoloElenco} ${anno} · ${SG.nomeCliente(c)}`, indietro: '#/sottoganci/c/' + cliId, live: true };
   }

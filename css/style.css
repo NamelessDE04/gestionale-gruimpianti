@@ -1008,3 +1008,13 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .btn.btn-azz, .modal-foot .btn.btn-azz { background: #c0392b !important; color: #fff !important; border-color: #c0392b !important; } .btn.btn-azz:disabled { opacity: .45; cursor: not-allowed; }
 .azz-modal .modal-body.uno { display: block; } .azz-modal p { margin: 0 0 8px; line-height: 1.45; }
 .azz-modal .modal-body label { margin-top: 10px; }
+
+/* ===== v0.26: nessun testo fuori dalle caselle dei fogli stampati ===== */
+.cs-ubic .cs-adatta { display: block; width: 100%; overflow: hidden; white-space: nowrap; }
+/* titolo dell'elenco sottoganci: solo nello spazio a destra del logo, mai sopra il logo o fuori dal riquadro */
+.p-titolo { left: 92.0mm; width: 131.5mm; white-space: nowrap; overflow: hidden; }
+.p-cliente, .p-loc { overflow: hidden; padding: 0 1mm; }
+.cs-ubic .cs-adatta.due-righe { white-space: normal; line-height: 1.12; height: 5.3mm; margin-top: -1.1mm; display: block; overflow: hidden; overflow-wrap: anywhere; }
+.cs-t.cs-ubic { overflow: visible; }   /* il ritaglio lo fa il testo interno, che sta sempre nella casella */
+.cs-t.cs-fit { overflow: hidden; }
+.p-tab td.due-righe { white-space: normal; line-height: 1.02; overflow-wrap: anywhere; }

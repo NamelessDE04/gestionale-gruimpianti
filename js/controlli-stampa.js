@@ -10,7 +10,8 @@ window.CTRS = (function () {
   const BLOCCHI = [[119.25, 130.13, 141.31], [141.31, 151.81, 162.48], [162.48, 172.89, 183.3], [183.3, 193.72, 204.89]];
   const T2 = 55.88, R0 = 5.59, R1 = 5.12, RIGA = 4.549;
 
-  const T = (x, y, txt, cls = '', w) => `<div class="cs-t ${cls}" style="left:${x}mm;top:${y}mm${w ? `;width:${w}mm` : ''}">${txt}</div>`;
+  // cls "cs-fit": il testo si rimpicciolisce per restare nella sua casella (serve la larghezza w)
+  const T = (x, y, txt, cls = '', w) => `<div class="cs-t ${cls}"${/cs-fit/.test(cls) ? ' data-adatta="0.45"' : ''} style="left:${x}mm;top:${y}mm${w ? `;width:${w}mm` : ''}">${txt}</div>`;
   const box = (x, y, w, h, cls = '') => `<div class="cs-b ${cls}" style="left:${x}mm;top:${y}mm;width:${w}mm;height:${h}mm"></div>`;
   const val = (v) => esc(v ?? '');
 
@@ -29,7 +30,7 @@ window.CTRS = (function () {
       <img class="cs-logo" src="img/logo-scheda.png" alt="">
       ${T(144.9, 10.0, 'SCHEDA CONTROLLO (D.Lgs.81/08)', 'cs-tit')}
       ${T(145.2, 15.4, 'MATRICOLA')}
-      ${box(160.2, 15.6, 35.3, 3.7, 'cs-sottile')}${T(161.2, 15.6, val(imp.matricola))}`;
+      ${box(160.2, 15.6, 35.3, 3.7, 'cs-sottile')}${T(161.2, 15.6, val(imp.matricola), 'cs-fit', 33.6)}`;
 
     // ----- tabella dati impianto -----
     const righe1 = [27.09, 32.94, 38.10, 43.94, 49.61, 54.95];
@@ -37,17 +38,17 @@ window.CTRS = (function () {
     righe1.slice(1, 5).forEach((y) => (h += `<div class="cs-h" style="left:${X0}mm;top:${y}mm;width:${X1 - X0}mm"></div>`));
     h += `<div class="cs-v" style="left:82.38mm;top:${righe1[0]}mm;height:${righe1[5] - righe1[0]}mm"></div>`;
     h += `<div class="cs-v" style="left:165.86mm;top:${righe1[0]}mm;height:${righe1[4] - righe1[0]}mm"></div>`;
-    const L = (x, y, l, vx, v) => T(x, y, `<b>${l}</b>`) + T(vx, y, val(v));
-    // ubicazione: solo via, CAP e città, sempre dentro la sua casella
-    const ubic = s ? [s.indirizzo, [s.cap, s.citta].filter(Boolean).join(' ')].filter(Boolean).join(' – ') : '';
-    h += L(5.9, 28.5, 'CLIENTE', 17.3, c?.ragioneSociale) + T(83.4, 28.5, '<b>UBICAZIONE</b>') + T(99.6, 28.5, `<span style="font-size:${Math.max(55, Math.min(100, Math.floor(4400 / Math.max(1, ubic.length))))}%">${val(ubic)}</span>`, 'cs-ubic', 65.6) + L(167.0, 28.5, 'N°INT.', 188.6, imp.numeroInterno);
-    h += L(5.9, 33.7, 'CASA', 17.3, imp.marca) + L(83.3, 33.7, 'N°FABBRICA', 99.7, imp.numeroSerie);
-    h += L(5.9, 39.2, 'ANNO COSTRUZIONE', 32.6, imp.annoCostruzione) + L(83.3, 39.2, 'TIPO', 99.7, (imp.tipologia || '').toUpperCase())
-      + L(167.0, 39.5, 'PORTATA', 190.5, par.map((p) => kgT(p.portata)).filter(Boolean).join(' + '));
-    h += L(5.8, 45.0, 'ARGANO', 17.3, unisci(par.map((p) => p.marcaModello))) + L(83.2, 45.0, 'DIAM.FUNE', 98.7, unisci(par.map((p) => p.fune?.diametro)))
-      + L(125.7, 45.0, 'TRATTI FUNE', 145.8, unisci(par.map((p) => tratti(p.fune?.tratti))));
-    h += L(5.8, 50.6, 'CLASSE', 17.3, unisci(par.map((p) => unisci([p.classeFem, p.classeIso])).filter((x, i, a) => a.indexOf(x) === i)))
-      + L(83.2, 50.6, 'RADIOCOMANDO', 105.5, unisci([el.radioMarca, el.radioModello])) + L(155.7, 50.6, 'MATR.', 165.5, el.radioMatricola);
+    const L = (x, y, l, vx, v, fino) => T(x, y, `<b>${l}</b>`) + T(vx, y, val(v), fino ? 'cs-fit' : '', fino ? fino - vx - 0.8 : 0);
+    // ubicazione: solo via con numero civico e città; il testo si rimpicciolisce per stare nella casella
+    const ubic = s ? [s.indirizzo, s.citta].map((x) => (x || '').trim()).filter(Boolean).join(' - ') : '';
+    h += L(5.9, 28.5, 'CLIENTE', 17.3, c?.ragioneSociale, 82.38) + T(83.4, 28.5, '<b>UBICAZIONE</b>') + T(99.6, 28.5, `<span class="cs-adatta" data-adatta="0.4" data-righe="2">${val(ubic)}</span>`, 'cs-ubic', 65.6) + L(167.0, 28.5, 'N°INT.', 188.6, imp.numeroInterno, 204.89);
+    h += L(5.9, 33.7, 'CASA', 17.3, imp.marca, 82.38) + L(83.3, 33.7, 'N°FABBRICA', 99.7, imp.numeroSerie, 165.86);
+    h += L(5.9, 39.2, 'ANNO COSTRUZIONE', 32.6, imp.annoCostruzione, 82.38) + L(83.3, 39.2, 'TIPO', 99.7, (imp.tipologia || '').toUpperCase(), 165.86)
+      + L(167.0, 39.5, 'PORTATA', 190.5, par.map((p) => kgT(p.portata)).filter(Boolean).join(' + '), 204.89);
+    h += L(5.8, 45.0, 'ARGANO', 17.3, unisci(par.map((p) => p.marcaModello)), 82.38) + L(83.2, 45.0, 'DIAM.FUNE', 98.7, unisci(par.map((p) => p.fune?.diametro)), 125.2)
+      + L(125.7, 45.0, 'TRATTI FUNE', 145.8, unisci(par.map((p) => tratti(p.fune?.tratti))), 165.86);
+    h += L(5.8, 50.6, 'CLASSE', 17.3, unisci(par.map((p) => unisci([p.classeFem, p.classeIso])).filter((x, i, a) => a.indexOf(x) === i)), 82.38)
+      + L(83.2, 50.6, 'RADIOCOMANDO', 105.5, unisci([el.radioMarca, el.radioModello]), 155.2) + L(155.7, 50.6, 'MATR.', 165.5, el.radioMatricola, 204.89);
 
     // ----- tabella controlli -----
     const gruppi = ['T', 'S', 'A'].map((pp) => voci.filter((v) => v.per === pp)).filter((g) => g.length);
@@ -79,7 +80,7 @@ window.CTRS = (function () {
     h += box(X0, T2 + R0, XD - X0, R1);
     blocchi.forEach((bl) => {
       bl.p.forEach(([a, b], k) => (h += box(a, T2 + R0, b - a, R1) + T(a, 62.2, `<b>P${k + 1}</b>`, 'cs-c', b - a)));
-      h += box(bl.f[0], T2 + R0, bl.f[1] - bl.f[0], R1) + T(bl.f[0], 62.2, '<b>FIRMA</b>', 'cs-c', bl.f[1] - bl.f[0]);
+      h += box(bl.f[0], T2 + R0, bl.f[1] - bl.f[0], R1) + T(bl.f[0], 62.2, '<b>FIRMA</b>', 'cs-c cs-fit', bl.f[1] - bl.f[0]);
     });
     // righe delle voci
     const ty = (k) => top0 + k * rh + (rh - 3.45) / 2 + 0.05;
@@ -88,7 +89,7 @@ window.CTRS = (function () {
       h += box(X0, y, XC - X0, rh) + box(XC, y, XD - XC, rh);
       blocchi.forEach((bl) => bl.p.forEach(([a, b]) => (h += box(a, y, b - a, rh))));
       if (!v) return;
-      h += T(5.9, ty(k), CTR.PER[v.per]) + T(13.7, ty(k), val(v.testo), 'cs-desc', XD - 13.7 - 0.5);
+      h += T(5.9, ty(k), CTR.PER[v.per]) + T(13.7, ty(k), val(v.testo), 'cs-desc cs-fit', XD - 13.7 - 0.5);
       visite.forEach((vis, n) => {
         if (!vis || !dovute[n].includes(v.per)) return;
         const es = vis.esiti?.[v.id] || [];
@@ -100,7 +101,7 @@ window.CTRS = (function () {
         bl.p.forEach(([a, b], pi) => {
           const e = es[pi] || '', w = vl[pi] || (vecchio(e) ? e : '');
           const txt = w && (!e || e === 'X' || vecchio(e)) ? w : (e || 'X');
-          h += T(a, ty(k), val(txt), 'cs-c' + (String(txt).length > 3 ? ' cs-lungo' : ''), b - a);
+          h += T(a, ty(k), val(txt), 'cs-c cs-fit', b - a);
         });
       });
     });
@@ -126,7 +127,7 @@ window.CTRS = (function () {
     const oss = (sc?.osservazioni || []).map((o) => `${o.lettera}=${o.testo}${o.risoltaIl ? ' - SISTEMATO IL ' + fmt(o.risoltaIl) : ''}`.toUpperCase());
     const yb = yo + 4.4, hb = Math.max(oss.length, 5) * 3.45 + 0.8;
     h += box(X0, yb, X1 - X0, hb, 'cs-grigio');
-    oss.forEach((t, k) => (h += T(6.3, yb + 0.5 + k * 3.45, val(t), 'cs-oss', X1 - 7.5)));
+    oss.forEach((t, k) => (h += T(6.3, yb + 0.5 + k * 3.45, val(t), 'cs-oss cs-fit', X1 - 7.5)));
 
     // ----- piè di pagina -----
     h += `<div class="cs-h cs-grigio-l" style="left:${X0}mm;top:280.84mm;width:${X1 - X0}mm"></div>`;
@@ -160,6 +161,7 @@ window.CTRS = (function () {
       document.title = (`Scheda_${c ? CLI.nome(c) : ''}_${imp.length === 1 ? (i0.numeroInterno || i0.matricola || '') : 'tutti'}_${anno}`).replace(/[^\w\-]+/g, '_');
       window.print(); setTimeout(() => (document.title = t), 1000);
     };
+    UI.adattaTesti(el);   // nessun testo deve uscire dalla sua casella
     requestAnimationFrame(adatta);
     return { titolo: 'Stampa schede ' + anno, indietro, live: true };
   }

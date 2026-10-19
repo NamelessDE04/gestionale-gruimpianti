@@ -44,6 +44,33 @@ window.UI = (function () {
     }
   };
 
+  // tocco "fuori" da una finestra: vale solo se anche la pressione è partita fuori
+  // (così selezionando un testo col mouse e uscendo dal riquadro la finestra non si chiude)
+  let premutoSu = null;
+  document.addEventListener('pointerdown', (e) => (premutoSu = e.target), true);
+  const toccoFuori = (e, ov) => e.target === ov && premutoSu === ov;
+
+  // testi che devono stare nella loro casella (fogli stampati): si rimpiccioliscono finché non ci stanno
+  function adattaTesti(root = document) {
+    root.querySelectorAll('[data-adatta]').forEach((el) => {
+      el.style.fontSize = '';
+      const base = parseFloat(getComputedStyle(el).fontSize) || 12, min = base * (+el.dataset.adatta || 0.45);
+      let f = base;
+      el.classList.remove('due-righe');
+      const cs = getComputedStyle(el), spazio = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+      const largo = () => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
+      // una riga: il testo deve occupare al massimo il 97% della casella (margine per le piccole differenze di stampa)
+      const esce = () => (el.classList.contains('due-righe') ? el.scrollWidth > el.clientWidth + 1 : largo() > spazio * 0.97) || el.scrollHeight > el.clientHeight + 1;
+      // con data-righe="2": se rimpicciolendo diventa troppo piccolo, va su due righe (sempre dentro la casella)
+      const soglia = el.dataset.righe ? base * 0.72 : min;
+      while (esce() && f > soglia) { f *= 0.94; el.style.fontSize = f.toFixed(2) + 'px'; }
+      if (esce() && el.dataset.righe) {
+        el.classList.add('due-righe'); f = base * 0.9; el.style.fontSize = f.toFixed(2) + 'px';
+        while (esce() && f > min) { f *= 0.94; el.style.fontSize = f.toFixed(2) + 'px'; }
+      }
+    });
+  }
+
   // --- firma col dito (canvas) ---
   function firmaPad(canvas) {
     const ctx = canvas.getContext('2d');
@@ -195,7 +222,7 @@ window.UI = (function () {
     const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
     ov.querySelector('.modal-x').onclick = chiudi;
     ov.querySelector('[data-annulla]').onclick = chiudi;
-    ov.addEventListener('click', (e) => { if (e.target === ov) chiudi(); });
+    ov.addEventListener('click', (e) => { if (toccoFuori(e, ov)) chiudi(); });
     setTimeout(() => f.querySelector('input:not([type=checkbox]):not([type=file]),textarea')?.focus({ preventScroll: true }), 50);
     f.onsubmit = async (e) => {
       e.preventDefault();
@@ -272,5 +299,5 @@ window.UI = (function () {
   document.addEventListener('focusout', (e) => maiusc(e.target), true);
   document.addEventListener('submit', (e) => e.target.querySelectorAll('input, textarea').forEach(maiusc), true);
 
-  return { menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
+  return { toccoFuori, adattaTesti, menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
 })();

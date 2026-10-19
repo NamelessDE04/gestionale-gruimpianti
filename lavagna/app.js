@@ -3,7 +3,7 @@ import { firebaseConfig } from './config.js?v=27';
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '30';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '31';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -1544,7 +1544,12 @@ function handleAction(act, el) {
   }
 }
 
+// tocco fuori da una finestra: vale solo se anche la pressione è partita fuori
+// (selezionando un testo col mouse e uscendo dal riquadro la finestra non si chiude più)
+let premutoSu = null;
+document.addEventListener('pointerdown', e => { premutoSu = e.target; }, true);
 document.addEventListener('click', e => {
+  if ((e.target.id === 'infoPop' || e.target.id === 'modal') && premutoSu !== e.target) return;
   if (e.target.id === 'infoPop') { closeInfo(); return; }
   if (state.menuOpen && !e.target.closest('#menu, #menuBtn')) {
     state.menuOpen = false; render();
