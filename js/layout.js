@@ -75,15 +75,20 @@ window.LAY = (function () {
     if (r) righe.push(r);
     return { fs, righe };
   }
-  // dentro un capannone la scritta parte dal bordo sinistro della sua campata e va a capo alla larghezza della campata
-  // (null = fuori dai capannoni o ruotata: resta dove è, senza limite)
+  // dentro un capannone la scritta resta dove la metti e va a capo prima del bordo della sua campata,
+  // nella direzione in cui è scritta (anche ruotata). null = fuori dai capannoni: nessun limite
   function spazioTesto(L, e, u) {
-    if (!L || (e.rot && e.rot % 180)) return null;
+    if (!L) return null;
     const c = capannoni(L).slice().reverse().find((k) => dentro(k, e.x, e.y)); if (!c) return null;
     const n = Math.max(1, +c.n || 1);
-    if (c.or === 'o') return { x: c.x + u * 0.6, w: c.w - u * 1.2 };
-    const k = Math.min(n - 1, Math.floor((e.x - c.x) / (c.w / n))), a = c.x + k * c.w / n;
-    return { x: a + u * 0.6, w: Math.max(u * 2, c.w / n - u * 1.2) };
+    let x0 = c.x, x1 = c.x + c.w, y0 = c.y, y1 = c.y + c.h;
+    if (c.or === 'o') { const k = Math.min(n - 1, Math.floor((e.y - c.y) / (c.h / n))); y0 = c.y + k * c.h / n; y1 = y0 + c.h / n; }
+    else { const k = Math.min(n - 1, Math.floor((e.x - c.x) / (c.w / n))); x0 = c.x + k * c.w / n; x1 = x0 + c.w / n; }
+    const r = (((+e.rot || 0) % 360) + 360) % 360;
+    // lungo: dove scorre la riga · largo: dove si impilano le righe (sempre verso l'interno della campata)
+    const lungo = r === 90 ? y1 - e.y : r === 180 ? e.x - x0 : r === 270 ? e.y - y0 : x1 - e.x;
+    const largo2 = r === 90 || r === 270 ? x1 - e.x : r === 180 ? e.y - y0 : y1 - e.y;
+    return { lungo: Math.max(u * 2, lungo - u * 0.6), largo: Math.max(u * 1.5, largo2 - u * 0.4) };
   }
 
   // ---------- disegno (SVG) ----------
@@ -129,8 +134,12 @@ window.LAY = (function () {
     }
     if (e.tipo === 'testo') {
       const sp = spazioTesto(opz.L, e, u);
-      const { fs, righe } = aCapo(e.testo || 'SCRITTA', u * 1.8 * (+e.s || 1), sp?.w);
-      return `<g class="lay-drag lay-testo${sel(opz, k)}" data-k="${k}" transform="translate(${sp ? sp.x : e.x} ${e.y})${e.rot ? ` rotate(${e.rot})` : ''}"><text x="0" y="0" font-size="${fs}" fill="${e.colore || '#1f5fbf'}" dominant-baseline="middle">${righe.map((r, q) => `<tspan x="0" dy="${q ? '1.15em' : 0}">${esc(r)}</tspan>`).join('')}</text></g>`;
+      let { fs, righe } = aCapo(e.testo || 'SCRITTA', u * 1.8 * (+e.s || 1), sp?.lungo);
+      // troppe righe per lo spazio: rimpicciolisco finché ci stanno
+      for (let q = 0; sp && q < 12 && (righe.length - 0.5) * 1.15 * fs > sp.largo; q++) ({ fs, righe } = aCapo(e.testo || 'SCRITTA', fs * 0.88, sp.lungo));
+      // il blocco di righe sta sempre verso l'interno della campata, mantenendo l'ordine di lettura
+      const r = (((+e.rot || 0) % 360) + 360) % 360, y0 = r === 90 || r === 180 ? -(righe.length - 1) * 1.15 * fs - 0.55 * fs : 0;
+      return `${apri(e.rot ? ` rotate(${e.rot})` : '')}<text x="0" y="${y0}" font-size="${fs}" fill="${e.colore || '#1f5fbf'}" dominant-baseline="middle">${righe.map((rr, q) => `<tspan x="0" dy="${q ? '1.15em' : 0}">${esc(rr)}</tspan>`).join('')}</text></g>`;
     }
     if (e.tipo === 'ingresso') {
       return `${apri(e.rot ? ` rotate(${e.rot})` : '')}
@@ -304,6 +313,7 @@ window.LAY = (function () {
       el.querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => {
         const t = b.dataset.add, u = unita(L), ce = centro(), sfasa = (L.elementi.length % 6) * u * 3;
         const e = { id: uid(), tipo: t, x: ce.x - u * 8 + sfasa, y: ce.y - u * 6 + sfasa, testo: t === 'testo' ? 'REPARTO' : t === 'uffici' ? 'UFFICI' : t === 'ingresso' ? 'INGRESSO' : '' };
+        if (t === 'testo') { const cp = campataDi(L, ce.x, ce.y); if (cp && cp.or === 'v') e.x = cp.a + u * 0.8; else if (cp) e.x = cp.c.x + u * 0.8; }   // parte dal bordo della campata: c'è tutto lo spazio
         if (t === 'capannone') { const cs = capannoni(L), ult = cs[cs.length - 1]; Object.assign(e, { x: ult ? ult.x : 0, y: ult ? ult.y + ult.h + u * 8 : 0, w: ult ? ult.w : 100, h: ult ? ult.h : 70, n: ult ? ult.n : 4, or: ult?.or || 'v' }); }
         if (t === 'corridoio') Object.assign(e, { w: u * 8, h: u * 20 });
         if (t === 'corsia') { const c0 = capannoni(L)[0]; Object.assign(e, c0 ? { x: c0.x, y: c0.y + c0.h / 2 - u * 1.5, w: c0.w, h: u * 3 } : { w: u * 40, h: u * 3 }); }
