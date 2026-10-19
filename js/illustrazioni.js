@@ -4,6 +4,14 @@ window.ILL = (function () {
   const svg = (inner) => `<svg viewBox="0 0 160 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
 
   return {
+    // raccoglitore con dentro le altre sezioni
+    altro: svg(`
+      <ellipse cx="80" cy="108" rx="54" ry="6" fill="${L}"/>
+      <path d="M26 30a6 6 0 0 1 6-6h28l8 8h60a6 6 0 0 1 6 6v58a6 6 0 0 1-6 6H32a6 6 0 0 1-6-6z" fill="${Y}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="40" y="44" width="34" height="22" rx="4" fill="${W}" stroke="${N}" stroke-width="2.5"/><rect x="86" y="44" width="34" height="22" rx="4" fill="${W}" stroke="${N}" stroke-width="2.5"/>
+      <rect x="40" y="72" width="34" height="18" rx="4" fill="${W}" stroke="${N}" stroke-width="2.5"/><rect x="86" y="72" width="34" height="18" rx="4" fill="${W}" stroke="${N}" stroke-width="2.5"/>
+      <circle cx="57" cy="55" r="5" fill="${O}"/><path d="M96 60 l7 -9 l7 9z" fill="${G}"/><rect x="48" y="78" width="18" height="6" rx="2" fill="${V}"/><rect x="94" y="78" width="18" height="6" rx="2" fill="${N}"/>`),
+
     // pianta dall'alto: capannone a campate, corsia, carriponte e gru a bandiera
     layout: svg(`
       <ellipse cx="80" cy="108" rx="54" ry="6" fill="${L}"/>

@@ -52,6 +52,23 @@ window.HOME = (function () {
       <span class="grow"><b>${UI.esc(x.l)} ${UI.esc(MEZ.corto(x.m))}</b><span>${x.st.k === 'scaduto' ? 'scaduto il' : 'scade il'} ${UI.fmt(x.d)} · ${UI.esc(x.st.label)}</span></span>›</a>`).join('')}</div>`;
   };
 
+  // il tecnico vede solo il lavoro di tutti i giorni; il resto sta in «Anagrafiche e altro»
+  const PRINCIPALI = ['schede', 'rapportini', 'lavagna', 'cablaggio'];
+  const ALTRO = { k: 'altro', titolo: 'Anagrafiche e altro', sotto: 'Clienti, impianti, layout, mezzi…', ill: 'altro', attiva: true, href: '#/altro' };
+  const ridotta = () => UT.ruolo() === 'tecnico';
+  const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)), ALTRO] : caselle);
+  const nScad = (S) => MEZ.avvisi(S).length;
+  const badge = (S, c) => c.k === 'rapportini' ? RAP.badge(S)
+    : (c.k === 'mezzi' || c.k === 'altro') && nScad(S) ? `${nScad(S)} ${nScad(S) === 1 ? 'scadenza mezzi' : 'scadenze mezzi'}`
+    : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '';
+
+  // pagina «Anagrafiche e altro»: tutte le caselle che non stanno nella home del tecnico
+  function renderAltro(el, S) {
+    const resto = caselle.filter((c) => !PRINCIPALI.includes(c.k));
+    el.innerHTML = `<section class="home"><div class="tiles">${resto.map((c) => tile(c, badge(S, c))).join('')}</div></section>`;
+    return { titolo: 'Anagrafiche e altro', indietro: '#/', live: true };
+  }
+
   function render(el, S) {
     const ora = new Date().getHours();
     el.innerHTML = `
@@ -59,7 +76,7 @@ window.HOME = (function () {
         <!-- data e saluto ora stanno nella barra in alto -->
         ${UT.isMaster() && CONF.conta(S) ? `<a class="avviso-m st-b-scaduto" href="#/conflitti"><span class="av-ico">⚠️</span><span class="grow"><b>${CONF.conta(S)} ${CONF.conta(S) === 1 ? 'conflitto' : 'conflitti'} tra dispositivi</b><span>Due dispositivi offline hanno lavorato sugli stessi documenti: scegli cosa tenere</span></span>›</a>` : ''}
         ${avvisiMezzi(S)}
-        <div class="tiles">${caselle.map((c) => tile(c, c.k === 'rapportini' ? RAP.badge(S) : c.k === 'mezzi' && MEZ.avvisi(S).length ? `${MEZ.avvisi(S).length} ${MEZ.avvisi(S).length === 1 ? 'scadenza' : 'scadenze'}` : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '')).join('')}</div>
+        <div class="tiles">${vociHome().map((c) => tile(c, badge(S, c))).join('')}</div>
         <p class="in-arrivo">In arrivo: ${caselle.filter((c) => !c.attiva).map((c) => c.titolo).join(' · ')}</p>
       </section>`;
   }
@@ -86,5 +103,5 @@ window.HOME = (function () {
       </section>`;
   }
 
-  return { render, renderSchede, prossimamente, caselle };
+  return { render, renderSchede, renderAltro, prossimamente, caselle };
 })();
