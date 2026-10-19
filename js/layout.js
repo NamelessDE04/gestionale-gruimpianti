@@ -102,7 +102,7 @@ window.LAY = (function () {
         <text x="${u * 0.6}" y="${u * 1.9}" font-size="${u * 1.6}" fill="#1f5fbf">${t || (e.tipo === 'uffici' ? 'UFFICI' : '')}</text>${maniglia(e, u, opz)}</g>`;
     }
     if (e.tipo === 'testo') {
-      return `${apri(e.rot ? ` rotate(${e.rot})` : '')}<text x="0" y="0" font-size="${u * 1.8}" fill="${e.colore || '#1f5fbf'}" dominant-baseline="middle">${t || 'SCRITTA'}</text></g>`;
+      return `${apri(e.rot ? ` rotate(${e.rot})` : '')}<text x="0" y="0" font-size="${u * 1.8 * (+e.s || 1)}" fill="${e.colore || '#1f5fbf'}" dominant-baseline="middle">${t || 'SCRITTA'}</text></g>`;
     }
     if (e.tipo === 'ingresso') {
       return `${apri(e.rot ? ` rotate(${e.rot})` : '')}
@@ -306,6 +306,7 @@ window.LAY = (function () {
             ${conTesto ? `<label>${e.tipo === 'capannone' ? 'Nome (facoltativo)' : 'Testo'}<input id="pTesto" value="${esc(e.testo || '')}" autocomplete="off"></label>` : ''}
             ${e.tipo === 'capannone' ? `<div class="lay-campate"><span>Campate</span><button type="button" class="btn ghost small" id="pMeno">−</button><b>${e.n}</b><button type="button" class="btn ghost small" id="pPiu">+</button></div>
               <button type="button" class="btn ghost small" id="pGira">${e.or === 'o' ? '⇆ Campate verticali' : '⇅ Campate orizzontali'}</button>` : ''}
+            ${e.tipo === 'testo' ? `<div class="lay-campate"><span>Grandezza</span><button type="button" class="btn ghost small" id="pAmeno" aria-label="Più piccola">A−</button><b>${Math.round((+e.s || 1) * 100)}%</b><button type="button" class="btn ghost small" id="pApiu" aria-label="Più grande">A+</button></div>` : ''}
             ${ruota ? '<button type="button" class="btn ghost small" id="pRuota">↻ Ruota</button>' : ''}
             ${e.tipo === 'testo' ? `<span class="lay-colori">${['#1f5fbf', '#2e9e5b', '#d6453d', '#111111'].map((cc) => `<button type="button" class="lay-col" data-col="${cc}" style="background:${cc}" aria-label="colore"></button>`).join('')}</span>` : ''}
           </div>`;
@@ -313,6 +314,9 @@ window.LAY = (function () {
         p.querySelector('#pMeno')?.addEventListener('click', () => { e.n = Math.max(1, (+e.n || 1) - 1); ridisegna(); proprieta(); salva(); });
         p.querySelector('#pPiu')?.addEventListener('click', () => { e.n = Math.min(30, (+e.n || 1) + 1); ridisegna(); proprieta(); salva(); });
         p.querySelector('#pGira')?.addEventListener('click', () => { e.or = e.or === 'o' ? 'v' : 'o'; ridisegna(); proprieta(); salva(); });
+        const grand = (f) => { e.s = Math.round(Math.min(4, Math.max(0.3, (+e.s || 1) * f)) * 100) / 100; ridisegna(); proprieta(); salva(); };
+        p.querySelector('#pAmeno')?.addEventListener('click', () => grand(1 / 1.2));
+        p.querySelector('#pApiu')?.addEventListener('click', () => grand(1.2));
         p.querySelector('#pRuota')?.addEventListener('click', () => { e.rot = ((+e.rot || 0) + 90) % 360; ridisegna(); salva(); });
         p.querySelectorAll('[data-col]').forEach((b) => (b.onclick = () => { e.colore = b.dataset.col; ridisegna(); salva(); }));
         p.querySelector('#pDup').onclick = () => { const u = unita(L), d = { ...e, id: uid(), x: e.x + u * 4, y: e.y + u * 4 }; L.elementi.push(d); scelto = 'el:' + d.id; ridisegna(); proprieta(); salva(); };
