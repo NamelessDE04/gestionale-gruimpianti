@@ -688,6 +688,7 @@ const CSS = `  #cg { --bg: var(--cg-bg, #ffffff); --fg: var(--cg-fg, #1b1f27); -
   .area-schede { width: 100%; display: flex; flex-direction: column; gap: 22px; }
   .area-sez { width: 100%; border-top: 3px solid #1f5fbf; padding-top: 10px; scroll-margin-top: 60px; }
   .area-tit { margin: 0 0 10px; }
+  .sez-tit { margin: 18px 0 8px; font-size: 1rem; letter-spacing: .03em; opacity: .8; }
   .area-sch { width: 100%; display: flex; flex-direction: column; align-items: center; }
 `;
 
@@ -917,14 +918,11 @@ function mount(container, opts) {
       g.voci.forEach(v => { const key = state.cartella + '/' + v.f; if (SCHEDE[key]) pezzi.push({ g, v, key, titolo: (v.t && etichetta(v)) || g.nome }); });
     });
     render(`
-      <div class="riepilogo"><strong>${a.n} · ${esc(a.nome)}</strong><span>${esc(state.tipo)} · ${esc(state.marca)}${state.motore ? ' · ' + esc(state.motore) : ''}</span></div>
-      ${pezzi.length > 1 ? `<div class="indice">${pezzi.map((p, i) => { const t = p.morsettiera ? p.g.nome : p.titolo, doppio = pezzi.filter(q => (q.morsettiera ? q.g.nome : q.titolo) === t).length > 1;
-        return `<button type="button" class="ich" data-vai="${i}">${esc(doppio && p.v && p.v.t ? p.g.nome.replace(/^QUADRO /, '') + ' › ' + t : t)}</button>`; }).join('')}</div>` : ''}
       <div class="area-schede">${pezzi.map((p, i) => `<section class="area-sez" id="pz${i}">
-        <h2 class="area-tit">${esc(p.g.nome)}${p.v && p.v.t ? ' › ' + esc(p.titolo) : ''}</h2>
+        <h2 class="area-tit">${esc(p.v && p.v.t ? (pezzi.filter(q => (q.v && q.v.t ? q.titolo : q.g.nome) === p.titolo).length > 1 ? p.g.nome.replace(/^QUADRO /, '') + ' › ' + p.titolo : p.titolo) : p.g.nome)}</h2>
         ${p.morsettiera ? `<button type="button" class="btn solid" data-mors="${i}">APRI LA MORSETTIERA</button>` : `<div class="area-sch" data-sch="${i}"></div>`}
       </section>`).join('')}</div>`);
-    pezzi.forEach((p, i) => { if (!p.morsettiera) mountScheda(view.querySelector(`[data-sch="${i}"]`), p.key, p.titolo, p.v.f, false, {}); });
+    pezzi.forEach((p, i) => { if (!p.morsettiera) mountScheda(view.querySelector(`[data-sch="${i}"]`), p.key, p.titolo, p.v.f, false, { inFila: true }); });
     view.querySelectorAll('[data-mors]').forEach(b => b.onclick = () => go(() => morsettieraScreen(pezzi[+b.dataset.mors].morsettiera)));
     view.querySelectorAll('[data-vai]').forEach(b => b.onclick = () => { const t = view.querySelector('#pz' + b.dataset.vai); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   }
@@ -1294,7 +1292,12 @@ function mount(container, opts) {
       ok.onclick = () => { if (!SC.val) return; SC.conf = true; mountScheda(root, key, title, file, conTitolo, {}); scrollTop0(); };
       return;
     }
-    const vis = d.sezioni.map((_, i) => i).filter(i => !SC || !d.sezioni[i].solo || d.sezioni[i].solo === SC.val);   // tab visibili (indici veri)
+    // velocita' gia' scelte all'inizio: le tab dell'altra variante (es. MOTORE A SINGOLA VELOCITÀ) non si vedono
+    const velDi = /sollevamento/i.test(file || key) ? state.sollevamento : state.carrello;
+    const giusta = t => { const m = /(SINGOLA|DOPPIA) VELOCIT/i.exec(t || ''); return !m || !velDi || (m[1].toUpperCase() === 'SINGOLA') === (velDi === 'singola'); };
+    const vis = d.sezioni.map((_, i) => i).filter(i => (!SC || !d.sezioni[i].solo || d.sezioni[i].solo === SC.val) && giusta(d.sezioni[i].tab));   // tab visibili (indici veri)
+    // nelle zone tutto va in fila (sono pezzi che servono tutti); restano a tab solo le vere alternative (tipo di pulsantiera, inverter)
+    const inFila = !!(opt && opt.inFila) && !/derivazione-comandi|parametri-inverter/.test(file || key);
     const sez = vis.map(i => d.sezioni[i]);
     const done = new Set();   // righe spuntate come "fatte"
     let active = opt && opt.tab != null ? Math.max(0, vis.indexOf(opt.tab)) : 0;   // tab da cui partire (la ricerca apre quella giusta)
@@ -1408,9 +1411,10 @@ function mount(container, opts) {
     };
 
     const draw = () => {
-      const s = sez[active];
-      root.querySelector('#sp').innerHTML = `<div class="stack gapl">` +
-        s.blocchi.map((b, i) => R[b.tipo](b, vis[active] + '.' + i + ':', 'sezioni.' + vis[active] + '.blocchi.' + i)).join('') + `</div>`;
+      const blocchiDi = k => sez[k].blocchi.map((b, i) => R[b.tipo](b, vis[k] + '.' + i + ':', 'sezioni.' + vis[k] + '.blocchi.' + i)).join('');
+      root.querySelector('#sp').innerHTML = inFila
+        ? sez.map((x, k) => `${sez.length > 1 && x.tab !== (d.titolo || title) ? `<h3 class="sez-tit">${esc(x.tab)}</h3>` : ''}<div class="stack gapl">${blocchiDi(k)}</div>`).join('')
+        : `<div class="stack gapl">` + blocchiDi(active) + `</div>`;
       root.querySelectorAll('[data-fc]').forEach(x => x.onchange = () => { cerca = null; fcImposta(x.dataset.fc, x.value); draw(); });
       const fcok = root.querySelector('#fcok'), fcrs = root.querySelector('#fcreset');
       if (fcok) fcok.onclick = () => { if (!fcValida()) return; FC.conf = true; FC.tab = 'avanti'; draw(); scrollTop0(); };
@@ -1431,7 +1435,7 @@ function mount(container, opts) {
       ${d.cavo ? `<p class="meta cavo">Cavo utilizzato: ${esc(d.cavo)}</p>` : ''}
       ${SC && !SC.glob ? `<button type="button" class="btn ghost" id="sc-cambia">TORNA ALLA SCELTA</button>
         <p class="meta scelta">Hai scelto: <strong>${esc((d.scelta.opzioni.find(o => o[0] === SC.val) || [0, ''])[1])}</strong></p>` : ''}
-      ${sez.length > 1 ? `<div class="seg ${sez.length > 3 ? 'wrap' : ''}" role="tablist">
+      ${sez.length > 1 && !inFila ? `<div class="seg ${sez.length > 3 ? 'wrap' : ''}" role="tablist">
         ${sez.map((t, i) => `<button class="tab" role="tab" data-i="${i}">${esc(t.tab)}</button>`).join('')}
       </div>` : ''}
       <div id="sp" style="width:100%"></div>`;
