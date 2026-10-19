@@ -4,6 +4,18 @@ window.ILL = (function () {
   const svg = (inner) => `<svg viewBox="0 0 160 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
 
   return {
+    // pianta dall'alto: capannone a campate, corsia, carriponte e gru a bandiera
+    layout: svg(`
+      <ellipse cx="80" cy="108" rx="54" ry="6" fill="${L}"/>
+      <rect x="30" y="10" width="100" height="92" rx="3" fill="${W}" stroke="${N}" stroke-width="3"/>
+      <g stroke="${N}" stroke-width="2"><line x1="55" y1="10" x2="55" y2="102"/><line x1="80" y1="10" x2="80" y2="102"/><line x1="105" y1="10" x2="105" y2="102"/></g>
+      <rect x="31.5" y="52" width="97" height="9" fill="${L}"/>
+      <g fill="${Y}" stroke="${N}" stroke-width="1.6"><rect x="34" y="24" width="18" height="4"/><rect x="33" y="21" width="2.5" height="10"/><rect x="50.5" y="21" width="2.5" height="10"/>
+        <rect x="84" y="78" width="18" height="4"/><rect x="83" y="75" width="2.5" height="10"/><rect x="100.5" y="75" width="2.5" height="10"/></g>
+      <path d="M112 90 L112 72 L124 72" fill="none" stroke="${O}" stroke-width="3"/>
+      <circle cx="68" cy="32" r="6" fill="${W}" stroke="${N}" stroke-width="2"/><path d="M68 28 v8 M64 32 h8" stroke="${R}" stroke-width="2"/>
+      <path d="M80 2 v8" stroke="${V}" stroke-width="3"/><path d="M75 6 l5 6 l5 -6z" fill="${V}"/>`),
+
     rapportini: svg(`
       <ellipse cx="80" cy="108" rx="52" ry="6" fill="${L}"/>
       <rect x="44" y="16" width="64" height="88" rx="7" fill="${W}" stroke="${N}" stroke-width="3"/>

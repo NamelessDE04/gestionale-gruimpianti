@@ -1,7 +1,7 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.27.0';
-  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi'];
+  const VERSIONE = '0.28.0';
+  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
   const el = document.getElementById('app');
@@ -45,6 +45,7 @@ window.App = (function () {
     else if (parti[0] === 'impianti') info = IMP.route(el, S, parti, query) || info;
     else if (parti[0] === 'mezzi') info = MEZ.route(el, S, parti) || info;
     else if (parti[0] === 'controlli') info = CTR.route(el, S, parti, query) || info;
+    else if (parti[0] === 'layout') info = LAY.route(el, S, parti, query) || info;
     else if (parti[0] === 'schede') info = HOME.renderSchede(el, S, parti) || info;
     else if (HOME.caselle.some((c) => c.k === parti[0])) { HOME.prossimamente(el, parti[0]); info = { titolo: '', indietro: '#/' }; }
     else { location.hash = '#/'; return; }

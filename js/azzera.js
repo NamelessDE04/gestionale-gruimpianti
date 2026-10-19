@@ -10,6 +10,7 @@ window.AZZ = (function () {
     { k: 'sottoganci', t: 'Sottoganci e loro controlli', sotto: 'sono legati alle sedi dei clienti', col: ['sottoganci', 'giriSottoganci'], si: true },
     { k: 'rapportini', t: 'Rapportini', sotto: 'la numerazione riparte da 1, si cancella anche lo storico degli invii', col: ['rapportini', 'invii', 'contatori'], si: true },
     { k: 'lavagna', t: 'Lavagna (impegni e storico)', col: ['lavagnaEventi', 'lavagnaLog'], lavagna: true, si: true },
+    { k: 'layouts', t: 'Layout delle sedi', sotto: 'le piante dei capannoni', col: ['layouts'], si: true },
     { k: 'collaudi', t: 'Collaudi del configuratore cablaggio', col: ['collaudi'], si: false },
     { k: 'mezzi', t: 'Mezzi e piattaforme', col: ['mezzi'], si: false }
   ];

@@ -1,10 +1,10 @@
 // Service worker: l'app funziona anche senza rete.
 // Prima prova la rete (così gli aggiornamenti arrivano subito), se non c'è usa la copia salvata.
-const VERSIONE = '0.27.0';
+const VERSIONE = '0.28.0';
 const CACHE = 'gi-demo-' + VERSIONE;
 const FILES = ['./', 'index.html', 'manifest.json', 'css/style.css',
   'js/config.js', 'js/backend.js', 'js/ui.js', 'js/illustrazioni.js',
-  'js/utenti.js', 'js/home.js', 'js/clienti.js', 'js/allegati.js', 'js/mezzi.js', 'js/impianti.js', 'js/impianti-scheda.js', 'js/controlli.js', 'js/controlli-stampa.js', 'js/rapportini.js', 'js/cablaggio.js', 'js/pdf.js', 'js/invio.js', 'js/conflitti.js', 'js/azzera.js', 'js/configuratore-gru.js', 'js/sottoganci.js', 'js/sottoganci-stampa.js', 'js/app.js', 'img/favicon-64.png', 'img/apple-touch-icon.png', 'img/icon-192.png', 'img/icon-512.png', 'img/maskable-192.png', 'img/maskable-512.png', 'img/logo-grande.png', 'img/logo-30.png'];
+  'js/utenti.js', 'js/home.js', 'js/clienti.js', 'js/allegati.js', 'js/mezzi.js', 'js/impianti.js', 'js/impianti-scheda.js', 'js/controlli.js', 'js/controlli-stampa.js', 'js/rapportini.js', 'js/cablaggio.js', 'js/pdf.js', 'js/invio.js', 'js/conflitti.js', 'js/azzera.js', 'js/layout.js', 'js/configuratore-gru.js', 'js/sottoganci.js', 'js/sottoganci-stampa.js', 'js/app.js', 'img/favicon-64.png', 'img/apple-touch-icon.png', 'img/icon-192.png', 'img/icon-512.png', 'img/maskable-192.png', 'img/maskable-512.png', 'img/logo-grande.png', 'img/logo-30.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES.map((f) => new Request(f, { cache: 'no-cache' })))));

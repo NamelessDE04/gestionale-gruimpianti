@@ -5,6 +5,7 @@ window.HOME = (function () {
     { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, gru a bandiera, sottoganci', ill: 'schede', attiva: true },
     { k: 'clienti', titolo: 'Anagrafica Clienti', sotto: 'Ditte, sedi e referenti', ill: 'clienti', attiva: true },
     { k: 'impianti', titolo: 'Anagrafica Impianti', sotto: 'Gru, paranchi e carriponte', ill: 'impianti', attiva: true },
+    { k: 'layout', titolo: 'Layout delle sedi', sotto: 'Piante dei capannoni con le gru', ill: 'layout', attiva: true },
     { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
     { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, giacenze e ordini', ill: 'magazzino' },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
@@ -22,6 +23,19 @@ window.HOME = (function () {
       <div class="tile-txt"><h2>${c.titolo}</h2><p>${c.sotto}</p>${badge ? `<span class="tile-badge">${badge}</span>` : ''}</div>
       ${c.attiva ? '' : '<span class="tile-presto">Prossimamente</span>'}
     </a>`;
+
+  // casella divisa in due: si sceglie come lavorare (elenco classico o pianta della sede)
+  const tileDoppia = (c, badge) => `
+    <div class="tile attiva tile-doppia" data-k="${c.k}">
+      <a class="tile-sopra" href="#/controlli">
+        <div class="tile-ill">${ILL[c.ill]}</div>
+        <div class="tile-txt"><h2>${c.titolo}</h2><p>${c.sotto}</p>${badge ? `<span class="tile-badge">${badge}</span>` : ''}</div>
+      </a>
+      <div class="tile-vista">
+        <a href="#/controlli"><span class="tv-ico">☰</span><span>Elenco</span></a>
+        <a href="#/layout?ctr=1"><span class="tv-ico">🗺️</span><span>Layout</span></a>
+      </div>
+    </div>`;
 
   const badgeSottoganci = (S) => {
     const n = SG.riepilogo(S).scaduti;
@@ -55,7 +69,7 @@ window.HOME = (function () {
     el.innerHTML = `
       <section class="home">
         <div class="home-head"><h1>Schede di controllo</h1><p>Che controllo devi fare?</p></div>
-        <div class="tiles due-tiles">${schede.map((c) => tile(c, c.k === 'sottoganci' ? badgeSottoganci(S) : c.k === 'carriponte' ? badgeCtr(S) : '')).join('')}</div>
+        <div class="tiles due-tiles">${schede.map((c) => (c.k === 'carriponte' ? tileDoppia(c, badgeCtr(S)) : tile(c, c.k === 'sottoganci' ? badgeSottoganci(S) : ''))).join('')}</div>
       </section>`;
     return { titolo: 'Schede di controllo', indietro: '#/', live: true };
   }

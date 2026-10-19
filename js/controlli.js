@@ -278,7 +278,7 @@ window.CTR = (function () {
   }
 
   // ---------- 4. COMPILAZIONE DI UN CONTROLLO ----------
-  async function visita(el, S, impId, anno, n) {
+  async function visita(el, S, impId, anno, n, torna = '') {
     const i = S.impianti.find((x) => x.id === impId);
     if (!i) { el.innerHTML = '<p class="nessuno">Impianto non trovato.</p>'; return { titolo: 'Controllo' }; }
     const { c, s } = trovaSede(S, i.sedeId); const p = piano(s);
@@ -439,7 +439,8 @@ window.CTR = (function () {
       sc.visite[n] = vis; sc.osservazioni = osservazioni;
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
       App.ricordaTecnico(vis.tecnico); UI.toast('Controllo salvato', 'ok');
-      location.hash = (e.submitter?.dataset.dopo === 'prossimo' && prossimoImp) ? `#/controlli/i/${prossimoImp.id}/${anno}/${n}` : '#/controlli/s/' + i.sedeId + '?anno=' + anno;
+      // aperto dal layout: si torna alla pianta (anche con «Salva e prossimo» si resta nel giro del layout)
+      location.hash = (e.submitter?.dataset.dopo === 'prossimo' && prossimoImp) ? `#/controlli/i/${prossimoImp.id}/${anno}/${n}${torna ? '?torna=' + encodeURIComponent(torna) : ''}` : torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
     };
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${n}° controllo ${anno} di questo impianto? Le osservazioni nate in questo controllo verranno tolte.`)) return;
@@ -531,10 +532,10 @@ window.CTR = (function () {
     if (a === 's' && y === 'stampa') return CTRS.render(el, S, impiantiSede(S, b).map((i) => i.id), +x, '#/controlli/s/' + b + '?anno=' + x);
     if (a === 's') return sede(el, S, b, query);
     if (a === 'i' && y === 'stampa') return CTRS.render(el, S, [b], +x, '#/controlli/i/' + b + '?anno=' + x);
-    if (a === 'i' && x && y) { assicuraModelli(S).then(() => visita(el, S, b, +x, +y)); return { titolo: `${y}° controllo`, indietro: '#/controlli/i/' + b + '?anno=' + x, live: false }; }
+    if (a === 'i' && x && y) { const torna = query?.get('torna') || ''; assicuraModelli(S).then(() => visita(el, S, b, +x, +y, torna)); return { titolo: `${y}° controllo`, indietro: torna || '#/controlli/i/' + b + '?anno=' + x, live: false }; }
     if (a === 'i') return impianto(el, S, b, query);
     return sedi(el, S);
   }
 
-  return { route, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+  return { route, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
 })();
