@@ -11,7 +11,7 @@ window.CONF = (function () {
   const META = ['_rev', '_base', '_storia', '_da', '_disp', '_quando', 'aggiornato'];
 
   const nomeDisp = () => {
-    if (Backend.mode !== 'cloud') return Backend.mode === 'prova' ? 'DIMOSTRAZIONE' : 'QUESTO DISPOSITIVO';
+    if (Backend.mode !== 'cloud') return 'QUESTO DISPOSITIVO';
     if (Backend.isDispositivo()) { try { return localStorage.getItem('gid_nome_disp') || 'TABLET'; } catch (e) { return 'TABLET'; } }
     const io = UT.attuale();
     return 'DISPOSITIVO DI ' + (io ? UT.breve(io) : (Backend.account() || '').split('@')[0].toUpperCase());

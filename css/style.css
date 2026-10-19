@@ -1,4 +1,4 @@
-/* ===== Gestionale Gru Impianti – DEMO ===== */
+/* ===== Gestionale Gru Impianti ===== */
 :root {
   --navy: #16324f; --navy-2: #22476e; --giallo: #f2b705; --arancio: #e07a1f;
   --bg: #f3f5f8; --card: #ffffff; --linea: #dde3ea; --testo: #14202e; --muted: #66768a;
@@ -29,11 +29,6 @@ code { background: var(--grigio-bg); padding: 1px 6px; border-radius: 5px; }
 .title { flex: 1; font-weight: 700; font-size: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .back { background: rgba(255,255,255,.12); color: #fff; border: 0; width: 44px; height: 44px; border-radius: 12px; font-size: 32px; line-height: 1; cursor: pointer; padding-bottom: 4px; }
 .back:active { background: rgba(255,255,255,.25); }
-.demo-badge {
-  font-family: inherit; cursor: pointer;
-  background: var(--giallo); color: #111; font-weight: 900; letter-spacing: 3px; font-size: 15px;
-  padding: 7px 12px 7px 15px; border-radius: 8px; border: 2px solid #111; box-shadow: 0 0 0 2px var(--giallo);
-}
 .tape { height: 8px; background: repeating-linear-gradient(-45deg, var(--giallo) 0 14px, #1b1b1b 14px 28px); }
 
 main { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 18px 16px 30px; }
@@ -81,7 +76,6 @@ main { flex: 1; width: 100%; max-width: 1180px; margin: 0 auto; padding: 18px 16
   .tile-presto { font-size: 10.5px; top: 6px; right: 6px; padding: 3px 7px; }
   .tile-badge { font-size: 11px; top: 6px; left: 6px; padding: 3px 8px; }
   .home-head h1 { font-size: 24px; }
-  .demo-badge { font-size: 13px; letter-spacing: 2px; padding: 5px 8px 5px 10px; }
   .brand img { height: 28px; } .brand { height: 36px; padding: 3px 7px; }
   .title { font-size: 16px; }
 }
@@ -789,7 +783,6 @@ body.sola-lettura a.btn[href*="/rapportini/r/"][href$="/modifica"] { display: no
   /* barra in alto: più spazio al titolo */
   body:not(.in-home) .brand { display: none; }
   .topbar { gap: 8px; padding: 8px 12px; padding-top: max(8px, env(safe-area-inset-top)); min-height: 56px; }
-  .demo-badge { font-size: 11px; letter-spacing: 1px; padding: 3px 6px; box-shadow: none; border-width: 1.5px; }
   .tape { height: 5px; }
   .title { font-size: 17px; }
   body:not(.in-home) .foot { display: none; }
@@ -841,16 +834,6 @@ body.sola-lettura a.btn[href*="/rapportini/r/"][href$="/modifica"] { display: no
 .cab-modulo .nessuno { margin: 0; }
 .avatar.ok { background: var(--ok); color: #fff; font-size: 20px; }
 @media (max-width: 760px) { .cab-modulo { --cg-pad: 14px; border-radius: 16px; } }
-
-/* =================== MODALITÀ DIMOSTRAZIONE =================== */
-.demo-badge:active { transform: scale(.96); }
-body.prova .demo-badge { background: #ff5a36; color: #fff; border-color: #fff; box-shadow: 0 0 0 2px #ff5a36; animation: pulsa 2.4s infinite; }
-@keyframes pulsa { 50% { box-shadow: 0 0 0 6px rgba(255,90,54,.35); } }
-.banner-prova { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; background: #ff5a36; color: #fff; padding: 7px 14px; font-size: 14px; }
-.banner-prova[hidden] { display: none; }
-.banner-prova button { font: inherit; font-weight: 800; background: #fff; color: #c2361a; border: 0; border-radius: 99px; padding: 6px 14px; cursor: pointer; }
-.demo-modal .modal-body.uno { display: block; } .demo-modal p { margin: 0 0 10px; line-height: 1.45; }
-@media print { .banner-prova { display: none !important; } }
 
 /* =================== INVIO AI CLIENTI =================== */
 .seg { display: flex; gap: 6px; background: #e3e9f0; padding: 5px; border-radius: 16px; margin-bottom: 14px; }
@@ -1001,7 +984,7 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .rap-rif b { font-size: 9.5pt; }
 .btn-firma { width: 100%; justify-content: center; }
 
-/* ===== v0.24: barra in alto senza DEMO, logo più grande, data e saluto in home ===== */
+/* ===== v0.24: barra in alto, logo più grande, data e saluto in home ===== */
 .brand { height: 52px; padding: 5px 12px; }
 .brand img { height: 42px; }
 #pageTitle .tb-data { display: block; font-size: 18px; font-weight: 800; line-height: 1.15; }
@@ -1019,3 +1002,9 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .azz-voce span { flex: 1; display: flex; flex-direction: column; } .azz-voce small { color: var(--muted); font-weight: 400; }
 .azz-n { font-style: normal; font-weight: 800; color: var(--muted); min-width: 2ch; text-align: right; }
 .btn.btn-azz { background: #c0392b; color: #fff; border-color: #c0392b; } .btn.btn-azz:disabled { opacity: .6; }
+.azz-modal .modal-head h2 { color: #b42318; }
+.azz-elenco, .azz-passi { margin: 4px 0 12px; padding-left: 22px; line-height: 1.5; }
+.azz-passi li { margin-bottom: 4px; }
+.btn.btn-azz, .modal-foot .btn.btn-azz { background: #c0392b !important; color: #fff !important; border-color: #c0392b !important; } .btn.btn-azz:disabled { opacity: .45; cursor: not-allowed; }
+.azz-modal .modal-body.uno { display: block; } .azz-modal p { margin: 0 0 8px; line-height: 1.45; }
+.azz-modal .modal-body label { margin-top: 10px; }

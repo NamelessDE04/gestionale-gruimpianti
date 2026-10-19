@@ -211,7 +211,12 @@
     conta(cols) { const o = {}; cols.forEach((c) => (o[c] = this.leggi(c).length)); return o; }
   };
 
-  // modalità dimostrazione (pulsante DEMO): dati inventati in uno spazio separato, mai nel cloud
-  let prova = false; try { prova = localStorage.getItem('gid_modo_prova') === '1'; } catch (e) {}
-  window.Backend = prova ? LocalBackend('gid_prova_', 'prova') : window.firebaseConfig ? FirebaseBackend(window.firebaseConfig) : LocalBackend(PREFIX, 'locale');
+  // la vecchia modalità dimostrazione non c'è più: se su questo dispositivo era rimasta attiva, cancello i suoi dati inventati
+  try {
+    if (localStorage.getItem('gid_modo_prova') !== null || Object.keys(localStorage).some((k) => k.startsWith('gid_prova_') || k.startsWith('lavagna_prova_'))) {
+      Object.keys(localStorage).filter((k) => k.startsWith('gid_prova_') || k.startsWith('lavagna_prova_')).forEach((k) => localStorage.removeItem(k));
+      localStorage.removeItem('gid_modo_prova');
+    }
+  } catch (e) {}
+  window.Backend = window.firebaseConfig ? FirebaseBackend(window.firebaseConfig) : LocalBackend(PREFIX, 'locale');
 })();

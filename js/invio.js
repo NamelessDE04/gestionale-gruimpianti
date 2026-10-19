@@ -143,7 +143,7 @@ window.INVIO = (function () {
           <h2>Messaggio</h2>
           <label>Oggetto<input id="oggetto" data-libero></label>
           <label>Testo<textarea id="testo" rows="7" data-libero></textarea></label>
-          <p class="muted small">${Backend.mode === 'prova' ? '🎬 In dimostrazione la mail non viene spedita davvero: puoi provare tutto il percorso.' : `Parte dalla tua casella Gmail${da ? ': <b>' + esc(da) + '</b>' : ''}.`}</p>
+          <p class="muted small">Parte dalla tua casella Gmail${da ? ': <b>' + esc(da) + '</b>' : ''}.</p>
         </div>
         <div class="azioni-form barra-salva"><span class="grow"></span><button class="btn big" id="btnInvia">📧 Invia</button></div>
         ${storico.length ? `<div class="card"><h2>Ultimi invii a questo cliente</h2>${storico.map((x) => `<p class="small">✉️ <b>${fmt(x.data.slice(0, 10))}</b> · ${esc(TIPI[x.tipo].replace(/^\S+\s/, ''))} · ${esc(x.oggetto)}<br><span class="muted">a ${esc(x.a.join(', '))} · da ${esc(x.da)}${x.simulato ? ' (dimostrazione)' : ''}</span></p>`).join('')}</div>` : ''}
@@ -172,20 +172,18 @@ window.INVIO = (function () {
       if (!a.length) return UI.toast('Scegli o scrivi almeno un indirizzo', 'err');
       const errato = a.find((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)); if (errato) return UI.toast('Indirizzo non valido: ' + errato, 'err');
       const oggetto = el.querySelector('#oggetto').value.trim(), testo = el.querySelector('#testo').value;
-      const prova = Backend.mode === 'prova';
       const fase = (t) => (bInv.textContent = t);
       bInv.disabled = true;
       try {
         // prima il permesso di Google (deve partire subito dal tocco, altrimenti il popup viene bloccato)
-        let acc = { email: da || 'tu@gmail.com' };
-        if (!prova) { fase('🔐 Accesso a Gmail…'); acc = await MAIL.accedi(da); }
+        fase('🔐 Accesso a Gmail…'); const acc = await MAIL.accedi(da);
         fase('⏳ Preparo i PDF…');
         const allegati = await creaPdf(S, st.tipo, st.sede, st.anno, ids);
-        if (!prova) { fase('📤 Invio…'); await MAIL.invia({ da: acc.email, nome: `${io?.nome || ''} – Gru Impianti`, a, oggetto, testo, allegati }); }
+        fase('📤 Invio…'); await MAIL.invia({ da: acc.email, nome: `${io?.nome || ''} – Gru Impianti`, a, oggetto, testo, allegati });
         const ora = new Date().toISOString();
-        await UI.salva('invii', { id: uid(), tipo: st.tipo, sedeId: st.sede, clienteId: c?.id || '', anno: st.anno, docIds: ids, a, da: acc.email, oggetto, data: ora, utente: io?.id || '', allegati: allegati.map((x) => x.nome), ...(prova ? { simulato: true } : {}) });
+        await UI.salva('invii', { id: uid(), tipo: st.tipo, sedeId: st.sede, clienteId: c?.id || '', anno: st.anno, docIds: ids, a, da: acc.email, oggetto, data: ora, utente: io?.id || '', allegati: allegati.map((x) => x.nome) });
         if (st.tipo === 'rapportini') for (const id of ids) { const r = S.rapportini.find((x) => x.id === id); if (r) await UI.salva('rapportini', { ...r, inviatoIl: ora, inviatoA: a }); }
-        UI.toast(prova ? `Dimostrazione: mail pronta per ${a.join(', ')} (non spedita)` : `Email inviata a ${a.join(', ')}`, 'ok');
+        UI.toast(`Email inviata a ${a.join(', ')}`, 'ok');
         App.ridisegna();
       } catch (e) {
         console.error(e);

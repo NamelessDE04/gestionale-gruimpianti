@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.24.0';
+  const VERSIONE = '0.25.0';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -83,11 +83,7 @@ window.App = (function () {
   async function avvio() {
     document.getElementById('appVersion').textContent = VERSIONE;
     const info = document.getElementById('modeInfo');
-    const rete = () => (document.getElementById('reteOff').hidden = Backend.mode !== 'cloud' || navigator.onLine, info.textContent = Backend.mode === 'prova' ? '🎬 Dimostrazione: dati inventati' : Backend.mode !== 'cloud' ? '📱 Solo su questo dispositivo' : navigator.onLine ? '☁️ Cloud sincronizzato' : '📴 Senza rete: si sincronizza al ritorno');
-    // pulsante DEMO: entra / esce dalla dimostrazione
-    document.body.classList.toggle('prova', Backend.mode === 'prova');
-    document.getElementById('bannerProva').hidden = Backend.mode !== 'prova';
-    document.getElementById('btnEsciProva').onclick = () => DEMO.esci();
+    const rete = () => (document.getElementById('reteOff').hidden = Backend.mode !== 'cloud' || navigator.onLine, info.textContent = Backend.mode !== 'cloud' ? '📱 Solo su questo dispositivo' : navigator.onLine ? '☁️ Cloud sincronizzato' : '📴 Senza rete: si sincronizza al ritorno');
     rete(); window.addEventListener('online', rete);
     window.addEventListener('online', () => setTimeout(() => RAP.assegnaNumeri(S), 2000)); window.addEventListener('offline', rete);
     try { await Backend.init(); }
