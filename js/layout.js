@@ -85,10 +85,20 @@ window.LAY = (function () {
     if (c.or === 'o') { const k = Math.min(n - 1, Math.floor((e.y - c.y) / (c.h / n))); y0 = c.y + k * c.h / n; y1 = y0 + c.h / n; }
     else { const k = Math.min(n - 1, Math.floor((e.x - c.x) / (c.w / n))); x0 = c.x + k * c.w / n; x1 = x0 + c.w / n; }
     const r = (((+e.rot || 0) % 360) + 360) % 360;
-    // lungo: dove scorre la riga · largo: dove si impilano le righe (sempre verso l'interno della campata)
-    const lungo = r === 90 ? y1 - e.y : r === 180 ? e.x - x0 : r === 270 ? e.y - y0 : x1 - e.x;
-    const largo2 = r === 90 || r === 270 ? x1 - e.x : r === 180 ? e.y - y0 : y1 - e.y;
-    return { lungo: Math.max(u * 2, lungo - u * 0.6), largo: Math.max(u * 1.5, largo2 - u * 0.4) };
+    // il testo è centrato sul suo punto: lungo = spazio per la riga, largo = spazio per le righe impilate
+    const orizz = 2 * Math.min(e.x - x0, x1 - e.x), vert = 2 * Math.min(e.y - y0, y1 - e.y);
+    const lungo = r === 90 || r === 270 ? vert : orizz, largo2 = r === 90 || r === 270 ? orizz : vert;
+    return { lungo: Math.max(u * 2, lungo - u * 1.2), largo: Math.max(u * 1.5, largo2 - u * 0.8) };
+  }
+
+  // testo centrato in un riquadro (uffici, zone, corridoi): va a capo e si rimpicciolisce per starci
+  function testoNelRiquadro(testo, w, h, fs0, u, colore) {
+    if (!testo) return '';
+    const verticale = h > w * 1.4, lw = (verticale ? h : w) - u * 1.2, lh = (verticale ? w : h) - u * 0.8;
+    let { fs, righe } = aCapo(testo, fs0, Math.max(u, lw));
+    for (let q = 0; q < 14 && (righe.length * 1.15 - 0.15) * fs > lh; q++) ({ fs, righe } = aCapo(testo, fs * 0.88, Math.max(u, lw)));
+    const y0 = h / 2 - (righe.length - 1) * 1.15 * fs / 2;
+    return `<text x="${w / 2}" y="${y0}" font-size="${fs}" text-anchor="middle" dominant-baseline="middle" fill="${colore}"${verticale ? ` transform="rotate(-90 ${w / 2} ${h / 2})"` : ''}>${righe.map((r, q) => `<tspan x="${w / 2}" dy="${q ? '1.15em' : 0}">${esc(r)}</tspan>`).join('')}</text>`;
   }
 
   // ---------- disegno (SVG) ----------
@@ -121,25 +131,25 @@ window.LAY = (function () {
         ? `<line x1="0" y1="${(e.h * q) / n}" x2="${e.w}" y2="${(e.h * q) / n}" stroke="#111" stroke-width="${u * 0.12}"/>`
         : `<line x1="${(e.w * q) / n}" y1="0" x2="${(e.w * q) / n}" y2="${e.h}" stroke="#111" stroke-width="${u * 0.12}"/>`;
       return `${apri()}<rect x="0" y="0" width="${e.w}" height="${e.h}" fill="#fff" stroke="#111" stroke-width="${u * 0.2}"/>${lin}
-        ${t ? `<text x="${u * 0.6}" y="${-u * 0.7}" font-size="${u * 1.5}" font-weight="700" fill="#5b6b7d">${t}</text>` : ''}${maniglia(e, u, opz)}</g>`;
+        ${t ? `<text x="${e.w / 2}" y="${-u * 0.7}" font-size="${u * 1.5}" font-weight="700" text-anchor="middle" fill="#5b6b7d">${t}</text>` : ''}${maniglia(e, u, opz)}</g>`;
     }
     if (e.tipo === 'corsia') return `${apri()}<rect x="0" y="0" width="${e.w}" height="${e.h}" fill="#d9d9d9"/>${maniglia(e, u, opz)}</g>`;
     if (e.tipo === 'corridoio') {
       return `${apri()}<rect x="0" y="0" width="${e.w}" height="${e.h}" fill="#f3f5f7" stroke="#111" stroke-width="${u * 0.16}" stroke-dasharray="${u * 0.8} ${u * 0.5}"/>
-        ${t ? `<text x="${e.w / 2}" y="${e.h / 2}" font-size="${u * 1.3}" text-anchor="middle" dominant-baseline="middle" fill="#5b6b7d"${e.h > e.w ? ` transform="rotate(-90 ${e.w / 2} ${e.h / 2})"` : ''}>${t}</text>` : ''}${maniglia(e, u, opz)}</g>`;
+        ${testoNelRiquadro(e.testo || '', e.w, e.h, u * 1.3, u, '#5b6b7d')}${maniglia(e, u, opz)}</g>`;
     }
     if (e.tipo === 'zona' || e.tipo === 'uffici') {
       return `${apri()}<rect x="0" y="0" width="${e.w}" height="${e.h}" fill="${e.tipo === 'uffici' ? '#eef3f8' : '#fff'}" stroke="#111" stroke-width="${u * 0.14}"/>
-        <text x="${u * 0.6}" y="${u * 1.9}" font-size="${u * 1.6}" fill="#1f5fbf">${t || (e.tipo === 'uffici' ? 'UFFICI' : '')}</text>${maniglia(e, u, opz)}</g>`;
+        ${testoNelRiquadro(e.testo || (e.tipo === 'uffici' ? 'UFFICI' : ''), e.w, e.h, u * 1.6, u, '#1f5fbf')}${maniglia(e, u, opz)}</g>`;
     }
     if (e.tipo === 'testo') {
       const sp = spazioTesto(opz.L, e, u);
       let { fs, righe } = aCapo(e.testo || 'SCRITTA', u * 1.8 * (+e.s || 1), sp?.lungo);
       // troppe righe per lo spazio: rimpicciolisco finché ci stanno
-      for (let q = 0; sp && q < 12 && (righe.length - 0.5) * 1.15 * fs > sp.largo; q++) ({ fs, righe } = aCapo(e.testo || 'SCRITTA', fs * 0.88, sp.lungo));
+      for (let q = 0; sp && q < 12 && (righe.length * 1.15 - 0.15) * fs > sp.largo; q++) ({ fs, righe } = aCapo(e.testo || 'SCRITTA', fs * 0.88, sp.lungo));
       // il blocco di righe sta sempre verso l'interno della campata, mantenendo l'ordine di lettura
-      const r = (((+e.rot || 0) % 360) + 360) % 360, y0 = r === 90 || r === 180 ? -(righe.length - 1) * 1.15 * fs - 0.55 * fs : 0;
-      return `${apri(e.rot ? ` rotate(${e.rot})` : '')}<text x="0" y="${y0}" font-size="${fs}" fill="${e.colore || '#1f5fbf'}" dominant-baseline="middle">${righe.map((rr, q) => `<tspan x="0" dy="${q ? '1.15em' : 0}">${esc(rr)}</tspan>`).join('')}</text></g>`;
+      const y0 = -(righe.length - 1) * 1.15 * fs / 2;   // blocco di righe centrato sul punto
+      return `${apri(e.rot ? ` rotate(${e.rot})` : '')}<text x="0" y="${y0}" font-size="${fs}" fill="${e.colore || '#1f5fbf'}" text-anchor="middle" dominant-baseline="middle">${righe.map((rr, q) => `<tspan x="0" dy="${q ? '1.15em' : 0}">${esc(rr)}</tspan>`).join('')}</text></g>`;
     }
     if (e.tipo === 'ingresso') {
       return `${apri(e.rot ? ` rotate(${e.rot})` : '')}
@@ -313,7 +323,7 @@ window.LAY = (function () {
       el.querySelectorAll('[data-add]').forEach((b) => (b.onclick = () => {
         const t = b.dataset.add, u = unita(L), ce = centro(), sfasa = (L.elementi.length % 6) * u * 3;
         const e = { id: uid(), tipo: t, x: ce.x - u * 8 + sfasa, y: ce.y - u * 6 + sfasa, testo: t === 'testo' ? 'REPARTO' : t === 'uffici' ? 'UFFICI' : t === 'ingresso' ? 'INGRESSO' : '' };
-        if (t === 'testo') { const cp = campataDi(L, ce.x, ce.y); if (cp && cp.or === 'v') e.x = cp.a + u * 0.8; else if (cp) e.x = cp.c.x + u * 0.8; }   // parte dal bordo della campata: c'è tutto lo spazio
+        if (t === 'testo') { const cp = campataDi(L, ce.x, ce.y); if (cp && cp.or === 'v') e.x = (cp.a + cp.b) / 2; else if (cp) { e.x = cp.c.x + cp.c.w / 2; e.y = (cp.a + cp.b) / 2; } }   // al centro della campata: c'è tutto lo spazio
         if (t === 'capannone') { const cs = capannoni(L), ult = cs[cs.length - 1]; Object.assign(e, { x: ult ? ult.x : 0, y: ult ? ult.y + ult.h + u * 8 : 0, w: ult ? ult.w : 100, h: ult ? ult.h : 70, n: ult ? ult.n : 4, or: ult?.or || 'v' }); }
         if (t === 'corridoio') Object.assign(e, { w: u * 8, h: u * 20 });
         if (t === 'corsia') { const c0 = capannoni(L)[0]; Object.assign(e, c0 ? { x: c0.x, y: c0.y + c0.h / 2 - u * 1.5, w: c0.w, h: u * 3 } : { w: u * 40, h: u * 3 }); }
@@ -336,7 +346,7 @@ window.LAY = (function () {
         p.querySelector('#pTogli').onclick = () => { L.impianti = L.impianti.filter((x) => x.impId !== id); scelto = null; ridisegna(); proprieta(); salva(); };
       } else {
         const e = L.elementi.find((x) => x.id === id); if (!e) { p.hidden = true; return; }
-        const ruota = e.tipo === 'testo' || e.tipo === 'ingresso', conTesto = e.tipo !== 'corsia';
+        const ruota = ['testo', 'ingresso', 'corsia', 'corridoio', 'zona', 'uffici'].includes(e.tipo), conTesto = e.tipo !== 'corsia';
         p.innerHTML = `<div class="lay-prop-riga"><b>${TIPI[e.tipo]?.ico || ''} ${esc(TIPI[e.tipo]?.nome || '')}</b><span class="grow"></span>
             <button type="button" class="btn ghost small" id="pDup">⧉ Duplica</button>
             <button type="button" class="btn ghost small danger" id="pTogli">Elimina</button><button type="button" class="btn ghost small" id="pChiudi">Fatto</button></div>
@@ -355,7 +365,11 @@ window.LAY = (function () {
         const grand = (f) => { e.s = Math.round(Math.min(4, Math.max(0.3, (+e.s || 1) * f)) * 100) / 100; ridisegna(); proprieta(); salva(); };
         p.querySelector('#pAmeno')?.addEventListener('click', () => grand(1 / 1.2));
         p.querySelector('#pApiu')?.addEventListener('click', () => grand(1.2));
-        p.querySelector('#pRuota')?.addEventListener('click', () => { e.rot = ((+e.rot || 0) + 90) % 360; ridisegna(); salva(); });
+        p.querySelector('#pRuota')?.addEventListener('click', () => {
+          if (RIDIM.includes(e.tipo)) { const cx = e.x + e.w / 2, cy = e.y + e.h / 2; [e.w, e.h] = [e.h, e.w]; e.x = cx - e.w / 2; e.y = cy - e.h / 2; }   // riquadri: si girano di 90° attorno al centro
+          else e.rot = ((+e.rot || 0) + 90) % 360;
+          ridisegna(); salva();
+        });
         p.querySelectorAll('[data-col]').forEach((b) => (b.onclick = () => { e.colore = b.dataset.col; ridisegna(); salva(); }));
         p.querySelector('#pDup').onclick = () => { const u = unita(L), d = { ...e, id: uid(), x: e.x + u * 4, y: e.y + u * 4 }; L.elementi.push(d); scelto = 'el:' + d.id; ridisegna(); proprieta(); salva(); };
         p.querySelector('#pTogli').onclick = () => { L.elementi = L.elementi.filter((x) => x.id !== id); scelto = null; ridisegna(); proprieta(); salva(); };
