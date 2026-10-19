@@ -635,6 +635,37 @@ const CSS = `  #cg { --bg: var(--cg-bg, #ffffff); --fg: var(--cg-fg, #1b1f27); -
   .wire.fc .sub { display: block; font-size: .8rem; font-weight: 600; opacity: .75; margin-top: 3px; }
   .pont { color: #ffd400; font-weight: 800; font-size: .85rem; }
   .wire.hit, .card .wire.hit { outline: 3px solid #ffd400; outline-offset: 2px; background: rgba(255,212,0,.13); }
+  /* zone della gru vista dall'alto */
+  .aree-box { width: 100%; display: flex; flex-direction: column; align-items: center; }
+  .gru-svg { width: 100%; max-width: 760px; height: auto; margin: 6px 0 10px; user-select: none; }
+  .gru-svg .rotaia { fill: var(--dim); opacity: .45; }
+  .gru-svg .trave { fill: #f2b705; stroke: var(--line); stroke-width: 2; }
+  .gru-svg .testata { fill: #e9edf2; stroke: var(--line); stroke-width: 2; }
+  .gru-svg .lab { fill: var(--dim); font-size: 11px; font-weight: 700; letter-spacing: .08em; }
+  .gru-svg .zona { cursor: pointer; outline: none; }
+  .gru-svg .hot { fill: #fff; stroke: #1f5fbf; stroke-width: 3; transition: fill .15s; }
+  .gru-svg .zona:hover .hot, .gru-svg .zona:focus .hot { fill: #dbe8fb; }
+  .gru-svg .zona:active .hot { fill: #b9d2f6; }
+  .gru-svg .mot { fill: #1f5fbf; opacity: .25; }
+  .gru-svg .lin { stroke: #1f5fbf; stroke-width: 3; stroke-linecap: round; fill: none; }
+  .gru-svg .arg { fill: #fff; stroke: #1f5fbf; stroke-width: 3; }
+  .gru-svg .cavo { stroke: var(--line); stroke-width: 2; stroke-dasharray: 4 3; }
+  .gru-svg .guida { stroke: #1f5fbf; stroke-width: 1.5; stroke-dasharray: 5 4; fill: none; opacity: .7; }
+  .gru-svg .puls { fill: #f2b705; stroke: var(--line); stroke-width: 2; }
+  .gru-svg .pk { fill: var(--line); }
+  .gru-svg .zn-c { fill: #1f5fbf; }
+  .gru-svg .zn-n { fill: #fff; font-size: 15px; font-weight: 800; }
+  .gru-svg .zn-t { fill: var(--fg); font-size: 14px; font-weight: 800; paint-order: stroke; stroke: var(--bg); stroke-width: 4px; }
+  .aree-btn { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; width: 100%; max-width: 760px; }
+  .area-b { display: flex; align-items: center; gap: 10px; justify-content: flex-start; text-align: left; margin: 0; }
+  .area-n { flex: none; width: 30px; height: 30px; border-radius: 50%; background: #1f5fbf; color: #fff; display: grid; place-items: center; font-weight: 800; }
+  @media (max-width: 520px) { .aree-btn { grid-template-columns: 1fr; } .gru-svg .zn-t { font-size: 17px; } }
+  .indice { display: flex; flex-wrap: wrap; gap: 6px; justify-content: center; margin: 4px 0 8px; position: sticky; top: 0; z-index: 2; background: var(--bg); padding: 6px 0; width: 100%; }
+  .ich { font: inherit; font-size: .8rem; font-weight: 700; padding: 6px 10px; border-radius: 99px; border: 1.5px solid var(--line); background: var(--bg); color: var(--fg); cursor: pointer; }
+  .area-schede { width: 100%; display: flex; flex-direction: column; gap: 22px; }
+  .area-sez { width: 100%; border-top: 3px solid #1f5fbf; padding-top: 10px; scroll-margin-top: 60px; }
+  .area-tit { margin: 0 0 10px; }
+  .area-sch { width: 100%; display: flex; flex-direction: column; align-items: center; }
 `;
 
 function mount(container, opts) {
@@ -763,23 +794,82 @@ function mount(container, opts) {
         <strong>${esc(state.tipo)} · ${esc(state.marca)}${state.motore ? ' · ' + esc(state.motore) : ''}</strong>
         <span>Carrello: ${NV[state.carrello] || '-'}${state.sollevamento ? ' · Sollevamento: ' + NV[state.sollevamento] : ''}</span>
       </div>
-      <h2>Scegli da cosa vuoi incominciare:</h2>
       <input id="q" class="search" type="search" placeholder="🔍 Cerca un numero: schema, filo, morsetto…" autocomplete="off" autocapitalize="off" spellcheck="false" value="${esc(state.q)}">
       <div class="sr" id="ris"></div>
-      <div class="choices" id="voci">
-        ${gruppi.map((g, i) => `<button class="btn" data-g="${i}">${esc(g.nome)}</button>`).join('')}
+      <div id="voci" class="aree-box">
+        <h2>Tocca la zona della gru da cablare</h2>
+        ${disegnoGru(state.tipo === 'BITRAVE')}
+        <div class="aree-btn">${AREE.filter(a => gruppiArea(gruppi, a).length).map(a => `<button class="btn area-b" data-area="${a.k}"><span class="area-n">${a.n}</span>${esc(a.nome)}</button>`).join('')}</div>
         <button class="btn solid gap-top" id="test">SONO PRONTO PER I TEST</button>
       </div>`);
-    view.querySelectorAll('[data-g]').forEach(b => b.onclick = () => {
-      const g = gruppi[+b.dataset.g];
-      if (g.morsettiera) { go(() => morsettieraScreen(g.morsettiera)); return; }
-      if (g.voci.length === 1 && !g.voci[0].t) go(() => singleScreen(g.nome, g.voci[0].f));
-      else go(() => tabsScreen(g.nome, g.voci.map(v => [v.f, etichetta(v)])));
-    });
+    const apriArea = k => { const a = AREE.find(x => x.k === k); if (a && gruppiArea(gruppi, a).length) go(() => areaScreen(a)); };
+    view.querySelectorAll('[data-area]').forEach(b => b.onclick = () => apriArea(b.dataset.area));
     $('test').onclick = () => go(checklist);
     const q = $('q');
     q.oninput = () => { state.q = q.value; aggiornaRicerca(); };
     aggiornaRicerca();
+  }
+
+  /* ---------- Le 4 zone della gru (vista dall'alto) ----------
+     Ogni zona raccoglie i gruppi del vecchio menu: toccandola si aprono tutti i suoi schemi in una pagina sola. */
+  const AREE = [
+    { k: 'quadro', n: 1, nome: 'QUADRO ELETTRICO', gruppi: ['QUADRO ELETTRICO GRU'] },
+    { k: 'carrello', n: 2, nome: 'ZONA CARRELLO', gruppi: ['QUADRO DERIVAZIONE CARRELLO', 'MOTORE CARRELLO', 'MOTORE SOLLEVAMENTO', 'FINECORSA SOLLEVAMENTO', 'LIMITATORE DI CARICO'] },
+    { k: 'pulsantiera', n: 3, nome: 'DERIVAZIONE PULSANTIERA', gruppi: ['DERIVAZIONE COMANDI'] },
+    { k: 'ponte', n: 4, nome: 'MOTORI PONTE', gruppi: ['MOTORI PONTE'] }
+  ];
+  // i gruppi del menu che appartengono a una zona (anche quelli aggiunti per una configurazione, in base a dove erano nel menu)
+  function gruppiArea(gruppi, a) {
+    let zona = null;
+    return gruppi.filter(g => {
+      const n = g.orig || g.nome, z = AREE.find(x => x.gruppi.includes(n));
+      if (z) zona = z;
+      return (z || zona) === a;
+    });
+  }
+  // carroponte visto dall'alto: vie di corsa, trave (o due travi), testate con i motori, quadro, carrello e derivazione pulsantiera
+  function disegnoGru(bitrave) {
+    const tr = bitrave ? [[150, 16], [184, 16]] : [[160, 22]];
+    const zona = (k, n, nome, inner, lx, ly, anchor) => `<g class="zona" data-area="${k}" role="button" tabindex="0" aria-label="${nome}">${inner}
+      <circle class="zn-c" cx="${lx}" cy="${ly}" r="13"/><text class="zn-n" x="${lx}" y="${ly + 5}" text-anchor="middle">${n}</text>
+      <text class="zn-t" x="${lx + (anchor === 'end' ? -18 : 18)}" y="${ly + 5}" text-anchor="${anchor || 'start'}">${nome}</text></g>`;
+    return `<svg class="gru-svg" viewBox="0 0 640 372" xmlns="http://www.w3.org/2000/svg" font-family="inherit">
+      <rect x="20" y="20" width="16" height="320" class="rotaia"/><rect x="604" y="20" width="16" height="320" class="rotaia"/>
+      <text class="lab" transform="rotate(-90 14 300)" x="14" y="300">VIA DI CORSA</text><text class="lab" transform="rotate(90 626 60)" x="626" y="60">VIA DI CORSA</text>
+      ${tr.map(([y, h]) => `<rect class="trave" x="44" y="${y}" width="552" height="${h}"/>`).join('')}
+      ${zona('ponte', 4, 'MOTORI PONTE', `
+        <rect class="testata" x="38" y="110" width="30" height="140" rx="4"/><rect class="testata" x="572" y="110" width="30" height="140" rx="4"/>
+        <rect class="hot" x="40" y="118" width="40" height="34" rx="5"/><rect class="hot" x="560" y="208" width="40" height="34" rx="5"/>
+        <path class="mot" d="M46 124h28v22h-28z M566 214h28v22h-28z"/>
+        <path class="guida" d="M238 56 L62 116 M402 56 L580 206"/>`, 250, 52)}
+      ${zona('quadro', 1, 'QUADRO ELETTRICO', `<rect class="hot box" x="92" y="${bitrave ? 206 : 196}" width="64" height="44" rx="5"/>
+        <path class="lin" d="M104 ${bitrave ? 216 : 206}h40 M104 ${bitrave ? 226 : 216}h40 M104 ${bitrave ? 236 : 226}h28"/>`, 124, bitrave ? 284 : 274)}
+      ${zona('carrello', 2, 'ZONA CARRELLO', `<rect class="hot carr" x="276" y="${bitrave ? 138 : 140}" width="${bitrave ? 92 : 80}" height="${bitrave ? 76 : 70}" rx="6"/>
+        <circle class="arg" cx="${bitrave ? 322 : 316}" cy="${bitrave ? 176 : 175}" r="17"/><path class="lin" d="M${bitrave ? 305 : 299} ${bitrave ? 176 : 175}h34"/>`, 300, 112)}
+      ${zona('pulsantiera', 3, 'DERIVAZIONE PULSANTIERA', `<rect class="hot box" x="404" y="${bitrave ? 208 : 192}" width="40" height="30" rx="4"/>
+        <path class="cavo" d="M424 ${bitrave ? 238 : 222}v44"/><rect class="puls" x="414" y="${bitrave ? 282 : 266}" width="20" height="42" rx="4"/>
+        <circle class="pk" cx="424" cy="${bitrave ? 292 : 276}" r="3.5"/><circle class="pk" cx="424" cy="${bitrave ? 304 : 288}" r="3"/><circle class="pk" cx="424" cy="${bitrave ? 314 : 298}" r="3"/>`, 452, bitrave ? 344 : 330, 'end')}
+    </svg>`;
+  }
+  // tutti gli schemi di una zona in una pagina sola (con l'indice in alto per saltare)
+  function areaScreen(a) {
+    const gruppi = gruppiArea(gruppiMenu(), a);
+    const pezzi = [];
+    gruppi.forEach(g => {
+      if (g.morsettiera) { pezzi.push({ g, morsettiera: g.morsettiera }); return; }
+      g.voci.forEach(v => { const key = state.cartella + '/' + v.f; if (SCHEDE[key]) pezzi.push({ g, v, key, titolo: (v.t && etichetta(v)) || g.nome }); });
+    });
+    render(`
+      <div class="riepilogo"><strong>${a.n} · ${esc(a.nome)}</strong><span>${esc(state.tipo)} · ${esc(state.marca)}${state.motore ? ' · ' + esc(state.motore) : ''}</span></div>
+      ${pezzi.length > 1 ? `<div class="indice">${pezzi.map((p, i) => { const t = p.morsettiera ? p.g.nome : p.titolo, doppio = pezzi.filter(q => (q.morsettiera ? q.g.nome : q.titolo) === t).length > 1;
+        return `<button type="button" class="ich" data-vai="${i}">${esc(doppio && p.v && p.v.t ? p.g.nome.replace(/^QUADRO /, '') + ' › ' + t : t)}</button>`; }).join('')}</div>` : ''}
+      <div class="area-schede">${pezzi.map((p, i) => `<section class="area-sez" id="pz${i}">
+        <h2 class="area-tit">${esc(p.g.nome)}${p.v && p.v.t ? ' › ' + esc(p.titolo) : ''}</h2>
+        ${p.morsettiera ? `<button type="button" class="btn solid" data-mors="${i}">APRI LA MORSETTIERA</button>` : `<div class="area-sch" data-sch="${i}"></div>`}
+      </section>`).join('')}</div>`);
+    pezzi.forEach((p, i) => { if (!p.morsettiera) mountScheda(view.querySelector(`[data-sch="${i}"]`), p.key, p.titolo, p.v.f, false, {}); });
+    view.querySelectorAll('[data-mors]').forEach(b => b.onclick = () => go(() => morsettieraScreen(pezzi[+b.dataset.mors].morsettiera)));
+    view.querySelectorAll('[data-vai]').forEach(b => b.onclick = () => { const t = view.querySelector('#pz' + b.dataset.vai); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   }
 
   /* ---------- Finecorsa ponte: scelta di come sono montati avanti e indietro ---------- */
