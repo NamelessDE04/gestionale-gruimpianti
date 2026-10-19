@@ -61,6 +61,31 @@ window.LAY = (function () {
     const p = c.w / n, k = Math.min(n - 1, Math.floor((x - c.x) / p)); return { c, a: c.x + k * p, b: c.x + (k + 1) * p, or: 'v' };
   }
 
+  // ---------- testi che vanno a capo dentro la loro campata ----------
+  let ctx2d = null;
+  const largo = (t, fs) => { ctx2d = ctx2d || document.createElement('canvas').getContext('2d'); ctx2d.font = `${fs}px Arial, Helvetica, sans-serif`; return ctx2d.measureText(t).width; };
+  function aCapo(testo, fs, max) {
+    const parole = testo.split(/\s+/).filter(Boolean);
+    if (!max || !parole.length) return { fs, righe: [testo] };
+    // una parola più lunga della campata: rimpicciolisco quanto basta
+    const lunga = Math.max(...parole.map((w) => largo(w, fs)));
+    if (lunga > max) fs = fs * max / lunga;
+    const righe = []; let r = '';
+    parole.forEach((w) => { const prova = r ? r + ' ' + w : w; if (r && largo(prova, fs) > max) { righe.push(r); r = w; } else r = prova; });
+    if (r) righe.push(r);
+    return { fs, righe };
+  }
+  // dentro un capannone la scritta parte dal bordo sinistro della sua campata e va a capo alla larghezza della campata
+  // (null = fuori dai capannoni o ruotata: resta dove è, senza limite)
+  function spazioTesto(L, e, u) {
+    if (!L || (e.rot && e.rot % 180)) return null;
+    const c = capannoni(L).slice().reverse().find((k) => dentro(k, e.x, e.y)); if (!c) return null;
+    const n = Math.max(1, +c.n || 1);
+    if (c.or === 'o') return { x: c.x + u * 0.6, w: c.w - u * 1.2 };
+    const k = Math.min(n - 1, Math.floor((e.x - c.x) / (c.w / n))), a = c.x + k * c.w / n;
+    return { x: a + u * 0.6, w: Math.max(u * 2, c.w / n - u * 1.2) };
+  }
+
   // ---------- disegno (SVG) ----------
   function disegna(S, L, opz = {}) {
     const u = unita(L), m = u * 6;
@@ -68,6 +93,7 @@ window.LAY = (function () {
     const ordine = { capannone: 0, corridoio: 1, corsia: 2, zona: 3, uffici: 3 };
     const els = L.elementi.slice().sort((a, b) => (ordine[a.tipo] ?? 9) - (ordine[b.tipo] ?? 9));
     let g = '';
+    opz = { ...opz, L };
     els.forEach((e) => (g += elemento(e, u, opz)));
     L.impianti.forEach((p) => { const i = imp.find((x) => x.id === p.impId); if (i) g += impianto(L, i, p, u, opz); });
     // la vista comprende tutto il disegno
@@ -102,7 +128,9 @@ window.LAY = (function () {
         <text x="${u * 0.6}" y="${u * 1.9}" font-size="${u * 1.6}" fill="#1f5fbf">${t || (e.tipo === 'uffici' ? 'UFFICI' : '')}</text>${maniglia(e, u, opz)}</g>`;
     }
     if (e.tipo === 'testo') {
-      return `${apri(e.rot ? ` rotate(${e.rot})` : '')}<text x="0" y="0" font-size="${u * 1.8 * (+e.s || 1)}" fill="${e.colore || '#1f5fbf'}" dominant-baseline="middle">${t || 'SCRITTA'}</text></g>`;
+      const sp = spazioTesto(opz.L, e, u);
+      const { fs, righe } = aCapo(e.testo || 'SCRITTA', u * 1.8 * (+e.s || 1), sp?.w);
+      return `<g class="lay-drag lay-testo${sel(opz, k)}" data-k="${k}" transform="translate(${sp ? sp.x : e.x} ${e.y})${e.rot ? ` rotate(${e.rot})` : ''}"><text x="0" y="0" font-size="${fs}" fill="${e.colore || '#1f5fbf'}" dominant-baseline="middle">${righe.map((r, q) => `<tspan x="0" dy="${q ? '1.15em' : 0}">${esc(r)}</tspan>`).join('')}</text></g>`;
     }
     if (e.tipo === 'ingresso') {
       return `${apri(e.rot ? ` rotate(${e.rot})` : '')}
@@ -332,7 +360,7 @@ window.LAY = (function () {
       const gDi = (k) => svg.querySelector(`[data-k="${k}"]`);
       const rifai = (k) => {   // ridisegna un solo oggetto al suo posto
         const g = gDi(k); if (!g) return;
-        const [tipo, id] = k.split(':'), opz = { modifica: true, scelto: k === scelto ? k : null };
+        const [tipo, id] = k.split(':'), opz = { modifica: true, scelto: k === scelto ? k : null, L };
         const html = tipo === 'imp' ? impianto(L, imp.find((x) => x.id === id), L.impianti.find((x) => x.impId === id), u, opz) : elemento(L.elementi.find((x) => x.id === id), u, opz);
         const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'g'); tmp.innerHTML = html;
         const ng = tmp.firstElementChild; g.setAttribute('transform', ng.getAttribute('transform')); g.innerHTML = ng.innerHTML;
