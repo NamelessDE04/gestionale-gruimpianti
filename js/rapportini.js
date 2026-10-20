@@ -475,48 +475,78 @@ window.RAP = (function () {
           <a class="btn ghost" href="#/rapportini">Elenco</a>
           ${UT.puoInviare() ? `<a class="btn ghost" href="#/invio?tipo=rapportini&sede=${r.sedeId}&ids=${r.id}&da=${encodeURIComponent('#/rapportini/r/' + r.id)}">📧 ${r.inviatoIl ? 'Inviato il ' + fmt(r.inviatoIl.slice(0, 10)) + ' · reinvia' : 'Invia al cliente'}</a>` : ''}
           ${firmato(r) ? '' : '<span class="pill st-ko">Da firmare</span>'}
-          ${info('Scegli «Salva come PDF» nella finestra di stampa, formato A4 verticale, margini predefiniti.')}
+          ${info('Scegli «Salva come PDF» nella finestra di stampa, formato A4 verticale, margini «Nessuno».')}
         </div>
-        <div class="recap-wrap"><article class="recap rap-pdf">
-          <div class="rap-pagina">
-            <header class="rap-testa">
-              <img src="img/logo-grande.png" alt="Gru Impianti" class="rap-logo">
-              <div class="rap-spett">
-                <span>Spett.le</span>
-                <b>${esc(CLI.nomeAl(c, primaData(r), s))}</b>
-                ${s && (c?.sedi || []).length > 1 ? `<span>${esc(s.nome || '')}</span>` : ''}
-                ${indirizzo.map((x) => `<span>${esc(x)}</span>`).join('')}
-                ${c?.piva ? `<span>P.IVA ${esc(c.piva)}</span>` : ''}
-              </div>
-            </header>
-            <div class="rap-titolo"><h1>RAPPORTINO DI INTERVENTO</h1><span>N° <b>${esc(numeroDi(r))}</b></span></div>
-            ${rifLista(r).length ? `<div class="rap-rif">${rifLista(r).map(([a, b]) => `<span>${a} <b>${esc(b)}</b></span>`).join('')}</div>` : ''}
-            <table class="rap-ore">
-              <thead><tr><th>Data</th><th>Mattina</th><th>Pomeriggio</th><th>Viaggio</th><th>Km</th><th>Pers.</th><th>Tecnici</th><th>Piattaforme</th><th>Note</th></tr></thead>
-              <tbody>${giorni.map((g) => `<tr>
-                <td>${fmt(g.data)}</td><td>${fascia(g.mattDa, g.mattA)}</td><td>${fascia(g.pomDa, g.pomA)}</td>
-                <td class="num">${g.viaggio ? hhmm(+g.viaggio) : ''}</td><td class="num">${esc(g.km)}</td>
-                <td class="num">${esc(g.persone)}</td>
-                <td>${esc((g.tecnici || []).map((id) => siglaId(S, id)).filter(Boolean).join(', '))}</td><td class="num">${nPiatt(g)}</td><td class="rap-nota">${esc(g.note)}</td></tr>`).join('')}
-              ${giorni.length > 1 ? `<tr class="rap-tot"><td colspan="3">TOTALE</td><td class="num">${hhmm(tot.via)}</td><td class="num">${tot.km || ''}</td><td colspan="4"></td></tr>` : ''}</tbody>
-            </table>
-            <div class="rap-box"><h2>LAVORI ESEGUITI</h2><div class="rap-testo">${esc(r.eseguiti) || '&nbsp;'}</div></div>
-            <div class="rap-box"><h2>LAVORI DA ESEGUIRE</h2><div class="rap-testo corto">${esc(r.daEseguire) || '&nbsp;'}</div></div>
-            <footer class="rap-firme">
-              <div class="rap-firma">
-                <span class="rap-etich">IL TECNICO</span>
-                <b>${esc(siglaId(S, r.firmaDi) || r.firmatarioTecnico || '')}</b>
-                <div class="rap-img">${r.firmaTecnico ? `<img src="${r.firmaTecnico}" alt="">` : ''}</div>
-              </div>
-              <div class="rap-firma dx">
-                <span class="rap-etich">DATA DI CONSEGNA: <b>${fmt(r.dataConsegna)}</b></span>
-                <span class="rap-etich">IL REFERENTE ${r.referenteNome ? `<b>${esc(r.referenteNome)}</b>` : ''}</span>
-                <div class="rap-img grande">${r.firmaReferente ? `<img src="${r.firmaReferente}" alt="">` : ''}</div>
-              </div>
-            </footer>
-          </div>
+        <div class="recap-wrap"><article class="recap rap2">
+          ${(() => {
+            // ---- RAPPORTO INTERVENTO: stessa impaginazione del modulo cartaceo (misure in mm su A4) ----
+            const X = [5.1, 25.2, 35.6, 45.5, 56.1, 66.3, 80.6, 95.6, 110.4, 124.2, 205];   // bordi delle colonne
+            const box = (x0, y0, x1, y1, cls = '') => `<div class="r2-b ${cls}" style="left:${x0}mm;top:${y0}mm;width:${(x1 - x0).toFixed(2)}mm;height:${(y1 - y0).toFixed(2)}mm"></div>`;
+            // testo dentro una casella: si rimpicciolisce (o va su 2 righe) per non uscire mai dai bordi
+            const cella = (x0, y0, x1, y1, txt, cls = '', righe) => `<div class="r2-t ${cls}" data-adatta="0.45"${righe ? ' data-righe="2"' : ''} style="left:${x0}mm;top:${y0}mm;width:${(x1 - x0).toFixed(2)}mm;height:${(y1 - y0).toFixed(2)}mm">${txt}</div>`;
+            const ore = (m) => (m ? `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(Math.round(m % 60)).padStart(2, '0')}` : '');
+            const oreViaggio = (m) => (m ? String(Math.round(m / 60 * 100) / 100).replace('.', ',') : '0');
+            const NR = Math.max(9, giorni.length), Y0 = 47.3, YF = 99.5, RH = (YF - Y0) / NR;
+            let h = '';
+            // intestazione: logo e destinatario
+            h += `<img class="r2-logo" src="img/logo-grande.png" alt="Gru Impianti">`;
+            h += box(85, 9.7, 205, 28.4) + `<div class="r2-t r2-spett" style="left:85.6mm;top:10mm">Spett.</div>`;
+            h += cella(86, 12.8, 204.3, 17.4, `<b>${esc(CLI.nomeAl(c, primaData(r), s))}</b>`, 'c');
+            h += `<div class="r2-riga" style="left:85.7mm;top:17.6mm;width:118.6mm"></div>`;
+            h += cella(86, 18.6, 204.3, 23, esc(indirizzo.join(' - ')), 'c');
+            h += `<div class="r2-riga" style="left:85.7mm;top:23.1mm;width:118.6mm"></div>`;
+            h += cella(86, 23.6, 204.3, 28, (c?.sedi || []).length > 1 && s ? esc(s.nome || '') : '', 'c piccolo');
+            // tabella delle ore
+            h += box(X[0], 30.2, X[5], 36) + box(X[5], 30.2, X[9], 36) + box(X[9], 30.2, X[10], 36);
+            h += cella(X[0] + 0.6, 30.2, X[5] - 0.4, 36, `<b>RAPPORTO INTERVENTO</b> &nbsp;N° ${esc(numeroDi(r))}`);
+            h += cella(X[5] + 0.6, 30.2, X[9] - 0.4, 36, `<b>N° ORDINE</b> &nbsp;${esc(r.ordine || '')}`);
+            h += cella(X[9] + 0.6, 30.2, X[10] - 0.4, 36, `<b>RIF.PREV.</b> &nbsp;${esc(r.offerta || '')}`);
+            h += box(X[0], 36, X[1], 41.1) + box(X[1], 36, X[3], 41.1) + box(X[3], 36, X[5], 41.1) + box(X[5], 36, X[9], 41.1) + box(X[9], 36, X[10], 47.3);
+            h += cella(X[1], 36, X[3], 41.1, 'Mattino', 'c') + cella(X[3], 36, X[5], 41.1, 'Pomeriggio', 'c') + cella(X[5], 36, X[9], 41.1, 'Ore impiegate', 'c');
+            ['Data', 'dalle', 'alle', 'dalle', 'alle', 'Viaggio', 'Persone', 'Km', 'Ore'].forEach((t, k) => (h += box(X[k], 41.1, X[k + 1], 47.3) + cella(X[k], 41.1, X[k + 1], 47.3, t, 'c')));
+            h += cella(X[9], 41.1, X[10], 47.3, '<b>NOTE</b>', 'c');
+            for (let k = 0; k < NR; k++) {
+              const y = Y0 + k * RH, g = giorni[k];
+              for (let q = 0; q < 10; q++) h += box(X[q], y, X[q + 1], y + RH);
+              if (!g) continue;
+              const pers = +g.persone || (g.tecnici || []).length || 0;
+              const tot = (oreLavoro(g) + (+g.viaggio || 0)) * pers;   // ore = (lavorate + viaggio) × persone
+              const np = nPiatt(g);
+              const nota = [(g.tecnici || []).map((id) => siglaId(S, id)).filter(Boolean).join(' - '), np ? (np > 1 ? np + ' PIATTAFORME' : 'PIATTAFORMA') : '', g.note || ''].filter(Boolean).join(' - ');
+              [fmt(g.data), g.mattDa, g.mattA, g.pomDa, g.pomA, oreViaggio(+g.viaggio), pers || '', g.km || 0, ore(tot)].forEach((v, q) => (h += cella(X[q], y, X[q + 1], y + RH, esc(v ?? ''), 'c')));
+              h += cella(X[9] + 0.6, y, X[10] - 0.4, y + RH, esc(nota), 'nota', true);
+            }
+            h += box(X[0], YF, X[10], 105.3) + cella(X[0] + 0.6, YF, X[10] - 0.4, 105.3, `Consegnato D.d.T n° ${esc(r.ddtNumero || '')}${r.ddtData ? ' del ' + fmt(r.ddtData) : ''}`);
+            // lavori eseguiti / da eseguire: una riga vuota tra il titolo e il testo
+            h += box(X[0], 105.3, X[10], 209) + `<div class="r2-tit" style="left:${X[0] + 0.6}mm;top:106.2mm">LAVORI ESEGUITI :</div>`;
+            h += `<div class="r2-testo" data-adatta="0.4" data-blocco style="left:${X[0] + 0.6}mm;top:113.2mm;width:${(X[10] - X[0] - 1.2).toFixed(2)}mm;height:94.8mm">${esc(r.eseguiti || '')}</div>`;
+            h += box(X[0], 209, X[10], 249) + `<div class="r2-tit" style="left:${X[0] + 0.6}mm;top:209.9mm">LAVORI DA ESEGUIRE :</div>`;
+            h += `<div class="r2-testo" data-adatta="0.4" data-blocco style="left:${X[0] + 0.6}mm;top:216.9mm;width:${(X[10] - X[0] - 1.2).toFixed(2)}mm;height:31.2mm">${esc(r.daEseguire || '')}</div>`;
+            // data, firme
+            const F = [5.1, 45.7, 124.2, 205];
+            h += box(F[0], 251, F[1], 255.9) + box(F[1], 251, F[2], 255.9) + box(F[2], 251, F[3], 255.9);
+            h += cella(F[0], 251, F[1], 255.9, '<b>DATA</b>', 'c') + cella(F[1], 251, F[2], 255.9, '<b>FIRMA INCARICATO</b>', 'c') + cella(F[2], 251, F[3], 255.9, '<b>FIRMA CLIENTE</b>', 'c');
+            h += box(F[0], 255.9, F[1], 282.3) + box(F[1], 255.9, F[2], 282.3) + box(F[2], 255.9, F[3], 282.3);
+            const quando = r.firmatoIl ? new Date(r.firmatoIl) : null;
+            const dataOra = quando ? `${fmt(UI.iso(quando))} ${String(quando.getHours()).padStart(2, '0')}:${String(quando.getMinutes()).padStart(2, '0')}` : fmt(r.dataConsegna);
+            h += cella(F[0], 259, F[1], 265, esc(dataOra), 'c');
+            if (r.firmaTecnico) h += `<img class="r2-firma" src="${r.firmaTecnico}" alt="" style="left:${F[1] + 3}mm;top:257mm;width:${F[2] - F[1] - 6}mm;height:24mm">`;
+            if (r.referenteNome) h += cella(F[2] + 1, 256.3, F[3] - 1, 260.3, esc(r.referenteNome), 'c ref');
+            if (r.firmaReferente) h += `<img class="r2-firma" src="${r.firmaReferente}" alt="" style="left:${F[2] + 3}mm;top:260.5mm;width:${F[3] - F[2] - 6}mm;height:21mm">`;
+            // piè di pagina
+            h += `<div class="r2-t r2-piede" style="left:5.1mm;top:283.6mm;width:170mm">Gru impianti S.a.s di Cau Alessandro &amp; C. Sede operativa : Via Avigliana 4/H - 10057 S.Ambrogio(TO)</div>`;
+            h += `<div class="r2-t r2-piede" style="left:180mm;top:283.6mm;width:25mm;text-align:right">Pag. 1/ 1</div>`;
+            return h;
+          })()}
         </article></div>
       </section>`;
+    // nessun testo deve uscire dalle caselle del modulo: misuro a grandezza reale, poi rimpicciolisco l'anteprima per lo schermo
+    const foglio = el.querySelector('.recap.rap2');
+    if (foglio) {
+      foglio.style.zoom = 1; UI.adattaTesti(foglio);
+      const scala = () => { const w = foglio.parentElement.clientWidth; if (w < 50) return; foglio.style.zoom = Math.min(1, (w - 4) / foglio.offsetWidth).toFixed(3); };
+      scala(); window.addEventListener('resize', scala);
+    }
     if (el.querySelector('#btnStampa')) el.querySelector('#btnStampa').onclick = () => {
       const t = document.title;
       document.title = `Rapportino_${r.numero}-${r.anno}_${c ? CLI.nome(c) : ''}`.replace(/[^\w\-]+/g, '_');

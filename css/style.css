@@ -559,7 +559,7 @@ body.modal-aperto { overflow: hidden; }
 .r-tab th { background: #e6ebf1; text-align: left; padding: 3px 5px; } .r-tab td { border-bottom: 1px solid #d5dce4; padding: 3px 5px; vertical-align: top; }
 .r-tab tr { break-inside: avoid; }
 .r-diff { margin: 2px 0 0; padding-left: 14px; } .r-diff s { color: #888; }
-@media (max-width: 860px) { .recap { zoom: .5; } }
+@media (max-width: 860px) { .recap:not(.rap2) { zoom: .5; } }
 @page recap { size: A4 portrait; margin: 12mm 12mm 14mm; }
 @media print {
   .recap { zoom: 1 !important; box-shadow: none; margin: 0; min-height: 0; width: auto; padding: 0; }
@@ -1089,3 +1089,23 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 /* nome cliente dell'elenco sottoganci: sta in 2 righe se è lungo (ragione sociale completa) */
 .p-cliente { height: 6.2mm; }
 .p-cliente.due-righe { white-space: normal; line-height: 1.05; display: flex; align-items: center; justify-content: center; overflow-wrap: anywhere; }
+
+/* ===== v0.36: RAPPORTO INTERVENTO come il modulo cartaceo (A4, misure in mm) ===== */
+.recap.rap2 { position: relative; width: 210mm; height: 297mm; min-height: 0; padding: 0; font-family: Arial, Helvetica, "Liberation Sans", sans-serif; color: #000; overflow: hidden; page: rapp2; }
+.rap2 * { box-sizing: border-box; }
+.r2-b { position: absolute; border: .2mm solid #000; }
+.r2-t { position: absolute; display: flex; align-items: center; white-space: nowrap; overflow: hidden; font-size: 8.5pt; line-height: 1.15; padding: 0 .8mm; }
+.r2-t.c { justify-content: center; text-align: center; }
+.r2-t.nota { font-size: 7.5pt; }
+.r2-t.piccolo { font-size: 7.5pt; }
+.r2-t.ref { font-size: 7.5pt; font-weight: 700; }
+.r2-t.due-righe { display: block; white-space: normal; line-height: 1.05; padding-top: .4mm; overflow-wrap: anywhere; }
+.r2-spett { font-size: 6.5pt; padding: 0; display: block; }
+.r2-riga { position: absolute; border-top: .15mm solid #9a9a9a; height: 0; }
+.r2-logo { position: absolute; left: 19.6mm; top: 9mm; width: 25.4mm; height: 17mm; object-fit: contain; }
+.r2-tit { position: absolute; font-size: 8.5pt; font-weight: 700; }
+.r2-testo { position: absolute; font-size: 8pt; line-height: 1.35; white-space: pre-wrap; overflow: hidden; overflow-wrap: anywhere; }
+.r2-firma { position: absolute; object-fit: contain; }
+.r2-piede { font-size: 7pt; padding: 0; display: block; }
+@page rapp2 { size: A4 portrait; margin: 0; }
+@media print { .recap.rap2 { zoom: 1 !important; width: 210mm !important; height: 297mm !important; padding: 0 !important; } }

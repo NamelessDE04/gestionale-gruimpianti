@@ -58,9 +58,12 @@ window.UI = (function () {
       let f = base;
       el.classList.remove('due-righe');
       const cs = getComputedStyle(el), spazio = el.clientWidth - (parseFloat(cs.paddingLeft) || 0) - (parseFloat(cs.paddingRight) || 0);
+      const alto = () => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().height; };
       const largo = () => { const r = document.createRange(); r.selectNodeContents(el); return r.getBoundingClientRect().width; };
       // una riga: il testo deve occupare al massimo il 97% della casella (margine per le piccole differenze di stampa)
-      const esce = () => (el.classList.contains('due-righe') ? el.scrollWidth > el.clientWidth + 1 : largo() > spazio * 0.97) || el.scrollHeight > el.clientHeight + 1;
+      // data-blocco: testo su più righe (es. lavori eseguiti) → conta solo l'altezza della casella
+      const esce = () => (el.dataset.blocco !== undefined ? el.scrollHeight > el.clientHeight + 1
+        : (el.classList.contains('due-righe') ? el.scrollWidth > el.clientWidth + 1 || alto() > (el.clientHeight - (parseFloat(getComputedStyle(el).paddingTop) || 0)) * 0.9 : largo() > spazio * 0.97) || el.scrollHeight > el.clientHeight + 1);
       // con data-righe="2": se rimpicciolendo diventa troppo piccolo, va su due righe (sempre dentro la casella)
       const soglia = el.dataset.righe ? base * 0.72 : min;
       while (esce() && f > soglia) { f *= 0.94; el.style.fontSize = f.toFixed(2) + 'px'; }
