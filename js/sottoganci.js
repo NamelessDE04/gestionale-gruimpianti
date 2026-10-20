@@ -26,7 +26,7 @@ window.SG = (function () {
   function cliente(S, sedeId) {
     for (const c of S.clienti) {
       const sd = (c.sedi || []).find((x) => x.id === sedeId);
-      if (sd) return { id: sd.id, clienteId: c.id, nome: c.nomeBreve || c.ragioneSociale, localita: sd.nome || sd.citta || '', titoloElenco: sd.titoloElenco || 'ELENCO SOTTOGANCI', sigla: sd.sigla || '', sede: sd, anagrafica: c };
+      if (sd) return { id: sd.id, clienteId: c.id, nome: c.ragioneSociale, localita: sd.nome || sd.citta || '', titoloElenco: sd.titoloElenco || 'ELENCO SOTTOGANCI', sigla: sd.sigla || '', sede: sd, anagrafica: c };
     }
     return null;
   }
@@ -184,7 +184,7 @@ window.SG = (function () {
     const c = sedeId ? cliente(S, sedeId) : null;
     const attive = new Set(cartelleDi(S).map((x) => x.id));
     const libere = S.clienti.flatMap((cl) => (cl.sedi || []).filter((sd) => !attive.has(sd.id))
-      .map((sd) => ({ id: sd.id, label: `${cl.nomeBreve || cl.ragioneSociale} – ${sd.nome || sd.citta}` })))
+      .map((sd) => ({ id: sd.id, label: `${cl.ragioneSociale} – ${sd.nome || sd.citta}` })))
       .sort((x, y) => x.label.localeCompare(y.label));
     el.innerHTML = `
       <form class="sg form card" id="fCart" novalidate>

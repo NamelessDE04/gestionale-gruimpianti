@@ -3,7 +3,7 @@ import { firebaseConfig } from './config.js?v=27';
 /* ============================================================
    COSTANTI
    ============================================================ */
-const APP_VERSION = '32';   // versione mostrata in fondo alla lavagna
+const APP_VERSION = '33';   // versione mostrata in fondo alla lavagna
 const MESI = ['Gennaio','Febbraio','Marzo','Aprile','Maggio','Giugno','Luglio','Agosto','Settembre','Ottobre','Novembre','Dicembre'];
 const GG = ['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
 const GG_LUNGHI = ['Domenica','Lunedì','Martedì','Mercoledì','Giovedì','Venerdì','Sabato'];
@@ -33,7 +33,7 @@ const leggiG = k => { if (gestCloud[k]) return gestCloud[k]; try { return JSON.p
 function anagraficaGestionale() {
   const clients = leggiG('clienti').flatMap(c => (c.sedi || []).map(s => ({
     id: s.id,
-    name: (s.sigla || `${c.nomeBreve || c.ragioneSociale || ''} ${s.nome || ''}`).trim().toUpperCase(),
+    name: (s.sigla || `${c.ragioneSociale || ''} ${s.nome || ''}`).trim().toUpperCase(),
     color: MESE_COLORE[s.pianoControlli?.mese1] || 'none',
     contacts: (c.referenti || []).filter(r => r.telefono).map(r => ({ id: r.id, name: [r.nome, r.cognome].filter(Boolean).join(' '), phone: r.telefono }))
   })));

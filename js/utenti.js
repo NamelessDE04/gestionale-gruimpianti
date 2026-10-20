@@ -657,7 +657,7 @@ window.UT = (function () {
     const r = ruoloDi(attuale()), p = parti.join('/');
     if (['utenti', 'registro', 'conflitti', 'azzera'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
     // stampa e invio ai clienti: solo Master e Risorse Umane
-    const stampa = parti[0] === 'invio' || (['controlli', 'sottoganci'].includes(parti[0]) && parti.includes('stampa'));
+    const stampa = parti[0] === 'invio' || parti[0] === 'ordini' || (['controlli', 'sottoganci'].includes(parti[0]) && parti.includes('stampa'));
     if (stampa && !['master', 'ru'].includes(r)) return 'Stampa e invio ai clienti sono riservati al Master e a Risorse Umane.';
     if (r !== 'ru') return null;
     const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)

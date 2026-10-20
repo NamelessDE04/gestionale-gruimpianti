@@ -4,7 +4,17 @@
 window.CLI = (function () {
   const { esc, uid, info } = UI;
 
-  const nome = (c) => c.nomeBreve || c.ragioneSociale;
+  const nome = (c) => c.ragioneSociale || '';   // il nome breve ora c'è solo sede per sede (sigla)
+  // N° ordine del contratto annuale di verifica periodica: uno per sede e per anno (sede.ordini = { 2026: 'ABR...' })
+  const annoOggi = () => +UI.oggi().slice(0, 4);
+  const ordineDi = (s, anno = annoOggi()) => (s?.ordini || {})[anno] || '';
+  const ultimoOrdine = (s) => { const k = Object.keys(s?.ordini || {}).map(Number).filter((a) => s.ordini[a]).sort((a, b) => b - a)[0]; return k ? { anno: k, numero: s.ordini[k] } : null; };
+  // sedi a cui va aggiornato il n° d'ordine: hanno i controlli periodici, di solito ce lo danno, quest'anno manca e l'avviso non è rimandato
+  const ordiniDaAggiornare = (S) => S.clienti.flatMap((c) => (c.sedi || []).map((s) => ({ c, s }))).filter(({ s }) => {
+    if (!s.pianoControlli || s.ordineNonDato || ordineDi(s)) return false;
+    if (s.ordineRimanda && s.ordineRimanda > UI.oggi()) return false;
+    const u = ultimoOrdine(s); return !!u && u.anno < annoOggi();
+  });
   const indirizzo = (sd) => [sd.indirizzo, [sd.cap, sd.citta].filter(Boolean).join(' ') + (sd.provincia ? ` (${sd.provincia})` : '')]
     .filter((x) => x && x.trim()).join(', ');
   const mappa = (sd) => 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(indirizzo(sd));
@@ -25,7 +35,7 @@ window.CLI = (function () {
   function lista(el, S) {
     const t = cerca.trim().toLowerCase();
     const vis = [...S.clienti]
-      .filter((c) => !t || [c.ragioneSociale, c.nomeBreve, c.piva, ...(c.sedi || []).flatMap((s) => [s.nome, s.citta, s.sigla]), ...(c.referenti || []).flatMap((r) => [r.nome, r.cognome])]
+      .filter((c) => !t || [c.ragioneSociale, c.piva, ...(c.sedi || []).flatMap((s) => [s.nome, s.citta, s.sigla]), ...(c.referenti || []).flatMap((r) => [r.nome, r.cognome])]
         .join(' ').toLowerCase().includes(t))
       .sort((a, b) => nome(a).localeCompare(nome(b)));
     el.innerHTML = `
@@ -40,7 +50,7 @@ window.CLI = (function () {
             <a class="riga cli-riga" href="#/clienti/${c.id}">
               ${avatar(c)}
               <div class="riga-main">
-                <div class="riga-top"><b>${esc(nome(c))}</b>${c.nomeBreve && c.nomeBreve !== c.ragioneSociale ? ` <span class="muted">· ${esc(c.ragioneSociale)}</span>` : ''}</div>
+                <div class="riga-top"><b>${esc(nome(c))}</b></div>
                 <div class="chips-sedi">${(c.sedi || []).map((s) => `<span class="chip-sede">${etichettaSede(s)}</span>`).join('') || '<span class="muted small">Nessuna sede</span>'}</div>
               </div>
               <div class="riga-dx muted small">${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}<br>${(c.referenti || []).length} ${(c.referenti || []).length === 1 ? 'referente' : 'referenti'}</div>
@@ -64,16 +74,14 @@ window.CLI = (function () {
           ${avatar(c, true)}
           <div class="grow">
             <h1>${esc(c.ragioneSociale)}</h1>
-            ${c.nomeBreve && c.nomeBreve !== c.ragioneSociale ? `<p class="muted">Nome breve: <b>${esc(c.nomeBreve)}</b></p>` : ''}
           </div>
         </div>
 
         <div class="card">
-          <div class="card-head"><h2>Dati generali ${info('Nome breve: è il nome che compare su cartelle ed elenchi stampati (es. ROSSI). La ragione sociale completa va sui documenti ufficiali.')}</h2>
+          <div class="card-head"><h2>Dati generali ${info('La sigla veloce (es. ABT, FEC V) si mette sede per sede: tocca una sede qui sotto.')}</h2>
             <button class="btn ghost small" id="btnDati">✏️ Modifica</button></div>
           <div class="griglia-campi">
             ${campo('Ragione sociale', esc(c.ragioneSociale))}
-            ${campo('Nome breve', esc(c.nomeBreve))}
             ${campo('Partita IVA', esc(c.piva))}
             ${campo('Codice fiscale', esc(c.cf))}
             ${campo('Codice SDI', esc(c.sdi))}
@@ -95,6 +103,7 @@ window.CLI = (function () {
                 <p>${esc(indirizzo(s)) || '<span class="muted">Indirizzo da inserire</span>'}</p>
                 ${(s.km !== undefined && s.km !== '') || s.viaggio ? `<p class="km">🚚 ${[s.km !== undefined && s.km !== '' ? esc(s.km) + ' km' : '', s.viaggio ? esc(s.viaggio) + ' min' : ''].filter(Boolean).join(' · ')} dalla nostra sede</p>` : ''}
                 ${s.note ? `<p class="muted small">${esc(s.note)}</p>` : ''}
+                ${s.pianoControlli ? `<p class="ordine-sede">${ordineDi(s) ? `🧾 N° ordine ${annoOggi()}: <b>${esc(ordineDi(s))}</b>` : s.ordineNonDato ? '<span class="muted">🧾 Il cliente non dà il n° d\'ordine</span>' : `<span class="txt-ko">🧾 N° ordine ${annoOggi()} da inserire</span>${ultimoOrdine(s) ? ` <span class="muted">(${ultimoOrdine(s).anno}: ${esc(ultimoOrdine(s).numero)})</span>` : ''}`}</p>` : ''}
                 ${indirizzo(s) ? `<a class="azione" href="${mappa(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Apri mappa</a>` : ''}
               </div>`).join('') || '<p class="muted">Nessuna sede. Aggiungi la prima.</p>'}
           </div>
@@ -132,9 +141,8 @@ window.CLI = (function () {
       infoTxt: nuovo ? 'Dopo il salvataggio potrai aggiungere sedi e referenti.' : null,
       valori: c || {},
       campi: [
-        { k: 'logo', label: 'Logo del cliente', tipo: 'immagine', vuoto: 'Nessun logo: si vedono le iniziali del nome breve' },
+        { k: 'logo', label: 'Logo del cliente', tipo: 'immagine', vuoto: 'Nessun logo: si vedono le iniziali' },
         { k: 'ragioneSociale', label: 'Ragione sociale', req: true, maiuscolo: true },
-        { k: 'nomeBreve', label: 'Nome breve', aiuto: 'Compare su cartelle ed elenchi', maiuscolo: true, mezza: true },
         { k: 'piva', label: 'Partita IVA', mezza: true, placeholder: '11 cifre' },
         { k: 'cf', label: 'Codice fiscale', mezza: true },
         { k: 'sdi', label: 'Codice SDI', mezza: true, placeholder: '7 caratteri', maiuscolo: true },
@@ -144,7 +152,6 @@ window.CLI = (function () {
         { k: 'note', label: 'Note', tipo: 'textarea', placeholder: 'es. orari di accesso, chi avvisare…' }
       ],
       onSalva: async (v) => {
-        if (!v.nomeBreve) v.nomeBreve = v.ragioneSociale.replace(/\s+(S\.?R\.?L\.?S?|S\.?P\.?A\.?|S\.?A\.?S\.?|S\.?N\.?C\.?)\.?$/i, '').trim();
         const doc = nuovo ? { id: uid(), sedi: [], referenti: [], ...v } : { ...c, ...v };
         await salva(doc);
         UI.toast(nuovo ? 'Cliente creato' : 'Dati salvati', 'ok');
@@ -165,7 +172,7 @@ window.CLI = (function () {
     UI.modal({
       titolo: sd ? 'Modifica sede' : 'Nuova sede',
       infoTxt: 'Il nome della sede compare sotto il nome del cliente nelle cartelle e sugli elenchi (es. STABILIMENTO 2). Il nome breve (es. ST2) è la sigla veloce che usate in officina: compare nelle tab, nelle cartelle e sulla lavagna. Il colore (giallo, verde, rosso) indica in che mese del trimestre si fanno i controlli ed è lo stesso dei magneti della lavagna.',
-      valori: sd ? { ...sd, trimestre: sd.pianoControlli ? ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'][sd.pianoControlli.mese1 - 1] : '' } : {},
+      valori: sd ? { ...sd, ordine: ordineDi(sd), trimestre: sd.pianoControlli ? ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'][sd.pianoControlli.mese1 - 1] : '' } : {},
       campi: [
         { k: 'nome', label: 'Nome sede', req: true, placeholder: 'es. STABILIMENTO 2', maiuscolo: true, mezza: true },
         { k: 'sigla', label: 'Nome breve sede', placeholder: 'es. ST2', maiuscolo: true, mezza: true, aiuto: 'La sigla che usate in officina' },
@@ -174,6 +181,9 @@ window.CLI = (function () {
         { k: 'citta', label: 'Città', mezza: true },
         { k: 'provincia', label: 'Provincia', mezza: true, placeholder: 'es. TO', maiuscolo: true },
         { k: 'trimestre', label: 'Controlli nel trimestre (colore)', tipo: 'select', mezza: true, opzioni: ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'], aiuto: 'Gen/Apr/Lug/Ott = giallo · Feb/Mag/Ago/Nov = verde · Mar/Giu/Set/Dic = rosso' },
+        { k: 'ordine', label: `N° ordine ${annoOggi()}`, mezza: true, maiuscolo: true, placeholder: 'es. ABR2500013',
+          aiuto: (sd && ultimoOrdine(sd) && ultimoOrdine(sd).anno !== annoOggi() ? `${ultimoOrdine(sd).anno}: ${ultimoOrdine(sd).numero} · ` : '') + 'Codice del cliente per il contratto annuale di verifica: si cambia ogni anno' },
+        { k: 'ordineNonDato', label: 'Il cliente non ci dà il n° d\'ordine', tipo: 'sino', mezza: true },
         { k: 'km', label: 'Km dalla nostra sede', tipo: 'number', mezza: true, placeholder: 'es. 25', aiuto: 'Solo andata: si cambia quando serve' },
         { k: 'viaggio', label: 'Viaggio', u: 'minuti', tipo: 'number', mezza: true, placeholder: 'es. 30', aiuto: 'Tempo di viaggio solo andata: lo propone il rapportino' },
         { k: 'note', label: 'Note sulla sede', tipo: 'textarea', placeholder: 'es. ingresso carraio, orari, chiave in portineria…' }
@@ -181,10 +191,13 @@ window.CLI = (function () {
       onSalva: async (v) => {
         const doc = JSON.parse(JSON.stringify(c));
         doc.sedi = doc.sedi || [];
-        const { trimestre, ...dati } = v;
+        const { trimestre, ordine, ...dati } = v;
         const m = ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'].indexOf(trimestre) + 1;
         const target = sd ? doc.sedi.find((x) => x.id === sd.id) : { id: uid() };
         Object.assign(target, dati);
+        // n° d'ordine dell'anno in corso (gli anni precedenti restano nello storico)
+        target.ordini = { ...(target.ordini || {}) };
+        if (ordine) { target.ordini[annoOggi()] = ordine; delete target.ordineRimanda; } else delete target.ordini[annoOggi()];
         // il colore è lo stesso dato del "piano controlli": mese del 1° controllo dell'anno
         if (m) target.pianoControlli = { annuale: 1, ...(target.pianoControlli || {}), mese1: m };
         else delete target.pianoControlli;
@@ -231,5 +244,37 @@ window.CLI = (function () {
   function route(el, S, parti) {
     return parti[1] ? scheda(el, S, parti[1]) : lista(el, S);
   }
-  return { route, nome, indirizzo, avatar };
+  // pagina «N° d'ordine da aggiornare» (Master e Risorse Umane): si scrive il nuovo numero oppure si rimanda l'avviso
+  function paginaOrdini(el, S) {
+    const lista = ordiniDaAggiornare(S), anno = annoOggi();
+    el.innerHTML = `
+      <section class="cli">
+        <div class="sez-head"><h1>N° d'ordine ${anno} ${info('Il n° d\'ordine è il codice che il cliente dà ogni anno per il contratto di verifica periodica e va sui rapportini dei controlli. Qui compaiono le sedi che l\'anno scorso l\'avevano e quest\'anno non ancora. Se il cliente è in ritardo, rimanda l\'avviso.')}</h1></div>
+        ${lista.length ? lista.map(({ c, s }) => { const u = ultimoOrdine(s); return `
+          <div class="card ord-riga" data-s="${s.id}" data-c="${c.id}">
+            <div class="ord-testa"><b>${esc(nome(c))}</b> <span class="muted">· ${UI.magnete(s)} ${esc(s.nome || s.citta || '')}</span>
+              <div class="muted small">${u ? `${u.anno}: <b>${esc(u.numero)}</b>` : ''}</div></div>
+            <div class="ord-azioni">
+              <input class="ord-in" placeholder="N° ordine ${anno}" autocomplete="off">
+              <button type="button" class="btn small" data-salva>Salva</button>
+              ${UI.menu([{ t: '⏰ Rimanda di una settimana', id: 'r7-' + s.id }, { t: '⏰ Rimanda di un mese', id: 'r30-' + s.id }, { t: '🚫 Il cliente non lo dà più', id: 'nd-' + s.id }], 'Rimanda')}
+            </div>
+          </div>`; }).join('') : `<p class="nessuno">Tutti i n° d'ordine del ${anno} sono a posto ✓</p>`}
+      </section>`;
+    const aggiorna = async (cId, sId, f) => { const c = S.clienti.find((x) => x.id === cId); const doc = JSON.parse(JSON.stringify(c)); f(doc.sedi.find((x) => x.id === sId)); await salva(doc); };
+    el.querySelectorAll('.ord-riga').forEach((r) => {
+      const cId = r.dataset.c, sId = r.dataset.s, inp = r.querySelector('.ord-in');
+      r.querySelector('[data-salva]').onclick = async () => {
+        const v = inp.value.trim().toUpperCase(); if (!v) { inp.focus(); return UI.toast('Scrivi il n° d\'ordine', 'err'); }
+        await aggiorna(cId, sId, (s) => { s.ordini = { ...(s.ordini || {}), [anno]: v }; delete s.ordineRimanda; }); UI.toast('N° d\'ordine salvato', 'ok');
+      };
+      const rimanda = (g) => aggiorna(cId, sId, (s) => { s.ordineRimanda = UI.addGiorni(UI.oggi(), g); }).then(() => UI.toast(`Ti ricordo di nuovo tra ${g === 7 ? 'una settimana' : 'un mese'}`, 'ok'));
+      el.querySelector('#r7-' + sId).onclick = () => rimanda(7);
+      el.querySelector('#r30-' + sId).onclick = () => rimanda(30);
+      el.querySelector('#nd-' + sId).onclick = () => aggiorna(cId, sId, (s) => { s.ordineNonDato = true; }).then(() => UI.toast('Ok: per questa sede non lo chiederò più', 'ok'));
+    });
+    return { titolo: 'N° d\'ordine da aggiornare', indietro: '#/', live: true };
+  }
+
+  return { route, nome, indirizzo, avatar, ordineDi, ordiniDaAggiornare, paginaOrdini };
 })();

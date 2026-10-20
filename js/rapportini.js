@@ -180,7 +180,7 @@ window.RAP = (function () {
             <details class="rif-rap" ${r.ordine || r.offerta || r.ddtNumero ? 'open' : ''}>
               <summary>📎 Ordine, offerta e DDT <span class="muted small" id="rifSint">${esc(sintesiRif(r))}</span></summary>
               <div class="due">
-                <label>N° ordine del cliente<input name="ordine" value="${esc(r.ordine || '')}" autocomplete="off"></label>
+                <label>N° ordine del cliente<input name="ordine" value="${esc(r.ordine || '')}" autocomplete="off"><small class="ord-sugg" id="ordSugg"></small></label>
                 <label>Offerta di riferimento<input name="offerta" value="${esc(r.offerta || '')}" autocomplete="off" placeholder="es. OFF. 125/2026"></label>
               </div>
               <div class="due">
@@ -247,7 +247,7 @@ window.RAP = (function () {
     f.referenteId.onchange = mostraRefNome;
     f.clienteId.onchange = () => { r.sedeId = ''; disegnaSedi(); aggiornaSede(); };
     f.sedeId.onchange = () => { r.sedeId = f.sedeId.value; aggiornaSede(); };
-    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); mostraAperti(); propostaCp(); };
+    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); mostraAperti(); propostaCp(); suggOrdine(); };
     // nuovo rapportino per una sede che ne ha già uno aperto: propongo di continuare quello
     const mostraAperti = () => {
       const box = el.querySelector('#aperti'); if (!box) return;
@@ -370,7 +370,19 @@ window.RAP = (function () {
       if (!cp.cosa.length) return UI.toast('Scegli almeno una voce in «Di cosa»', 'err');
       const ta = f.eseguiti, testo = el.querySelector('#cpAnteprima').textContent;
       ta.value = (ta.value.trim() ? ta.value.trim() + '\n' : '') + testo; ta.focus(); ta.scrollTop = ta.scrollHeight;
+      // verifica periodica: il n° d'ordine del contratto dell'anno va sul rapportino
+      const n = ordineContratto();
+      if (n && !f.ordine.value.trim()) { f.ordine.value = n; el.querySelector('.rif-rap').open = true; el.querySelector('.rif-rap').dispatchEvent(new Event('input')); suggOrdine(); UI.toast('Aggiunto il n° d\'ordine del contratto ' + annoRap(), 'ok'); }
     };
+    // n° d'ordine del contratto di verifica periodica della sede, per l'anno del rapportino
+    const annoRap = () => +((r.giorni[0]?.data || oggi()).slice(0, 4));
+    const ordineContratto = () => CLI.ordineDi(sedeAttuale(), annoRap());
+    const suggOrdine = () => {
+      const n = ordineContratto(), box = el.querySelector('#ordSugg'); if (!box) return;
+      box.innerHTML = n && f.ordine.value.trim() !== n ? `Contratto ${annoRap()}: <button type="button" class="link" id="usaOrd">${esc(n)} · usa</button>` : '';
+      box.querySelector('#usaOrd')?.addEventListener('click', () => { f.ordine.value = n; suggOrdine(); el.querySelector('.rif-rap').dispatchEvent(new Event('input')); });
+    };
+    f.ordine.addEventListener('input', suggOrdine);
 
     // --- firme
     function disegnaFirmaDi() {
@@ -397,7 +409,7 @@ window.RAP = (function () {
       b.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    disegnaSedi(); disegnaGiorni(); disegnaFirmaDi(); disegnaFirma(); mostraAperti(); propostaCp();
+    disegnaSedi(); disegnaGiorni(); disegnaFirmaDi(); disegnaFirma(); mostraAperti(); propostaCp(); suggOrdine();
     if (conGiorno) setTimeout(() => { el.querySelector('.giorno-rap:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); UI.toast('Aggiunto il giorno di oggi: compila gli orari', ''); }, 200);
 
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
