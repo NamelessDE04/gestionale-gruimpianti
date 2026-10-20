@@ -47,6 +47,10 @@ window.LAY = (function () {
   const dentro = (c, x, y) => x >= c.x && x <= c.x + c.w && y >= c.y && y <= c.y + c.h;
   // grandezza di riferimento per testi e simboli (dai capannoni, così non cambia mentre si sposta un oggetto)
   function unita(L) {
+    if (+L.u > 0) return +L.u;
+    return unitaCalcolata(L);
+  }
+  function unitaCalcolata(L) {
     const cs = capannoni(L);
     if (!cs.length) return 100 / 60;
     const x0 = Math.min(...cs.map((c) => c.x)), x1 = Math.max(...cs.map((c) => c.x + c.w));
@@ -152,12 +156,17 @@ window.LAY = (function () {
       return `${apri(e.rot ? ` rotate(${e.rot})` : '')}<text x="0" y="${y0}" font-size="${fs}" fill="${e.colore || '#1f5fbf'}" text-anchor="middle" dominant-baseline="middle">${righe.map((rr, q) => `<tspan x="0" dy="${q ? '1.15em' : 0}">${esc(rr)}</tspan>`).join('')}</text></g>`;
     }
     if (e.tipo === 'ingresso') {
-      return `${apri(e.rot ? ` rotate(${e.rot})` : '')}
-        <path d="M0 ${-u * 2.4} L0 ${u * 0.6}" stroke="#2e9e5b" stroke-width="${u * 0.45}"/><path d="M${-u} ${-u * 0.2} L0 ${u * 1.4} L${u} ${-u * 0.2}z" fill="#2e9e5b"/>
-        <text x="${u * 1.4}" y="${-u * 0.6}" font-size="${u * 1.6}" font-weight="700" fill="#111">${t || 'INGRESSO'}</text></g>`;
+      // la freccia gira, la scritta resta sempre dritta e leggibile, dalla parte della coda della freccia
+      const r = ((+e.rot || 0) * Math.PI) / 180, d = u * 3.4;
+      const tx = Math.sin(r) * d, ty = -Math.cos(r) * d;
+      const anc = Math.abs(tx) < u * 0.8 ? 'middle' : tx > 0 ? 'start' : 'end';
+      return `${apri()}<rect x="${-u * 1.6}" y="${-u * 2.8}" width="${u * 3.2}" height="${u * 4.6}" fill="#fff" fill-opacity="0" transform="rotate(${+e.rot || 0})"/>
+        <g transform="rotate(${+e.rot || 0})"><path d="M0 ${-u * 2.4} L0 ${u * 0.6}" stroke="#2e9e5b" stroke-width="${u * 0.45}"/><path d="M${-u} ${-u * 0.2} L0 ${u * 1.4} L${u} ${-u * 0.2}z" fill="#2e9e5b"/></g>
+        <text x="${tx}" y="${ty}" font-size="${u * 1.6}" font-weight="700" fill="#111" text-anchor="${anc}" dominant-baseline="middle">${t || 'INGRESSO'}</text></g>`;
     }
-    return `${apri()}<circle r="${u * 1.6}" fill="#fff" stroke="#16324f" stroke-width="${u * 0.15}"/>
-      <text x="0" y="${u * 0.1}" font-size="${u * 1.8}" text-anchor="middle" dominant-baseline="middle">${TIPI[e.tipo]?.ico || '📍'}</text>
+    // simboli: l'icona gira, la scritta sotto resta dritta
+    return `${apri()}<g transform="rotate(${+e.rot || 0})"><circle r="${u * 1.6}" fill="#fff" stroke="#16324f" stroke-width="${u * 0.15}"/>
+      <text x="0" y="${u * 0.1}" font-size="${u * 1.8}" text-anchor="middle" dominant-baseline="middle">${TIPI[e.tipo]?.ico || '📍'}</text></g>
       ${t ? `<text x="0" y="${u * 3.2}" font-size="${u * 1.2}" text-anchor="middle" fill="#111">${t}</text>` : ''}</g>`;
   }
   function impianto(L, i, p, u, opz) {
@@ -169,9 +178,9 @@ window.LAY = (function () {
       const s = u * 1.6;
       return `<g class="lay-drag lay-imp${sel(opz, k)} st-${st}" data-k="${k}" transform="translate(${p.x} ${p.y})">
         <rect x="${-s * 1.6}" y="${-s * 2.6}" width="${s * 3.2}" height="${s * 4}" fill="#fff" fill-opacity="0"/>
-        <rect x="${-s * 1.3}" y="${-s * 1.3}" width="${s * 2.6}" height="${s * 2.6}" rx="${u * 0.3}" fill="${st ? col : '#fff8e0'}" fill-opacity="${st ? 0.22 : 1}" stroke="${col}" stroke-width="${u * 0.15}"/>
+        <g transform="rotate(${+p.rot || 0})"><rect x="${-s * 1.3}" y="${-s * 1.3}" width="${s * 2.6}" height="${s * 2.6}" rx="${u * 0.3}" fill="${st ? col : '#fff8e0'}" fill-opacity="${st ? 0.22 : 1}" stroke="${col}" stroke-width="${u * 0.15}"/>
         <path d="M${-s * 0.6} ${s} L${-s * 0.6} ${-s} L${s * 0.9} ${-s}" fill="none" stroke="#c99a00" stroke-width="${u * 0.35}"/>
-        <path d="M${s * 0.6} ${-s} L${s * 0.6} ${-s * 0.3}" stroke="#111" stroke-width="${u * 0.12}"/>
+        <path d="M${s * 0.6} ${-s} L${s * 0.6} ${-s * 0.3}" stroke="#111" stroke-width="${u * 0.12}"/></g>
         <text x="0" y="${-s * 1.55}" font-size="${u * 2}" text-anchor="middle" font-weight="700" fill="#111">${nome}</text></g>`;
     }
     // carroponte: trave che attraversa tutta la sua campata (anche nei capannoni con campate orizzontali)
@@ -233,6 +242,7 @@ window.LAY = (function () {
     const puoModificare = !UT.solaLettura();
     const modifica = !!inModifica[sedeId] && puoModificare;
     const L = aggiorna(salvato ? JSON.parse(JSON.stringify(salvato)) : nuovo(sedeId, c.id));
+    if (!(+L.u > 0)) L.u = Math.round(unitaCalcolata(L) * 1000) / 1000;   // da qui in poi testi e simboli hanno sempre la stessa grandezza
     const imp = S.impianti.filter((i) => i.sedeId === sedeId && !i.dismesso)
       .sort((a, b) => (a.numeroInterno || '~').localeCompare(b.numeroInterno || '~', 'it', { numeric: true }));
     // stato dei controlli (vista controlli)
@@ -248,7 +258,7 @@ window.LAY = (function () {
       <section class="lay ${modifica ? 'lay-mod' : ''}">
         <div class="card ctr-testa no-print">
           <div class="grow"><h1>${esc(CTR.nomeSede(c, s))}</h1>
-            <p class="muted small">${ctr ? (pr ? `<span class="pill st-${pr.k}">${esc(pr.label)}</span> · <span class="leg leg-ok">■</span> fatto <span class="leg leg-da">■</span> da fare` : '<span class="pill st-ok">Controlli dell\'anno completati</span>') : modifica ? 'Trascina gli oggetti · toccali per cambiarli · il quadratino blu ridimensiona' : `${imp.length} impianti`}</p></div>
+            <p class="muted small">${ctr ? (pr ? `<span class="pill st-${pr.k}">${esc(pr.label)}</span> · <span class="leg leg-ok">■</span> fatto <span class="leg leg-da">■</span> da fare` : '<span class="pill st-ok">Controlli dell\'anno completati</span>') : modifica ? 'Tocca un oggetto per sceglierlo, poi trascinalo · il quadratino blu ridimensiona' : `${imp.length} impianti`}</p></div>
           ${modifica ? '<button class="btn" id="btnFine">✓ Fine</button>' : ''}
           ${UI.menu([
             !modifica && puoModificare && { t: '✏️ Modifica layout', id: 'btnMod' },
@@ -342,11 +352,13 @@ window.LAY = (function () {
       if (tipo === 'imp') {
         const i = imp.find((x) => x.id === id);
         p.innerHTML = `<div class="lay-prop-riga"><b>${esc(i ? sigla(i) : '')}</b><span class="grow">${esc(i ? IMP.titolo(i) : '')}</span>
+          ${i && eBandiera(i) ? '<button type="button" class="btn ghost small" id="pRuotaImp">↻ Ruota</button>' : ''}
           <button type="button" class="btn ghost small danger" id="pTogli">Togli dal layout</button><button type="button" class="btn ghost small" id="pChiudi">Fatto</button></div>`;
+        p.querySelector('#pRuotaImp')?.addEventListener('click', () => { const q = L.impianti.find((x) => x.impId === id); q.rot = ((+q.rot || 0) + 45) % 360; ridisegna(); salva(); });
         p.querySelector('#pTogli').onclick = () => { L.impianti = L.impianti.filter((x) => x.impId !== id); scelto = null; ridisegna(); proprieta(); salva(); };
       } else {
         const e = L.elementi.find((x) => x.id === id); if (!e) { p.hidden = true; return; }
-        const ruota = ['testo', 'ingresso', 'corsia', 'corridoio', 'zona', 'uffici'].includes(e.tipo), conTesto = e.tipo !== 'corsia';
+        const ruota = true, conTesto = e.tipo !== 'corsia';
         p.innerHTML = `<div class="lay-prop-riga"><b>${TIPI[e.tipo]?.ico || ''} ${esc(TIPI[e.tipo]?.nome || '')}</b><span class="grow"></span>
             <button type="button" class="btn ghost small" id="pDup">⧉ Duplica</button>
             <button type="button" class="btn ghost small danger" id="pTogli">Elimina</button><button type="button" class="btn ghost small" id="pChiudi">Fatto</button></div>
@@ -366,8 +378,19 @@ window.LAY = (function () {
         p.querySelector('#pAmeno')?.addEventListener('click', () => grand(1 / 1.2));
         p.querySelector('#pApiu')?.addEventListener('click', () => grand(1.2));
         p.querySelector('#pRuota')?.addEventListener('click', () => {
-          if (RIDIM.includes(e.tipo)) { const cx = e.x + e.w / 2, cy = e.y + e.h / 2; [e.w, e.h] = [e.h, e.w]; e.x = cx - e.w / 2; e.y = cy - e.h / 2; }   // riquadri: si girano di 90° attorno al centro
-          else e.rot = ((+e.rot || 0) + 90) % 360;
+          if (e.tipo === 'capannone') {
+            // il capannone gira di 90° attorno al suo centro e si porta dietro tutto quello che ha dentro
+            const cx = e.x + e.w / 2, cy = e.y + e.h / 2, gira = (q) => { const dx = q.x - cx, dy = q.y - cy; q.x = Math.round((cx - dy) * 10) / 10; q.y = Math.round((cy + dx) * 10) / 10; };
+            const dentroEl = L.elementi.filter((q) => q !== e && q.tipo !== 'capannone' && dentro(e, q.x + (+q.w || 0) / 2, q.y + (+q.h || 0) / 2));
+            const dentroImp = L.impianti.filter((q) => dentro(e, q.x, q.y));
+            dentroEl.forEach((q) => {
+              if (RIDIM.includes(q.tipo)) { const c = { x: q.x + q.w / 2, y: q.y + q.h / 2 }; gira(c); [q.w, q.h] = [q.h, q.w]; q.x = c.x - q.w / 2; q.y = c.y - q.h / 2; }
+              else { gira(q); if (q.tipo === 'testo' || q.tipo === 'ingresso') q.rot = ((+q.rot || 0) + 90) % 360; }
+            });
+            dentroImp.forEach(gira);
+            [e.w, e.h] = [e.h, e.w]; e.x = cx - e.w / 2; e.y = cy - e.h / 2; e.or = e.or === 'o' ? 'v' : 'o';
+          } else if (RIDIM.includes(e.tipo)) { const cx = e.x + e.w / 2, cy = e.y + e.h / 2; [e.w, e.h] = [e.h, e.w]; e.x = cx - e.w / 2; e.y = cy - e.h / 2; }
+          else e.rot = ((+e.rot || 0) + (e.tipo === 'testo' ? 90 : 45)) % 360;   // scritte di 90°, frecce e simboli di 45°
           ridisegna(); salva();
         });
         p.querySelectorAll('[data-col]').forEach((b) => (b.onclick = () => { e.colore = b.dataset.col; ridisegna(); salva(); }));
@@ -389,11 +412,29 @@ window.LAY = (function () {
         const tmp = document.createElementNS('http://www.w3.org/2000/svg', 'g'); tmp.innerHTML = html;
         const ng = tmp.firstElementChild; g.setAttribute('transform', ng.getAttribute('transform')); g.innerHTML = ng.innerHTML;
       };
+      // col dito: il primo tocco SCEGLIE l'oggetto (e la pagina si può scorrere liberamente);
+      // si sposta solo trascinando un oggetto già scelto, così scorrendo non si sposta niente per sbaglio
+      let trascino = false;
+      svg.addEventListener('touchmove', (tv) => { if (trascino && tv.cancelable) tv.preventDefault(); }, { passive: false });
       svg.addEventListener('pointerdown', (ev) => {
         const h = ev.target.closest('[data-resize]'), g = ev.target.closest('.lay-drag');
-        if (!g && !h) { if (scelto) { scelto = null; ridisegna(); proprieta(); } return; }
-        ev.preventDefault();
+        const dito = ev.pointerType === 'touch' || ev.pointerType === 'pen';
+        if (!g && !h) {
+          if (!scelto) return;
+          if (!dito) { scelto = null; ridisegna(); proprieta(); return; }
+          // col dito tolgo la scelta solo con un tocco secco (non scorrendo)
+          const t0 = { x: ev.clientX, y: ev.clientY };
+          const fine = (e2) => { svg.removeEventListener('pointerup', fine); if (Math.hypot(e2.clientX - t0.x, e2.clientY - t0.y) < 8) { scelto = null; ridisegna(); proprieta(); } };
+          svg.addEventListener('pointerup', fine, { once: true }); return;
+        }
         const k = g.dataset.k, [tipo, id] = k.split(':');
+        if (dito && !h && k !== scelto) {
+          const t0 = { x: ev.clientX, y: ev.clientY };
+          const fine = (e2) => { if (e2.type === 'pointerup' && Math.hypot(e2.clientX - t0.x, e2.clientY - t0.y) < 10) { scelto = k; ridisegna(); proprieta(); } };
+          svg.addEventListener('pointerup', fine, { once: true }); svg.addEventListener('pointercancel', fine, { once: true });
+          return;
+        }
+        ev.preventDefault(); trascino = true;
         const o = tipo === 'imp' ? L.impianti.find((x) => x.impId === id) : L.elementi.find((x) => x.id === id);
         if (!o) return;
         const p0 = punto(ev), soglia = u * 0.4;
@@ -415,6 +456,7 @@ window.LAY = (function () {
           if (o.tipo === 'capannone') L.impianti.forEach((q) => rifai('imp:' + q.impId));   // le travi seguono le campate
         };
         const su = () => {
+          trascino = false;
           svg.removeEventListener('pointermove', muovi); svg.removeEventListener('pointerup', su); svg.removeEventListener('pointercancel', su);
           scelto = k; ridisegna(); proprieta(); if (mosso) salva();
         };

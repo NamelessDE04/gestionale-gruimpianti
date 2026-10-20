@@ -9,7 +9,7 @@ window.HOME = (function () {
     { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
     { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, giacenze e ordini', ill: 'magazzino' },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
-    { k: 'cablaggio', titolo: 'Configuratore cablaggio gru', sotto: 'Schemi di cablaggio e collaudo', ill: 'cablaggio', attiva: true }
+    { k: 'gho', titolo: 'GHO ELIGIO', sotto: 'Registro ore e configuratore cablaggio', ill: 'gho', attiva: true, href: '#/gho' }
   ];
   // sotto-voci di "Schede di controllo"
   const schede = [
@@ -54,12 +54,13 @@ window.HOME = (function () {
   };
 
   // il tecnico vede solo il lavoro di tutti i giorni; il resto sta in «Anagrafiche e altro»
-  const PRINCIPALI = ['schede', 'rapportini', 'lavagna', 'cablaggio'];
+  const PRINCIPALI = ['schede', 'rapportini', 'lavagna', 'gho'];
   const ALTRO = { k: 'altro', titolo: 'Anagrafiche e altro', sotto: 'Clienti, impianti, layout, mezzi…', ill: 'altro', attiva: true, href: '#/altro' };
   const ridotta = () => UT.ruolo() === 'tecnico';
   const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)), ALTRO] : caselle);
   const nScad = (S) => MEZ.avvisi(S).length;
   const badge = (S, c) => c.k === 'rapportini' ? RAP.badge(S)
+    : c.k === 'gho' ? GHO.badge(S)
     : (c.k === 'mezzi' || c.k === 'altro') && nScad(S) ? `${nScad(S)} ${nScad(S) === 1 ? 'scadenza mezzi' : 'scadenze mezzi'}`
     : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '';
 
@@ -88,7 +89,7 @@ window.HOME = (function () {
     el.innerHTML = `
       <section class="home">
         <div class="home-head"><h1>Schede di controllo</h1><p>Che controllo devi fare?</p></div>
-        <div class="tiles due-tiles">${schede.map((c) => (c.k === 'carriponte' ? tileDoppia(c, badgeCtr(S)) : tile(c, c.k === 'sottoganci' ? badgeSottoganci(S) : ''))).join('')}</div>
+        <div class="tiles due-tiles">${schede.map((c) => (c.k === 'carriponte' ? tileDoppia(c, badgeCtr(S)) : tile(c, c.k === 'sottoganci' ? badgeSottoganci(S) : c.k === 'approfonditi' ? '🧪 BETA · in prova' : ''))).join('')}</div>
       </section>`;
     return { titolo: 'Schede di controllo', indietro: '#/', live: true };
   }

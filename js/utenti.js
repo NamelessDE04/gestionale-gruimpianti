@@ -51,7 +51,7 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito' };
+  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
@@ -68,6 +68,7 @@ window.UT = (function () {
       case 'collaudi': return `Rapporto di collaudo ${d.cliente || ''} ${d.matricola ? 'matr. ' + d.matricola : ''}`;
       case 'rapportini': return `Rapportino ${d.numero || ''}/${d.anno || ''} – ${sede(d.sedeId)}`;
       case 'mezzi': return `Mezzo ${MEZ.nome(d)} ${d.targa || ''}`;
+      case 'oreGho': return `Registro ore GHO ${d.data || ''} – ${d.cliente || ''}`;
       case 'attrezzi': return `${d.tipo === 'magnete' ? 'Magnete' : 'Pinza / gancio a C'} ${d.nInterno ? 'n° ' + d.nInterno + ' ' : ''}– ${sede(d.sedeId)}`;
       case 'controlliAttrezzi': { const a = S.attrezzi?.find((x) => x.id === d.attrezzoId); return `Controllo ${d.slot}° ${d.anno} ${a ? (a.tipoDesc || '') + (a.nInterno ? ' n° ' + a.nInterno : '') : ''} – ${sede(d.sedeId)}`; }
       case 'schedeApprofondite': return `${({ fune: 'Scheda fune e carrucole', bozzello: 'Scheda controllo gancio', indagine: 'Indagine approfondita' })[d.tipo] || 'Controllo approfondito'} ${d.data || ''} – ${sede(d.sedeId)}`;
@@ -661,11 +662,11 @@ window.UT = (function () {
     const r = ruoloDi(attuale()), p = parti.join('/');
     if (['utenti', 'registro', 'conflitti', 'azzera', 'importa'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
     // stampa e invio ai clienti: solo Master e Risorse Umane
-    const stampa = parti[0] === 'invio' || parti[0] === 'ordini' || (['controlli', 'sottoganci', 'approfonditi'].includes(parti[0]) && parti.includes('stampa'));
+    const stampa = parti[0] === 'invio' || parti[0] === 'ordini' || (['controlli', 'sottoganci', 'approfonditi', 'gho'].includes(parti[0]) && parti.includes('stampa'));
     if (stampa && !['master', 'ru'].includes(r)) return 'Stampa e invio ai clienti sono riservati al Master e a Risorse Umane.';
     if (r !== 'ru') return null;
     const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)
-      || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p) || /^approfonditi\/[^/]+\/(a\/[^/]+\/controllo|s\/[^/]+$)/.test(p);
+      || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p) || /^approfonditi\/[^/]+\/(a\/[^/]+\/controllo|s\/[^/]+$)/.test(p) || /^gho\/ore\/(?!stampa)[^/]+$/.test(p);
     return modifica ? 'Con l\'accesso Risorse Umane puoi consultare e stampare, ma non modificare.' : null;
   }
 

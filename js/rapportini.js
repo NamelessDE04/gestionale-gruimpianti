@@ -582,5 +582,5 @@ window.RAP = (function () {
     }
     return lista(el, S);
   }
-  return { route, badge, oreLavoro, assegnaNumeri };
+  return { route, badge, oreLavoro, assegnaNumeri, ora15 };
 })();

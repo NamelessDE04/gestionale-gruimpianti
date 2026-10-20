@@ -117,7 +117,8 @@ window.APR = (function () {
     const conta = (k) => (TIPI[k].fam === 'a' ? S.attrezzi.filter((a) => a.tipo === k && !a.dismesso).length : S.schedeApprofondite.filter((d) => d.tipo === k).length);
     el.innerHTML = `
       <section class="home">
-        <div class="home-head"><h1>Altri controlli approfonditi</h1><p>Che controllo devi fare?</p></div>
+        <div class="home-head"><h1>Altri controlli approfonditi <span class="pill-beta">BETA</span></h1><p>Che controllo devi fare?</p></div>
+        <div class="avviso-m st-b-scadenza ap-beta"><span class="av-ico">🧪</span><span class="grow"><b>Sezione in prova (beta)</b><span>Si può già usare, ma potrebbe cambiare: se qualcosa non torna o manca, segnalatelo.</span></span></div>
         <div class="tiles due-tiles">${ORDINE.map((k) => { const t = TIPI[k], n = conta(k);
           return `<a class="tile attiva" href="#/approfonditi/${k}"><div class="tile-ill">${ILL[t.ill]}</div>
             <div class="tile-txt"><h2>${t.titolo}</h2><p>${t.sotto}</p>${n ? `<span class="tile-badge">${n} ${t.fam === 'a' ? (n === 1 ? 'attrezzo' : 'attrezzi') : (n === 1 ? 'scheda' : 'schede')}</span>` : ''}</div></a>`; }).join('')}</div>

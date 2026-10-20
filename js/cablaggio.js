@@ -65,7 +65,7 @@ window.CAB = (function () {
     }).catch(() => {
       box.innerHTML = '<p class="nessuno">Impossibile caricare il configuratore. Controlla la connessione e riprova.</p>';
     });
-    return { titolo: 'Configuratore cablaggio gru', indietro: '#/', live: false };
+    return { titolo: 'Configuratore cablaggio gru', indietro: '#/gho', live: false };
   }
 
   async function salvaRapporto(S, r) {
