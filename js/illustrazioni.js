@@ -168,31 +168,37 @@ window.ILL = (function () {
       <rect x="78" y="82" width="22" height="20" rx="2" fill="${W}" stroke="${N}" stroke-width="2.5"/><path d="M83 88h12M83 94h8" stroke="${G}" stroke-width="2.5"/>
       <rect x="106" y="90" width="18" height="12" rx="2" fill="${Y}" stroke="${N}" stroke-width="2.5"/>`),
 
+    // configuratore cablaggio: carroponte visto dall'alto con le sue zone (quadro, carrello, pulsantiera, motori del ponte)
     cablaggio: svg(`
-      <ellipse cx="80" cy="110" rx="58" ry="5" fill="${L}"/>
-      <rect x="18" y="14" width="56" height="88" rx="5" fill="${W}" stroke="${N}" stroke-width="3"/>
-      <rect x="25" y="22" width="42" height="10" rx="2" fill="${N}"/>
-      <g fill="${Y}" stroke="${N}" stroke-width="2"><rect x="26" y="40" width="9" height="16" rx="1.5"/><rect x="38" y="40" width="9" height="16" rx="1.5"/><rect x="50" y="40" width="9" height="16" rx="1.5"/></g>
-      <g fill="${G}"><rect x="26" y="64" width="40" height="4" rx="1"/><rect x="26" y="72" width="40" height="4" rx="1"/></g>
-      <circle cx="31" cy="90" r="4" fill="${V}"/><circle cx="43" cy="90" r="4" fill="${R}"/>
-      <path d="M74 44 C96 44 92 30 112 30" fill="none" stroke="${O}" stroke-width="4" stroke-linecap="round"/>
-      <path d="M74 54 C100 54 96 46 118 46" fill="none" stroke="${N}" stroke-width="4" stroke-linecap="round"/>
-      <path d="M74 64 C104 64 100 62 124 62" fill="none" stroke="${Y}" stroke-width="4" stroke-linecap="round"/>
-      <rect x="110" y="24" width="32" height="46" rx="6" fill="${N}"/>
-      <circle cx="126" cy="47" r="10" fill="${W}" stroke="${Y}" stroke-width="3"/>
-      <text x="126" y="51" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="11" fill="${N}">M</text>
-      <path d="M126 70 v14 c0 8 -9 8 -9 2" fill="none" stroke="${N}" stroke-width="4" stroke-linecap="round"/>`),
+      <ellipse cx="80" cy="112" rx="62" ry="5" fill="${L}"/>
+      <line x1="8" y1="22" x2="152" y2="22" stroke="${G}" stroke-width="3"/><line x1="8" y1="96" x2="152" y2="96" stroke="${G}" stroke-width="3"/>
+      <rect x="14" y="16" width="16" height="86" rx="3" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <rect x="130" y="16" width="16" height="86" rx="3" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <rect x="30" y="44" width="100" height="8" fill="${Y}" stroke="${N}" stroke-width="2.5"/>
+      <rect x="30" y="66" width="100" height="8" fill="${Y}" stroke="${N}" stroke-width="2.5"/>
+      <rect x="17" y="24" width="10" height="12" rx="2" fill="${N}"/><rect x="133" y="24" width="10" height="12" rx="2" fill="${N}"/>
+      <rect x="84" y="38" width="28" height="42" rx="4" fill="${O}" stroke="${N}" stroke-width="3"/>
+      <circle cx="98" cy="59" r="8" fill="${W}" stroke="${N}" stroke-width="2.5"/><circle cx="98" cy="59" r="2.5" fill="${N}"/>
+      <rect x="36" y="78" width="22" height="16" rx="2" fill="${W}" stroke="${N}" stroke-width="2.5"/>
+      <path d="M49 80 l-6 7 h5 l-3 6 l8 -9 h-5 l3 -4z" fill="${Y}" stroke="${N}" stroke-width="1"/>
+      <path d="M58 84 C70 84 66 60 84 60" fill="none" stroke="${R}" stroke-width="2.5" stroke-dasharray="4 2"/>
+      <path d="M104 80 v16 c0 6 8 6 8 10" fill="none" stroke="${N}" stroke-width="2"/>
+      <rect x="106" y="102" width="12" height="14" rx="2" fill="${N}"/>
+      <circle cx="112" cy="107" r="1.8" fill="${V}"/><circle cx="112" cy="112" r="1.8" fill="${R}"/>`),
 
+    // furgone a tetto alto (tipo furgone grande da cantiere)
     furgone: svg(`
-      <ellipse cx="80" cy="104" rx="66" ry="5" fill="${L}"/>
-      <path d="M14 38 h82 v54 h-82 z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
-      <path d="M96 52 h24 l18 18 v22 h-42 z" fill="${Y}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
-      <path d="M102 58 h16 l12 12 h-28 z" fill="${L}" stroke="${N}" stroke-width="2.5" stroke-linejoin="round"/>
-      <rect x="14" y="64" width="82" height="7" fill="${O}"/>
-      <text x="55" y="58" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="10" fill="${N}">GRU IMPIANTI</text>
-      <rect x="132" y="80" width="8" height="5" rx="1" fill="${O}"/>
-      <circle cx="38" cy="94" r="10" fill="${N}"/><circle cx="38" cy="94" r="4" fill="${G}"/>
-      <circle cx="116" cy="94" r="10" fill="${N}"/><circle cx="116" cy="94" r="4" fill="${G}"/>`),
+      <ellipse cx="80" cy="104" rx="68" ry="5" fill="${L}"/>
+      <path d="M12 92 V30 q0 -8 8 -8 H108 q6 0 9 5 L132 54 L145 61 q4 2 4 7 V92 z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M108 28 L122 52 H104 V28 z" fill="${L}" stroke="${N}" stroke-width="2.5" stroke-linejoin="round"/>
+      <line x1="100" y1="26" x2="100" y2="90" stroke="${N}" stroke-width="2"/>
+      <line x1="62" y1="26" x2="62" y2="90" stroke="${N}" stroke-width="1.5" stroke-dasharray="3 2"/>
+      <rect x="12" y="70" width="137" height="6" fill="${O}"/>
+      <text x="56" y="54" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="900" font-size="10" fill="${N}">GRU IMPIANTI</text>
+      <rect x="139" y="66" width="8" height="4" rx="1" fill="${Y}" stroke="${N}" stroke-width="1"/>
+      <rect x="106" y="58" width="7" height="2.5" rx="1" fill="${N}"/>
+      <circle cx="36" cy="94" r="10" fill="${N}"/><circle cx="36" cy="94" r="4" fill="${G}"/>
+      <circle cx="124" cy="94" r="10" fill="${N}"/><circle cx="124" cy="94" r="4" fill="${G}"/>`),
 
     piattaforma: svg(`
       <ellipse cx="80" cy="108" rx="66" ry="5" fill="${L}"/>

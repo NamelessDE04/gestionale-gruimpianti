@@ -1294,3 +1294,4 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .gs-misura { position: absolute; left: -30000px; top: 0; }
 .gs-misura .gs-foglio { height: auto; min-height: 210mm; }
 .tile-ill .tile-logo { width: 74%; max-width: 96px; aspect-ratio: 1; object-fit: contain; border-radius: 6px; display: block; margin: auto; }
+.tile-ill .tile-logo { opacity: .55; filter: saturate(.85); }
