@@ -5,15 +5,8 @@ window.ILL = (function () {
 
   return {
 
-    // GHO ELIGIO: cantiere in appalto (casco e cartellina)
-    gho: svg(`
-      <ellipse cx="80" cy="110" rx="54" ry="5" fill="${L}"/>
-      <rect x="70" y="26" width="58" height="76" rx="6" fill="${W}" stroke="${N}" stroke-width="3"/>
-      <rect x="86" y="20" width="26" height="12" rx="4" fill="${G}" stroke="${N}" stroke-width="3"/>
-      <g stroke="${N}" stroke-width="3" stroke-linecap="round"><line x1="80" y1="48" x2="118" y2="48"/><line x1="80" y1="62" x2="112" y2="62"/><line x1="80" y1="76" x2="116" y2="76"/><line x1="80" y1="90" x2="104" y2="90"/></g>
-      <path d="M22 78 a28 28 0 0 1 56 0 z" fill="${Y}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
-      <rect x="16" y="76" width="68" height="9" rx="4" fill="${Y}" stroke="${N}" stroke-width="3"/>
-      <path d="M50 50 v26" stroke="${N}" stroke-width="3"/>`),
+    // GHO ELIGIO: il loro logo (immagine fornita da loro, usata con il loro permesso)
+    gho: '<img class="tile-logo" src="img/gho-logo.png" alt="GHO ELIGIO">',
     // registro delle ore: cartellina con orologio
     registroOre: svg(`
       <ellipse cx="80" cy="110" rx="52" ry="5" fill="${L}"/>
