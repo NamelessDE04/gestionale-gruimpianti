@@ -639,6 +639,13 @@ window.UT = (function () {
       if (vuoto && !ALTI.includes(ruolo)) { await aspetta(el, 'Cloud non ancora pronto', 'Il primo accesso al cloud lo deve fare un Master. Riprova dopo.'); continue; }
       if (vuoto) await primoAvvioCloud(el, email, collezioni);
       ruoloDispositivo = ruolo;
+      // account Developer di partenza (config.js): se la sua scheda utente è ancora «Master» la porto a Developer
+      if (ruoloIniziale(email) === 'developer') {
+        try {
+          const u = (await Backend.leggiTutti('utenti')).find((x) => (x.google || '').toLowerCase() === email);
+          if (u && ruoloDi(u) !== 'developer') { await Backend.save('utenti', { ...u, ruolo: 'developer' }); await Backend.impostaRuolo(email, 'developer', u.nome); }
+        } catch (e) { console.error(e); }
+      }
       // primo accesso con Google su questo dispositivo: entro subito come la persona di quell'account
       if (Backend.appenaEntrato()) {
         try {
