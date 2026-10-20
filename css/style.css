@@ -1295,3 +1295,26 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .gs-misura .gs-foglio { height: auto; min-height: 210mm; }
 .tile-ill .tile-logo { width: 74%; max-width: 96px; aspect-ratio: 1; object-fit: contain; border-radius: 6px; display: block; margin: auto; }
 .tile-ill .tile-logo { opacity: .55; filter: saturate(.85); }
+.ruolo-developer { background: #6d2fd6; color: #fff; }
+
+/* ===== v0.40: Developer · consumi e stato ===== */
+.dv .card h2 { font-size: 17px; margin: 0 0 10px; }
+.dv-barra { margin: 8px 0 10px; }
+.dv-barra-t { display: flex; justify-content: space-between; gap: 10px; font-size: 14px; margin-bottom: 4px; }
+.dv-barra-t span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dv-barra-t b { white-space: nowrap; } .dv-barra-t small { color: var(--muted); font-weight: 500; }
+.dv-track { height: 10px; background: #e6e9ee; border-radius: 6px; overflow: hidden; }
+.dv-track i { display: block; height: 100%; border-radius: 6px; }
+.dv-tre { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; text-align: center; margin-bottom: 10px; }
+.dv-tre div { background: #f3f6fa; border-radius: 10px; padding: 10px 4px; } .dv-tre b { display: block; font-size: 20px; } .dv-tre span { font-size: 12px; color: var(--muted); }
+.dv-info div { display: flex; justify-content: space-between; gap: 10px; padding: 6px 0; border-bottom: 1px solid var(--linea); font-size: 14px; }
+.dv-info b { text-align: right; overflow-wrap: anywhere; }
+.dv-tab { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+.dv-tab th { text-align: left; color: var(--muted); font-weight: 600; border-bottom: 1px solid var(--linea); padding: 5px 4px; }
+.dv-tab td { padding: 5px 4px; border-bottom: 1px solid #eef1f5; overflow-wrap: anywhere; } .dv-tab td.d { text-align: right; white-space: nowrap; }
+.dv-h3 { font-size: 14px; margin: 14px 0 4px; }
+.dv-grafico { display: flex; align-items: flex-end; gap: 2px; height: 120px; border-bottom: 1px solid var(--linea); padding-bottom: 14px; position: relative; }
+.dv-col { flex: 1; height: 100%; position: relative; display: flex; align-items: flex-end; gap: 1px; }
+.dv-col i { flex: 1; background: #1f5fbf; border-radius: 2px 2px 0 0; min-height: 1px; } .dv-col em { flex: 1; background: #e09b00; border-radius: 2px 2px 0 0; min-height: 1px; }
+.dv-col span { position: absolute; bottom: -14px; left: 0; right: 0; text-align: center; font-size: 8px; color: var(--muted); }
+.dv-leg { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; } .dv-leg.l { background: #1f5fbf; } .dv-leg.s { background: #e09b00; margin-left: 8px; }

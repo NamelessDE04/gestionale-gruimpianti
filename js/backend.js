@@ -87,7 +87,32 @@
     };
     const daDoc = (d) => ({ ...decodifica(d.data()), id: d.id });
     const aPezzi = (arr, n) => { const r = []; for (let i = 0; i < arr.length; i += n) r.push(arr.slice(i, i + n)); return r; };
+    // ---- contatore dei consumi (letture, scritture, cancellazioni) per la pagina del Developer ----
+    // Firebase non dà i consumi all'app: li conto io, operazione per operazione, e ogni tanto li sommo nel cloud
+    // (raccolta "consumi", un documento per giorno). Il giorno è quello di Firebase: si azzera a mezzanotte ora della California.
+    const giornoFb = () => { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()); } catch (e) { return new Date().toISOString().slice(0, 10); } };
+    const inSospeso = { r: 0, w: 0, d: 0 };
+    const conta = (k, n = 1) => {
+      inSospeso[k] += n;
+      try { const g = 'gid_cons_' + giornoFb(), o = JSON.parse(localStorage.getItem(g) || '{"r":0,"w":0,"d":0}'); o[k] += n; localStorage.setItem(g, JSON.stringify(o)); } catch (e) {}
+    };
+    const nomeDisp = () => (utenteAuth?.email || 'sconosciuto').toLowerCase().replace(/[^a-z0-9]+/g, '_');
+    async function versaConsumi() {
+      if (!db || !utenteAuth || !navigator.onLine) return;
+      const { r, w, d } = inSospeso; if (!r && !w && !d) return;
+      inSospeso.r = inSospeso.w = inSospeso.d = 0;
+      const inc = firebase.firestore.FieldValue.increment;
+      try {
+        await db.collection('consumi').doc(giornoFb()).set({ letture: inc(r), scritture: inc(w + 1), cancellazioni: inc(d),
+          dispositivi: { [nomeDisp()]: { letture: inc(r), scritture: inc(w + 1), cancellazioni: inc(d), ultimo: new Date().toISOString() } } }, { merge: true });
+        try { const g = 'gid_cons_' + giornoFb(), o = JSON.parse(localStorage.getItem(g) || '{"r":0,"w":0,"d":0}'); o.w += 1; localStorage.setItem(g, JSON.stringify(o)); } catch (e) {}   // la scrittura del contatore stesso
+      } catch (e) { inSospeso.r += r; inSospeso.w += w; inSospeso.d += d; }
+    }
+    setInterval(versaConsumi, 5 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') versaConsumi(); });
+
     const scriviMolti = async (col, docs) => {
+      conta('w', docs.length);
       for (const pezzo of aPezzi(docs, 400)) {
         const b = db.batch();
         pezzo.forEach((d) => b.set(db.collection(col).doc(d.id), codifica(d)));
@@ -148,22 +173,26 @@
       // livello dell'account Google secondo il cloud (o null se non autorizzato)
       async ruoloAccount(email) {
         try {
-          const d = await db.collection('ruoli').doc(email).get();
+          const d = await db.collection('ruoli').doc(email).get(); if (!d.metadata.fromCache) conta('r');
           if (d.exists && d.data().nome) try { localStorage.setItem('gid_nome_disp', d.data().nome); } catch (e) {}
           return d.exists ? d.data().ruolo : (d.metadata && d.metadata.fromCache ? undefined : null);
         }
         catch (e) { return undefined; }   // senza risposta (es. offline): l'app usa l'ultimo livello noto
       },
-      async impostaRuolo(email, ruolo, nome) { await db.collection('ruoli').doc(email).set({ ruolo, nome: nome || '', aggiornato: new Date().toISOString() }); },
-      async togliRuolo(email) { await db.collection('ruoli').doc(email).delete(); },
-      async elencoRuoli() { const q = await db.collection('ruoli').get(); return q.docs.map((d) => ({ email: d.id, ...d.data() })); },
+      async impostaRuolo(email, ruolo, nome) { conta('w'); await db.collection('ruoli').doc(email).set({ ruolo, nome: nome || '', aggiornato: new Date().toISOString() }); },
+      async togliRuolo(email) { conta('d'); await db.collection('ruoli').doc(email).delete(); },
+      async elencoRuoli() { const q = await db.collection('ruoli').get(); conta('r', Math.max(1, q.size)); return q.docs.map((d) => ({ email: d.id, ...d.data() })); },
       // quanti documenti ci sono davvero sul server (per capire se il cloud è vuoto)
-      async contaServer(col) { const q = await db.collection(col).limit(1).get({ source: 'server' }); return q.size; },
+      async contaServer(col) { const q = await db.collection(col).limit(1).get({ source: 'server' }); conta('r'); return q.size; },
       subscribe(col, cb, errore) {
-        return db.collection(col).onSnapshot((s) => cb(s.docs.map(daDoc)), (e) => { console.error(col, e); errore && errore(e); });
+        return db.collection(col).onSnapshot((s) => {
+          // si pagano solo i documenti arrivati dal server (non quelli già in copia sul dispositivo)
+          if (!s.metadata.fromCache && !s.metadata.hasPendingWrites) conta('r', Math.max(1, s.docChanges().length));
+          cb(s.docs.map(daDoc));
+        }, (e) => { console.error(col, e); errore && errore(e); });
       },
       async save(col, doc) {
-        doc.aggiornato = new Date().toISOString();
+        doc.aggiornato = new Date().toISOString(); conta('w');
         // senza rete la scrittura resta in coda: non aspetto la conferma del server
         const p = db.collection(col).doc(doc.id).set(codifica(doc));
         if (navigator.onLine) await p; else p.catch((e) => console.error(e));
@@ -177,6 +206,7 @@
       // numero progressivo del rapportino assegnato dal cloud (contatore unico per anno, mai doppio)
       async assegnaNumero(anno, id, maxNoto) {
         const cRef = db.collection('contatori').doc('rapportini-' + anno), rRef = db.collection('rapportini').doc(id);
+        conta('r', 2); conta('w', 2);
         return db.runTransaction(async (t) => {
           const c = await t.get(cRef), r = await t.get(rRef);
           if (!r.exists) return null;
@@ -188,19 +218,29 @@
           return n;
         });
       },
-      async remove(col, id) { const p = db.collection(col).doc(id).delete(); if (navigator.onLine) await p; },
-      append(col, doc) { db.collection(col).doc(doc.id).set(codifica(doc)).catch(() => {}); },
+      async remove(col, id) { conta('d'); const p = db.collection(col).doc(id).delete(); if (navigator.onLine) await p; },
+      append(col, doc) { conta('w'); db.collection(col).doc(doc.id).set(codifica(doc)).catch(() => {}); },
       // cancella tutti i documenti di una raccolta (a blocchi di 400)
       async svuota(col) {
-        const r = await db.collection(col).get();
+        const r = await db.collection(col).get(); conta('r', Math.max(1, r.size)); conta('d', r.size);
         for (const pezzo of aPezzi(r.docs, 400)) { const b = db.batch(); pezzo.forEach((d) => b.delete(db.collection(col).doc(d.id))); await b.commit(); }
       },
       async leggiTutti(col) {
         let q = db.collection(col);
         if (col === 'log') q = q.orderBy('t', 'desc').limit(10000);
-        const r = await q.get();
+        const r = await q.get(); conta('r', Math.max(1, r.size));
         return r.docs.map(daDoc);
       },
+      // consumi: quelli di oggi di questo dispositivo e gli ultimi giorni di tutti (dal cloud)
+      giornoFirebase: giornoFb,
+      consumiDispositivo() { try { return JSON.parse(localStorage.getItem('gid_cons_' + giornoFb()) || '{"r":0,"w":0,"d":0}'); } catch (e) { return { r: 0, w: 0, d: 0 }; } },
+      async consumiCloud(giorni = 30) {
+        await versaConsumi();
+        const q = await db.collection('consumi').orderBy(firebase.firestore.FieldPath.documentId(), 'desc').limit(giorni).get();
+        conta('r', Math.max(1, q.size));
+        return q.docs.map((d) => ({ giorno: d.id, ...d.data() }));
+      },
+      progetto: () => cfg.projectId,
       isSeeded() { return true; }, markSeeded() {}, wipe() {}, dumpAll() { return {}; }
     };
   }

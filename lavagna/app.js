@@ -284,7 +284,7 @@ const ADMIN_EMAILS = ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com'];
 const puoStampare = () => {
   let id = ''; try { id = sessionStorage.getItem('gid_sessione') || ''; } catch { }
   const u = leggiG('utenti').find(x => x.id === id);
-  return !!u && ['admin', 'master', 'ru'].includes(u.ruolo);
+  return !!u && ['admin', 'developer', 'master', 'ru'].includes(u.ruolo);
 };
 const isAdmin = () => db?.mode === 'local' || ADMIN_EMAILS.includes((currentEmail || '').toLowerCase());
 const COL_NOMI = { events: 'Voce', clients: 'Cliente', staff: 'Dipendente', vehicles: 'Mezzo' };

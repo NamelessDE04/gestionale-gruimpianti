@@ -11,10 +11,10 @@ window.firebaseConfig = {
 };
 
 // Account Google con cui si prepara il cloud la prima volta.
-// I primi due sono Master anche nelle regole di sicurezza di Firebase (servono per partire).
+// Il primo è Developer, il secondo Master: lo sono anche nelle regole di sicurezza di Firebase (servono per partire).
 // Dopo, i livelli si cambiano dall'app: Utenti → scegli la persona.
 window.UTENTI_INIZIALI = [
-  { google: 'vaisittiluca@gmail.com', ruolo: 'master' },
+  { google: 'vaisittiluca@gmail.com', ruolo: 'developer' },
   { google: 'cau.gruimpianti@gmail.com', ruolo: 'master' },
   { google: 'andretricca@gmail.com', ruolo: 'tecnico' },
   { google: 'fabiorosa004@gmail.com', ruolo: 'tecnico' }

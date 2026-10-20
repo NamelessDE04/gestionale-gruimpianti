@@ -7,7 +7,9 @@
 // NOTA: in questa demo i dati sono solo sul tablet; con il cloud l'accesso passerà a Firebase.
 window.UT = (function () {
   const { esc, uid, info, fmt } = UI;
-  const RUOLI = { master: 'Master', tecnico: 'Tecnico', ru: 'Risorse Umane' };
+  const RUOLI = { developer: 'Developer', master: 'Master', tecnico: 'Tecnico', ru: 'Risorse Umane' };
+  // il Developer ha tutto quello del Master e in più: azzera dati, importa dati, registro attività e monitoraggio consumi
+  const ALTI = ['developer', 'master'];
   const CHIAVE = 'gid_sessione';
   // la sessione vale solo finché l'app resta aperta: a ogni nuova apertura si rimette il PIN
   const SESS = {
@@ -37,10 +39,11 @@ window.UT = (function () {
   const ruoloDi = (u) => (u?.ruolo === 'admin' ? 'master' : u?.ruolo || 'tecnico');   // gli "admin" della v0.8 diventano Master
   const attivi = () => (S?.utenti || []).filter((u) => u.attivo !== false);
   const attuale = () => { const id = SESS.get(); return attivi().find((u) => u.id === id) || null; };
-  const isMaster = () => ruoloDi(attuale()) === 'master';
+  const isMaster = () => ALTI.includes(ruoloDi(attuale()));
+  const isDev = () => ruoloDi(attuale()) === 'developer';
   const solaLettura = () => ruoloDi(attuale()) === 'ru';
   // stampare e inviare ai clienti rapportini, schede di controllo e sottoganci: solo Master e Risorse Umane
-  const puoInviare = () => ['master', 'ru'].includes(ruoloDi(attuale()));
+  const puoInviare = () => ['developer', 'master', 'ru'].includes(ruoloDi(attuale()));
   const breve = (u) => (u?.nome || '');   // il nome della persona: lavagna, controlli, sottoganci e tutto il resto
   const sigla = (u) => (u?.nomeBreve || u?.nome || '');   // sigla (es. VL): solo nei rapportini di intervento
   const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
@@ -199,7 +202,7 @@ window.UT = (function () {
       if (!pinValido(f.pin.value)) return UI.toast('Il PIN deve avere da 4 a 6 cifre', 'err');
       if (f.pin.value !== f.pin2.value) return UI.toast('I due PIN non coincidono', 'err');
       const pinSalt = uid();
-      const u = { id: uid(), nome: f.nome.value.trim(), ruolo: 'master', pinSalt, pinHash: await hash(pinSalt, f.pin.value), pinLen: f.pin.value.length, google: '', firma: null, attivo: true };
+      const u = { id: uid(), nome: f.nome.value.trim(), ruolo: 'developer', pinSalt, pinHash: await hash(pinSalt, f.pin.value), pinLen: f.pin.value.length, google: '', firma: null, attivo: true };
       SESS.set(u.id);
       await Backend.save('utenti', u); entra(u, 'primo accesso');
     };
@@ -288,13 +291,14 @@ window.UT = (function () {
             <p class="muted small">L'accesso con Google si attiverà con il collegamento al cloud.</p>
           </form>
         </div>`}
-        ${r === 'master' ? `<div class="card">
-          <h2>Strumenti del Master</h2>
+        ${ALTI.includes(r) ? `<div class="card">
+          <h2>Strumenti del ${r === 'developer' ? 'Developer' : 'Master'}</h2>
           <div class="azioni-lista">
-            <a class="btn ghost" href="#/utenti">👥 Gestione utenti</a><a class="btn ghost" href="#/registro">📋 Registro attività</a>
+            <a class="btn ghost" href="#/utenti">👥 Gestione utenti</a>
             <button class="btn ghost" id="btnExport">💾 Esporta dati (backup)</button>
+            ${r === 'developer' ? `<a class="btn ghost" href="#/sviluppo">📊 Consumi e stato dell'app</a><a class="btn ghost" href="#/registro">📋 Registro attività</a>
             <a class="btn ghost" href="#/importa">📥 Importa dati</a>
-            <a class="btn ghost danger" href="#/azzera">🧹 Azzera dati</a>
+            <a class="btn ghost danger" href="#/azzera">🧹 Azzera dati</a>` : ''}
             ${info('«Esporta dati» scarica una copia di tutto quello che è stato inserito. Tienila al sicuro. I documenti allegati non sono compresi.')}
           </div></div>` : ''}
       </section>`;
@@ -349,7 +353,7 @@ window.UT = (function () {
     const lista = [...S.utenti].sort((a, b) => a.nome.localeCompare(b.nome));
     el.innerHTML = `
       <section class="cli">
-        <div class="sez-head"><h1>Utenti ${info('Master: fa tutto, gestisce gli utenti e vede il registro attività. Tecnico: fa tutto tranne registro e gestione utenti. Risorse Umane: vede anagrafiche, sottoganci e controlli e può stampare, ma non può modificare nulla. Ognuno salva firma e PIN dal proprio profilo.')}</h1>
+        <div class="sez-head"><h1>Utenti ${info('Developer: fa tutto, anche azzerare e importare i dati, vedere il registro attività e i consumi del cloud. Master: fa tutto il resto e gestisce gli utenti. Tecnico: fa tutto tranne registro e gestione utenti. Risorse Umane: vede anagrafiche, sottoganci e controlli e può stampare, ma non può modificare nulla. Ognuno salva firma e PIN dal proprio profilo.')}</h1>
           <button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo utente</span></button></div>
         <div class="elenco">
           ${lista.map((u) => `
@@ -362,7 +366,11 @@ window.UT = (function () {
         </div>
       </section>`;
     el.querySelector('#btnNuovo').onclick = () => modaleUtente(null);
-    el.querySelectorAll('[data-u]').forEach((r) => (r.onclick = () => modaleUtente(S.utenti.find((u) => u.id === r.dataset.u))));
+    el.querySelectorAll('[data-u]').forEach((r) => (r.onclick = () => {
+      const u = S.utenti.find((x) => x.id === r.dataset.u);
+      if (ruoloDi(u) === 'developer' && !isDev() && u.id !== attuale()?.id) return UI.toast('Il Developer lo può modificare solo un Developer', 'err');
+      modaleUtente(u);
+    }));
     if (Backend.mode === 'cloud') tablet(el);
     return { titolo: 'Gestione utenti', indietro: '#/', live: true };
   }
@@ -413,15 +421,16 @@ window.UT = (function () {
       campi: [
         { k: 'nome', label: 'Nome e cognome', req: true, mezza: true },
         { k: 'nomeBreve', label: 'Sigla per il rapportino', mezza: true, placeholder: 'es. VL', aiuto: 'Compare solo sul rapportino stampato (PDF). Nell\'app si usa sempre il nome.' },
-        { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.values(RUOLI), mezza: true },
+        { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.entries(RUOLI).filter(([k]) => k !== 'developer' || isDev() || ruoloDi(u) === 'developer').map(([, v]) => v), mezza: true },
         { k: 'pin', label: u ? 'Nuovo PIN (4-6 cifre)' : 'PIN (4-6 cifre)', tipo: 'password', mezza: true },
         { k: 'google', label: Backend.mode === 'cloud' ? 'Account Google' : 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com', aiuto: Backend.mode === 'cloud' ? 'Senza account Google la persona entra solo col PIN su un dispositivo già collegato' : '' },
         ...(u ? [{ k: 'attivo', label: 'Utente attivo (se lo togli non può più entrare)', tipo: 'sino' }] : [])
       ],
       onSalva: async (v) => {
         const ruolo = Object.keys(RUOLI).find((k) => RUOLI[k] === v.ruolo) || 'tecnico';
-        const altriMaster = S.utenti.filter((x) => ruoloDi(x) === 'master' && x.attivo !== false && x.id !== u?.id);
-        if (u && ruoloDi(u) === 'master' && (ruolo !== 'master' || v.attivo === false) && !altriMaster.length) { UI.toast('Deve restare almeno un Master attivo', 'err'); return false; }
+        if (ruolo === 'developer' && !isDev() && ruoloDi(u) !== 'developer') { UI.toast('Solo un Developer può creare un Developer', 'err'); return false; }
+        const altriMaster = S.utenti.filter((x) => ALTI.includes(ruoloDi(x)) && x.attivo !== false && x.id !== u?.id);
+        if (u && ALTI.includes(ruoloDi(u)) && (!ALTI.includes(ruolo) || v.attivo === false) && !altriMaster.length) { UI.toast('Deve restare almeno un Master o Developer attivo', 'err'); return false; }
         if ((!u || v.pin) && !pinValido(v.pin)) { UI.toast('Il PIN deve avere da 4 a 6 cifre', 'err'); return false; }
         if (v.pin && (await pinGiaUsato(v.pin, u?.id))) { UI.toast('PIN già usato da un altro utente', 'err'); return false; }
         if (v.google && S.utenti.some((x) => x.id !== u?.id && (x.google || '').toLowerCase() === v.google.toLowerCase())) { UI.toast('Account Google già associato a un altro utente', 'err'); return false; }
@@ -432,7 +441,7 @@ window.UT = (function () {
         sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d));
       },
       onElimina: u && u.id !== io?.id ? async () => {
-        if (ruoloDi(u) === 'master' && !S.utenti.some((x) => ruoloDi(x) === 'master' && x.id !== u.id && x.attivo !== false)) { UI.toast('Deve restare almeno un Master', 'err'); return false; }
+        if (ALTI.includes(ruoloDi(u)) && !S.utenti.some((x) => ALTI.includes(ruoloDi(x)) && x.id !== u.id && x.attivo !== false)) { UI.toast('Deve restare almeno un Master', 'err'); return false; }
         if (!UI.conferma(`Eliminare l'utente ${u.nome}? I controlli già fatti restano con il suo nome. (In alternativa puoi solo disattivarlo.)`)) return false;
         await Backend.remove('utenti', u.id);
         sincronizzaRuoli(S.utenti.filter((x) => x.id !== u.id));
@@ -457,7 +466,7 @@ window.UT = (function () {
 
   async function registro(el, dati, parti) {
     S = dati;
-    if (!isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master può vedere il registro attività.</p>'; return; }
+    if (!isDev()) { el.innerHTML = '<p class="nessuno">Solo il Developer può vedere il registro attività.</p>'; return; }
     let log;
     try { log = await Backend.leggiTutti('log'); }
     catch (e) { el.innerHTML = '<section class="vuoto"><h1>🔒 Registro non disponibile</h1><p>Per leggere il registro questo dispositivo deve essere collegato a un account Google Master.</p></section>'; return; }
@@ -517,10 +526,11 @@ window.UT = (function () {
 
   // ---------- CLOUD: accesso con Google, primo avvio, livelli ----------
   let ruoloDispositivo = null;
-  const capi = () => (window.UTENTI_INIZIALI || []).filter((x) => x.ruolo === 'master').map((x) => x.google.toLowerCase());
+  const capi = () => (window.UTENTI_INIZIALI || []).filter((x) => ALTI.includes(x.ruolo)).map((x) => x.google.toLowerCase());
+  const ruoloIniziale = (email) => (window.UTENTI_INIZIALI || []).find((x) => x.google.toLowerCase() === email)?.ruolo;
   // livello dell'account; senza rete uso l'ultimo noto (così il tablet si apre anche offline)
   const ruoloAccount = async (email) => {
-    if (capi().includes(email) && !Backend.isDispositivo(email)) return 'master';
+    if (capi().includes(email) && !Backend.isDispositivo(email)) return ruoloIniziale(email);
     const k = 'gid_ruolo_' + email;
     let r = null;
     try { r = await Promise.race([Backend.ruoloAccount(email), new Promise((ok) => setTimeout(() => ok(undefined), navigator.onLine ? 15000 : 2500))]); } catch (e) { r = undefined; }
@@ -595,7 +605,7 @@ window.UT = (function () {
           for (const x of window.UTENTI_INIZIALI || []) {
             const g = x.google.toLowerCase();
             let u = utenti.find((y) => (y.google || '').toLowerCase() === g);
-            if (!u && g === email) u = utenti.find((y) => !y.google && ruoloDi(y) === 'master');
+            if (!u && g === email) u = utenti.find((y) => !y.google && ALTI.includes(ruoloDi(y)));
             if (u) Object.assign(u, { google: g, ruolo: x.ruolo });
             else utenti.push({ id: uid(), nome: g.split('@')[0].toUpperCase(), ruolo: x.ruolo, google: g, firma: null, attivo: true });
           }
@@ -626,7 +636,7 @@ window.UT = (function () {
       if (!ruolo) { await aspetta(el, 'Account non autorizzato', `L'account <b>${esc(email)}</b> non è abilitato al gestionale. Chiedi al Master di aggiungerlo da «Utenti».`); continue; }
       let vuoto = false;
       try { vuoto = (await Backend.contaServer('utenti')) === 0; } catch (e) { /* senza rete: uso la copia sul dispositivo */ }
-      if (vuoto && ruolo !== 'master') { await aspetta(el, 'Cloud non ancora pronto', 'Il primo accesso al cloud lo deve fare un Master. Riprova dopo.'); continue; }
+      if (vuoto && !ALTI.includes(ruolo)) { await aspetta(el, 'Cloud non ancora pronto', 'Il primo accesso al cloud lo deve fare un Master. Riprova dopo.'); continue; }
       if (vuoto) await primoAvvioCloud(el, email, collezioni);
       ruoloDispositivo = ruolo;
       // primo accesso con Google su questo dispositivo: entro subito come la persona di quell'account
@@ -647,23 +657,26 @@ window.UT = (function () {
 
   // i livelli usati dalle regole di Firebase seguono gli utenti dell'app (solo un account Master può scriverli)
   async function sincronizzaRuoli(lista) {
-    if (Backend.mode !== 'cloud' || ruoloDispositivo !== 'master') return;
+    if (Backend.mode !== 'cloud' || !ALTI.includes(ruoloDispositivo)) return;
+    const dev = ruoloDispositivo === 'developer';
     lista = lista || S.utenti;
     try {
       const voluti = new Map(lista.filter((u) => u.google && u.attivo !== false).map((u) => [u.google.toLowerCase(), { ruolo: ruoloDi(u), nome: u.nome }]));
       const ora = await Backend.elencoRuoli();
-      for (const [g, v] of voluti) { const r = ora.find((x) => x.email === g); if (!r || r.ruolo !== v.ruolo || r.nome !== v.nome) await Backend.impostaRuolo(g, v.ruolo, v.nome); }
-      for (const r of ora) if (!voluti.has(r.email) && r.ruolo !== 'dispositivo') await Backend.togliRuolo(r.email);
+      // il Master non tocca i livelli Developer (lo impediscono anche le regole di Firebase)
+      for (const [g, v] of voluti) { const r = ora.find((x) => x.email === g); if (!dev && (v.ruolo === 'developer' || r?.ruolo === 'developer')) continue; if (!r || r.ruolo !== v.ruolo || r.nome !== v.nome) await Backend.impostaRuolo(g, v.ruolo, v.nome); }
+      for (const r of ora) if (!voluti.has(r.email) && r.ruolo !== 'dispositivo' && (dev || r.ruolo !== 'developer')) await Backend.togliRuolo(r.email);
     } catch (e) { console.error(e); UI.toast('Livelli nel cloud non aggiornati: serve un account Google Master su questo dispositivo', 'err'); }
   }
 
   // ---------- percorsi vietati per livello ----------
   function vietato(parti) {
     const r = ruoloDi(attuale()), p = parti.join('/');
-    if (['utenti', 'registro', 'conflitti', 'azzera', 'importa'].includes(parti[0]) && r !== 'master') return 'Questa sezione è riservata al Master.';
+    if (['registro', 'azzera', 'importa', 'sviluppo'].includes(parti[0]) && r !== 'developer') return 'Questa sezione è riservata al Developer.';
+    if (['utenti', 'conflitti'].includes(parti[0]) && !ALTI.includes(r)) return 'Questa sezione è riservata al Master.';
     // stampa e invio ai clienti: solo Master e Risorse Umane
     const stampa = parti[0] === 'invio' || parti[0] === 'ordini' || (['controlli', 'sottoganci', 'approfonditi', 'gho'].includes(parti[0]) && parti.includes('stampa'));
-    if (stampa && !['master', 'ru'].includes(r)) return 'Stampa e invio ai clienti sono riservati al Master e a Risorse Umane.';
+    if (stampa && !['developer', 'master', 'ru'].includes(r)) return 'Stampa e invio ai clienti sono riservati al Master e a Risorse Umane.';
     if (r !== 'ru') return null;
     const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)
       || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p) || /^approfonditi\/[^/]+\/(a\/[^/]+\/controllo|s\/[^/]+$)/.test(p) || /^gho\/ore\/(?!stampa)[^/]+$/.test(p);
@@ -697,7 +710,7 @@ window.UT = (function () {
   }
 
   return {
-    descrivi, attuale, isMaster, puoInviare, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
+    descrivi, attuale, isMaster, isDev, puoInviare, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
     campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, sigla, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
 })();

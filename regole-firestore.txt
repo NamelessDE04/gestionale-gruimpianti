@@ -1,11 +1,13 @@
 rules_version = '2';
 
 // Regole di sicurezza del Gestionale Gru Impianti
-// Master: tutto. Tecnico: tutto tranne registro e gestione utenti. Risorse Umane: solo lettura.
+// Developer: tutto (anche registro attività, azzera, importa, consumi).
+// Master: tutto tranne il registro attività; non può creare, cambiare o togliere un Developer.
+// Tecnico: tutto tranne registro e gestione utenti. Risorse Umane: solo lettura.
 // Tablet condivisi: account con codice di attivazione (…@dispositivi.gruimpianti.app), come un tecnico;
 //   chi lo usa entra poi con il proprio PIN.
 // I livelli degli account stanno nella raccolta "ruoli" (la scrive l'app quando il Master salva utenti e tablet).
-// I due indirizzi qui sotto sono sempre Master: servono per il primo avvio.
+// I due indirizzi qui sotto servono per il primo avvio: il primo è sempre Developer, il secondo sempre Master.
 service cloud.firestore {
   match /databases/{database}/documents {
 
@@ -13,33 +15,40 @@ service cloud.firestore {
     function verificato() { return request.auth.token.email_verified == true; }
     function account() { return request.auth.token.email.lower(); }
     function tablet() { return account().matches('^[a-z0-9]{8}@dispositivi[.]gruimpianti[.]app$'); }
-    function capo() { return verificato() && account() in ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com']; }
+    function capoDev() { return verificato() && account() == 'vaisittiluca@gmail.com'; }
+    function capoMaster() { return verificato() && account() == 'cau.gruimpianti@gmail.com'; }
     function scheda() { return /databases/$(database)/documents/ruoli/$(account()); }
     function haRuolo(lista) {
-      return entrato() && (capo() || ((verificato() || tablet()) && exists(scheda()) && get(scheda()).data.ruolo in lista));
+      return entrato() && (capoDev() || (capoMaster() && 'master' in lista)
+        || ((verificato() || tablet()) && exists(scheda()) && get(scheda()).data.ruolo in lista));
     }
-    function legge()  { return haRuolo(['master', 'tecnico', 'ru', 'dispositivo']); }
-    function scrive() { return haRuolo(['master', 'tecnico', 'dispositivo']); }
-    function master() { return haRuolo(['master']); }
+    function legge()  { return haRuolo(['developer', 'master', 'tecnico', 'ru', 'dispositivo']); }
+    function scrive() { return haRuolo(['developer', 'master', 'tecnico', 'dispositivo']); }
+    function master() { return haRuolo(['developer', 'master']); }
+    function developer() { return haRuolo(['developer']); }
+    // un Developer lo crea, cambia o toglie solo un Developer
+    function tocca_developer(prima, dopo) { return (prima != null && prima.get('ruolo', '') == 'developer') || (dopo != null && dopo.get('ruolo', '') == 'developer'); }
 
     // livelli degli account (persone e tablet)
     match /ruoli/{email} {
       allow read: if entrato() && (email == account() || master());
-      allow write: if master();
+      allow create, update: if developer() || (master() && !tocca_developer(resource == null ? null : resource.data, request.resource.data));
+      allow delete: if developer() || (master() && resource.data.get('ruolo', '') != 'developer');
     }
 
-    // registro attività: tutti scrivono, solo il Master legge, nessuno modifica o cancella
+    // registro attività: tutti scrivono, solo il Developer legge, nessuno modifica o cancella
     match /log/{id} {
       allow create: if legge();
-      allow read: if master();
+      allow read: if developer();
       allow update, delete: if false;
     }
 
     // utenti: il Master gestisce tutto; gli altri (anche dal tablet) possono cambiare solo firma e PIN
     match /utenti/{id} {
       allow read: if legge();
-      allow create, delete: if master();
-      allow update: if master() || (legge() &&
+      allow create: if developer() || (master() && request.resource.data.get('ruolo', '') != 'developer');
+      allow delete: if developer() || (master() && resource.data.get('ruolo', '') != 'developer');
+      allow update: if developer() || (master() && !tocca_developer(resource.data, request.resource.data)) || (legge() &&
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['firma', 'pinSalt', 'pinHash', 'pinLen', 'aggiornato']));
     }
 

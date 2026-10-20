@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.39.2';
+  const VERSIONE = '0.40.0';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -20,7 +20,8 @@ window.App = (function () {
     UT.imposta(S);
     // senza accesso si vede solo la schermata di login (o di primo avvio)
     const io = UT.attuale();
-    document.body.classList.toggle('master', UT.ruolo() === 'master');
+    document.body.classList.toggle('master', UT.isMaster());
+    document.body.classList.toggle('developer', UT.isDev());
     document.body.classList.toggle('sola-lettura', !!io && UT.solaLettura());
     const chip = document.getElementById('btnUtente');
     if (!io) {
@@ -42,6 +43,7 @@ window.App = (function () {
     else if (parti[0] === 'cablaggio') info = CAB.route(el, S, parti) || info;
     else if (parti[0] === 'rapportini') info = RAP.route(el, S, parti, query) || info;
     else if (parti[0] === 'sottoganci') info = SG.route(el, S, parti, query) || info;
+    else if (parti[0] === 'sviluppo') info = DEV.pagina(el, S) || info;
     else if (parti[0] === 'gho') info = GHO.route(el, S, parti, query) || info;
     else if (parti[0] === 'approfonditi') info = APR.route(el, S, parti, query) || info;
     else if (parti[0] === 'clienti') info = CLI.route(el, S, parti, query) || info;
