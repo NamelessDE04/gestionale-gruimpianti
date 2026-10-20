@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.33.0';
+  const VERSIONE = '0.34.0';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -37,6 +37,7 @@ window.App = (function () {
     else if (parti[0] === 'registro') { UT.registro(el, S, parti); info = { titolo: parti[1] ? 'Registro attività · PDF' : 'Registro attività', indietro: parti[1] ? '#/registro' : '#/profilo', live: false }; }
     else if (parti[0] === 'conflitti') info = CONF.pagina(el, S) || info;
     else if (parti[0] === 'azzera') info = AZZ.pagina(el, S) || info;
+    else if (parti[0] === 'importa') info = IMPORTA.pagina(el, S) || info;
     else if (parti[0] === 'invio') info = INVIO.route(el, S, parti, query) || info;
     else if (parti[0] === 'cablaggio') info = CAB.route(el, S, parti) || info;
     else if (parti[0] === 'rapportini') info = RAP.route(el, S, parti, query) || info;

@@ -1085,3 +1085,4 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .ord-testa { min-width: 200px; flex: 1; }
 .ord-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ord-in { width: 170px; margin: 0 !important; text-transform: uppercase; }
+.imp-ris p { margin: 8px 0; } .imp-lista { max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--linea); border-bottom: 1px solid var(--linea); }
