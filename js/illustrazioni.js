@@ -4,6 +4,58 @@ window.ILL = (function () {
   const svg = (inner) => `<svg viewBox="0 0 160 120" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">${inner}</svg>`;
 
   return {
+
+    // controlli approfonditi: cartella con lente
+    approfonditi: svg(`
+      <ellipse cx="80" cy="110" rx="52" ry="5" fill="${L}"/>
+      <rect x="34" y="14" width="66" height="88" rx="6" fill="${W}" stroke="${N}" stroke-width="3"/>
+      <rect x="52" y="8" width="30" height="12" rx="4" fill="${Y}" stroke="${N}" stroke-width="3"/>
+      <g stroke="${N}" stroke-width="3" stroke-linecap="round"><line x1="46" y1="36" x2="86" y2="36"/><line x1="46" y1="50" x2="80" y2="50"/><line x1="46" y1="64" x2="72" y2="64"/></g>
+      <circle cx="104" cy="74" r="20" fill="${L}" stroke="${N}" stroke-width="5"/><circle cx="104" cy="74" r="11" fill="${W}" stroke="${O}" stroke-width="3"/>
+      <line x1="118" y1="89" x2="134" y2="105" stroke="${N}" stroke-width="8" stroke-linecap="round"/>`),
+    // gancio a C / pinza
+    pinza: svg(`
+      <ellipse cx="80" cy="110" rx="50" ry="5" fill="${L}"/>
+      <line x1="80" y1="2" x2="80" y2="14" stroke="${G}" stroke-width="3"/>
+      <circle cx="80" cy="20" r="8" fill="none" stroke="${N}" stroke-width="5"/>
+      <path d="M56 30 h52 v14 h-36 v38 h36 v14 h-52 z" fill="${O}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M108 82 h10 v14 h-10" fill="${Y}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="80" y="54" width="44" height="18" rx="3" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <text x="102" y="67" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="9" fill="${N}">C</text>`),
+    // magnete a leva
+    magnete: svg(`
+      <ellipse cx="80" cy="110" rx="52" ry="5" fill="${L}"/>
+      <line x1="80" y1="2" x2="80" y2="14" stroke="${G}" stroke-width="3"/>
+      <path d="M68 34 v-14 a12 12 0 0 1 24 0 v14" fill="none" stroke="${N}" stroke-width="5"/>
+      <rect x="40" y="34" width="80" height="44" rx="5" fill="${N}"/>
+      <rect x="40" y="78" width="80" height="14" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <line x1="80" y1="78" x2="80" y2="92" stroke="${N}" stroke-width="3"/>
+      <path d="M112 44 l26 -18" stroke="${Y}" stroke-width="7" stroke-linecap="round"/><circle cx="112" cy="44" r="5" fill="${Y}" stroke="${N}" stroke-width="2"/>
+      <text x="60" y="62" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="12" fill="${R}">N</text>
+      <text x="100" y="62" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="12" fill="${W}">S</text>`),
+    // carrucola e fune
+    fune: svg(`
+      <ellipse cx="80" cy="110" rx="50" ry="5" fill="${L}"/>
+      <rect x="54" y="6" width="52" height="10" rx="3" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <line x1="64" y1="16" x2="64" y2="30" stroke="${N}" stroke-width="4"/><line x1="96" y1="16" x2="96" y2="30" stroke="${N}" stroke-width="4"/>
+      <circle cx="80" cy="46" r="24" fill="${W}" stroke="${N}" stroke-width="4"/><circle cx="80" cy="46" r="16" fill="none" stroke="${O}" stroke-width="5"/><circle cx="80" cy="46" r="4" fill="${N}"/>
+      <path d="M56 46 V104 M104 46 V104" stroke="${Y}" stroke-width="5" fill="none"/>
+      <g stroke="${N}" stroke-width="1.5"><line x1="54" y1="60" x2="58" y2="64"/><line x1="54" y1="72" x2="58" y2="76"/><line x1="54" y1="84" x2="58" y2="88"/><line x1="102" y1="60" x2="106" y2="64"/><line x1="102" y1="72" x2="106" y2="76"/><line x1="102" y1="84" x2="106" y2="88"/></g>`),
+    // bozzello con gancio
+    bozzello: svg(`
+      <ellipse cx="80" cy="110" rx="50" ry="5" fill="${L}"/>
+      <line x1="66" y1="2" x2="66" y2="22" stroke="${Y}" stroke-width="4"/><line x1="94" y1="2" x2="94" y2="22" stroke="${Y}" stroke-width="4"/>
+      <rect x="50" y="18" width="60" height="38" rx="10" fill="${O}" stroke="${N}" stroke-width="3"/>
+      <circle cx="80" cy="37" r="11" fill="${W}" stroke="${N}" stroke-width="3"/><circle cx="80" cy="37" r="3" fill="${N}"/>
+      <rect x="74" y="56" width="12" height="12" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <path d="M80 68 v10 c0 22 -28 22 -28 4 l8 -2 c0 9 12 9 12 -4 v-8" fill="${N}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>`),
+    // indagine: foglio e lente
+    indagine: svg(`
+      <ellipse cx="80" cy="110" rx="52" ry="5" fill="${L}"/>
+      <path d="M36 10 h52 l18 18 v74 h-70 z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/><path d="M88 10 v18 h18" fill="${L}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <g font-family="system-ui,sans-serif" font-weight="800" font-size="9" fill="${N}"><text x="44" y="44">a)</text><text x="44" y="60">b)</text><text x="44" y="76">c)</text></g>
+      <g stroke="${G}" stroke-width="3" stroke-linecap="round"><line x1="58" y1="41" x2="84" y2="41"/><line x1="58" y1="57" x2="80" y2="57"/><line x1="58" y1="73" x2="76" y2="73"/></g>
+      <circle cx="104" cy="70" r="18" fill="none" stroke="${O}" stroke-width="6"/><line x1="117" y1="83" x2="134" y2="100" stroke="${N}" stroke-width="8" stroke-linecap="round"/>`),
     // raccoglitore con dentro le altre sezioni
     altro: svg(`
       <ellipse cx="80" cy="108" rx="54" ry="6" fill="${L}"/>

@@ -2,7 +2,7 @@
 window.HOME = (function () {
   const caselle = [
     { k: 'rapportini', titolo: 'Rapportini di intervento', sotto: 'Interventi firmati dal cliente', ill: 'rapportini', attiva: true },
-    { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, gru a bandiera, sottoganci', ill: 'schede', attiva: true },
+    { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, sottoganci e controlli approfonditi', ill: 'schede', attiva: true },
     { k: 'clienti', titolo: 'Anagrafica Clienti', sotto: 'Ditte, sedi e referenti', ill: 'clienti', attiva: true },
     { k: 'impianti', titolo: 'Anagrafica Impianti', sotto: 'Gru, paranchi e carriponte', ill: 'impianti', attiva: true },
     { k: 'layout', titolo: 'Layout delle sedi', sotto: 'Piante dei capannoni con le gru', ill: 'layout', attiva: true },
@@ -14,7 +14,8 @@ window.HOME = (function () {
   // sotto-voci di "Schede di controllo"
   const schede = [
     { k: 'carriponte', titolo: 'Controllo carriponte e gru a bandiera', sotto: 'Schede di controllo D.Lgs. 81/08', ill: 'impianti', href: '#/controlli', attiva: true },
-    { k: 'sottoganci', titolo: 'Controllo sottoganci e accessori di sollevamento', sotto: 'Funi, catene, brache: elenchi per cliente', ill: 'sottoganci', href: '#/sottoganci', attiva: true }
+    { k: 'sottoganci', titolo: 'Controllo sottoganci e accessori di sollevamento', sotto: 'Funi, catene, brache: elenchi per cliente', ill: 'sottoganci', href: '#/sottoganci', attiva: true },
+    { k: 'approfonditi', titolo: 'Altri controlli approfonditi', sotto: 'Pinze e ganci a C, magneti, funi e carrucole, bozzello, indagine', ill: 'approfonditi', href: '#/approfonditi', attiva: true }
   ];
 
   const tile = (c, badge) => `

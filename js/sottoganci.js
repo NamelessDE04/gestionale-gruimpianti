@@ -129,11 +129,10 @@ window.SG = (function () {
           <div class="grow">
             <h1><a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)}</a> ${UI.magnete(c.sede)}</h1>
             <p class="muted small">${esc(c.localita || '')} · ${nAtt} sottoganci · <span class="pill st-${st.k}">${esc(st.label)}</span>
-              ${UI.info('Il pulsante grande avvia il prossimo controllo dell\'anno (una fascetta per controllo). Tocca una fascetta già fatta per correggerla. Tocca un sottogancio per modificarlo. Nel menu ⋯ trovi l\'elenco da stampare, l\'invio al cliente, l\'aggiunta di un sottogancio e il titolo dell\'elenco.')}</p>
+              ${UI.info('Il pulsante grande avvia il prossimo controllo dell\'anno (una fascetta per controllo). Tocca una fascetta già fatta per correggerla. Tocca un sottogancio per modificarlo. «＋ Aggiungi sottogancio» per inserirne uno nuovo. Nel menu ⋯ trovi l\'elenco da stampare, l\'invio al cliente e il titolo dell\'elenco.')}</p>
           </div>
           <div class="anno anno-mini"><a href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
-            !UT.solaLettura() && { t: '+ Nuovo sottogancio', href: `#/sottoganci/c/${cliId}/nuovo` },
             UT.puoInviare() && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
             UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=sottoganci&sede=${cliId}&anno=${anno}&da=${encodeURIComponent('#/sottoganci/c/' + cliId)}` },
             { t: '⚙ Titolo dell\'elenco', href: `#/sottoganci/cartella/${cliId}` },
@@ -147,6 +146,7 @@ window.SG = (function () {
         </div>
         ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ Inizia controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
+        ${!UT.solaLettura() ? `<a class="btn ghost sg2-nuovo" href="#/sottoganci/c/${cliId}/nuovo">＋ Aggiungi sottogancio</a>` : ''}
         ${tutti.length > 15 ? `<input type="search" id="fTesto" class="cerca" placeholder="Cerca numero, denominazione, ubicazione…" value="${esc(filtroTesto[cliId] || '')}">` : ''}
         <div class="sg2-tit">Sottoganci · giudizi ${anno}</div>
         <div class="sg2-lista">
@@ -156,7 +156,7 @@ window.SG = (function () {
               <span class="d">${esc(s.parti[0].denominazione)}${s.parti.length > 1 ? ` <small class="muted">+ ${s.parti.length - 1} comp.</small>` : ''}
                 <small>${[s.parti[0].dimensioni, s.portata, s.ubicazione].filter(Boolean).map(esc).join(' · ')}</small></span>
               <span class="es">${sl.map((g, i) => g?.righe[s.id] ? `<em class="${classeCod(g.righe[s.id].codici[0])}" style="--c:${SLOT[i].col}">${esc(g.righe[s.id].codici.filter(Boolean).join('/'))}</em>` : '').join('')}</span>
-            </a>`).join('') : `<p class="nessuno">${tutti.length ? 'Nessun sottogancio trovato.' : 'Nessun sottogancio. Aggiungi il primo dal menu ⋯ → «+ Nuovo sottogancio».'}</p>`}
+            </a>`).join('') : `<p class="nessuno">${tutti.length ? 'Nessun sottogancio trovato.' : 'Nessun sottogancio. Aggiungi il primo con «＋ Aggiungi sottogancio».'}</p>`}
         </div>
         <p class="legenda-app">${CODICI.map(([k, l]) => `<span><em class="${classeCod(k)}">${esc(k)}</em> ${l}</span>`).join('')}</p>
       </section>`;
@@ -354,7 +354,7 @@ window.SG = (function () {
         <div class="sg2-barra">
           <input type="search" id="gCerca" class="cerca" placeholder="🔍 Cerca n° o nome" autocomplete="off">
           <button type="button" class="btn ghost small" id="btnModo">${modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco'}</button>
-          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Le righe lasciate vuote, al salvataggio, diventano NC.')}
+          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Quelli lasciati senza giudizio, al salvataggio, diventano NC (non controllati).')}
         </div>
 
         <div class="sg2-lista giro-lista">
@@ -503,12 +503,9 @@ window.SG = (function () {
       e.preventDefault();
       const mancanti = voci.map((v, i) => i).filter((i) => !g.righe[voci[i].s.id].codici[voci[i].pi]);
       if (mancanti.length) {
-        if (cerca.value) { cerca.value = ''; filtra(); }
-        if (modoGiro === 'uno') el.querySelector('#btnModo').click();
-        mancanti.forEach((i) => riga(voci[i].key).classList.add('manca'));
-        riga(voci[mancanti[0]].key).scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (!UI.conferma(`${mancanti.length} righe senza giudizio. Segnarle come NC (non controllate) e salvare?`)) return;
-        mancanti.forEach((i) => (g.righe[voci[i].s.id].codici[voci[i].pi] = 'NC'));
+        // quello che non è stato trovato passa da solo a NC (non controllato)
+        mancanti.forEach((i) => setCod(i, 'NC'));
+        UI.toast(`${mancanti.length} ${mancanti.length === 1 ? 'sottogancio senza giudizio segnato' : 'sottoganci senza giudizio segnati'} NC`, '');
       }
       const t = leggiTecnici();
       if (!t.tecnici.length) { el.querySelector('.sg2-dati').open = true; window.scrollTo({ top: 0, behavior: 'smooth' }); return UI.toast('Scegli almeno un tecnico', 'err'); }

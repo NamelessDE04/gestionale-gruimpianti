@@ -38,7 +38,8 @@ window.CLI = (function () {
   const etichettaSede = (s) => UI.magnete(s) + ' ' + esc(s.nome || s.citta);
   const salva = (c) => UI.salva('clienti', JSON.parse(JSON.stringify(c)));
   // quanti dati (sottoganci, impianti) sono collegati a una sede: se ce ne sono non si può togliere
-  const usaSede = (S, sedeId) => S.sottoganci.filter((x) => x.sedeId === sedeId).length + S.impianti.filter((x) => x.sedeId === sedeId).length;
+  const usaSede = (S, sedeId) => S.sottoganci.filter((x) => x.sedeId === sedeId).length + S.impianti.filter((x) => x.sedeId === sedeId).length
+    + (S.attrezzi || []).filter((x) => x.sedeId === sedeId).length + (S.schedeApprofondite || []).filter((x) => x.sedeId === sedeId).length;
 
   // ---------- ELENCO CLIENTI ----------
   let cerca = '';
@@ -176,7 +177,7 @@ window.CLI = (function () {
       },
       onElimina: nuovo ? null : async () => {
         const n = (c.sedi || []).reduce((t, s) => t + usaSede(S, s.id), 0);
-        if (n) { UI.toast(`Non si può eliminare: ha impianti o sottoganci collegati (${n})`, 'err'); return false; }
+        if (n) { UI.toast(`Non si può eliminare: ha impianti, sottoganci o controlli collegati (${n})`, 'err'); return false; }
         if (!UI.conferma(`Eliminare ${nome(c)} con tutte le sue sedi e referenti?`)) return false;
         for (const g of S.giriSottoganci.filter((g) => (c.sedi || []).some((s) => s.id === g.sedeId))) await Backend.remove('giriSottoganci', g.id);
         await Backend.remove('clienti', c.id); location.hash = '#/clienti';
@@ -287,7 +288,7 @@ window.CLI = (function () {
         const vecchio = JSON.parse(JSON.stringify(c)); vecchio.sedi = vecchio.sedi.filter((x) => x.id !== s.id);
         await salva(nuovoDest); await salva(vecchio);
         // tutto ciò che era della sede passa al nuovo cliente
-        for (const col of ['impianti', 'schedeControllo', 'sottoganci', 'giriSottoganci', 'rapportini', 'layouts', 'collaudi']) {
+        for (const col of ['impianti', 'schedeControllo', 'sottoganci', 'giriSottoganci', 'rapportini', 'layouts', 'collaudi', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite']) {
           for (const d of (S[col] || []).filter((x) => x.sedeId === s.id && x.clienteId !== dest.id)) await UI.salva(col, { ...d, clienteId: dest.id });
         }
         UT.registra('modifica', `Sede ${etS(s)} spostata da ${nome(c)} a ${nome(dest)}`);

@@ -1,7 +1,7 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.37.0';
-  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts'];
+  const VERSIONE = '0.38.0';
+  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
   const el = document.getElementById('app');
@@ -42,6 +42,7 @@ window.App = (function () {
     else if (parti[0] === 'cablaggio') info = CAB.route(el, S, parti) || info;
     else if (parti[0] === 'rapportini') info = RAP.route(el, S, parti, query) || info;
     else if (parti[0] === 'sottoganci') info = SG.route(el, S, parti, query) || info;
+    else if (parti[0] === 'approfonditi') info = APR.route(el, S, parti, query) || info;
     else if (parti[0] === 'clienti') info = CLI.route(el, S, parti, query) || info;
     else if (parti[0] === 'impianti') info = IMP.route(el, S, parti, query) || info;
     else if (parti[0] === 'mezzi') info = MEZ.route(el, S, parti) || info;
