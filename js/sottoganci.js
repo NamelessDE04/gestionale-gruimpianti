@@ -20,6 +20,9 @@ window.SG = (function () {
   const dataBreve = (s) => { if (!s) return ''; const [y, m, d] = s.split('-'); return `${+d}/${+m}/${y.slice(2)}`; };
   const ordinaNum = (a, b) => a.numero.localeCompare(b.numero, 'it', { numeric: true, sensitivity: 'base' });
 
+  // testo su cui cercare: numero, componenti, portata, ubicazione, certificato
+  const testoSg = (s) => (s.numero + ' ' + s.parti.map((p) => p.denominazione + ' ' + p.dimensioni).join(' ') + ' ' + s.ubicazione + ' ' + s.portata + ' ' + s.certificato).toLowerCase();
+
   // ---------- dati ----------
   // Una "cartella" = una sede di un cliente dell'anagrafica.
   // Restituisce i dati presi DIRETTAMENTE dall'anagrafica: se cambi il nome lì, cambia anche qui e sulle stampe.
@@ -115,19 +118,18 @@ window.SG = (function () {
     const anno = annoScelto;
     const sl = slotGiri(S, cliId, anno);
     const prossimo = SLOT.find((s, i) => !sl[i]);
+    const tutti = elenco(S, cliId, anno);
     const t = (filtroTesto[cliId] || '').toLowerCase();
-    const items = elenco(S, cliId, anno).filter((s) => !t ||
-      (s.numero + ' ' + s.parti.map((p) => p.denominazione + ' ' + p.dimensioni).join(' ') + ' ' + s.ubicazione + ' ' + s.portata).toLowerCase().includes(t));
+    const items = tutti.filter((s) => !t || testoSg(s).includes(t));
     const st = statoCartella(S, cliId);
-
     const nAtt = S.sottoganci.filter((x) => x.sedeId === cliId && !x.dismesso).length;
     el.innerHTML = `
-      <section class="sg ctr">
-        <div class="card ctr-testa">
+      <section class="sg sg2">
+        <div class="card sg2-testa">
           <div class="grow">
-            <h1><a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)} <span class="loc">${esc(c.localita || '')}</span></a> ${UI.magnete(c.sede)}
-              ${UI.info('Le 4 caselle colorate sono i controlli dell\'anno (una per fascetta): tocca quella tratteggiata per iniziare il prossimo, oppure una già fatta per correggerla. Nel menu ⋯ trovi l\'elenco da stampare, l\'invio al cliente, l\'aggiunta di un sottogancio e il titolo dell\'elenco. Tocca una riga per modificare quel sottogancio.')}</h1>
-            <p class="muted small">${nAtt} sottoganci · <span class="pill st-${st.k}">${esc(st.label)}</span></p>
+            <h1><a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)}</a> ${UI.magnete(c.sede)}</h1>
+            <p class="muted small">${esc(c.localita || '')} · ${nAtt} sottoganci · <span class="pill st-${st.k}">${esc(st.label)}</span>
+              ${UI.info('Il pulsante grande avvia il prossimo controllo dell\'anno (una fascetta per controllo). Tocca una fascetta già fatta per correggerla. Tocca un sottogancio per modificarlo. Nel menu ⋯ trovi l\'elenco da stampare, l\'invio al cliente, l\'aggiunta di un sottogancio e il titolo dell\'elenco.')}</p>
           </div>
           <div class="anno anno-mini"><a href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
@@ -138,40 +140,29 @@ window.SG = (function () {
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` }
           ])}
         </div>
-
-        <div class="striscia">
-          ${SLOT.map((s, i) => { const ok = sl[i], pr = prossimo === s;
-            return `<a class="st-v st-sg ${ok ? 'fatto' : ''} ${pr ? 'prossimo' : ''} ${!ok && !pr ? 'vuoto' : ''}" style="--c:${s.col}"
-               href="${ok || pr ? `#/sottoganci/c/${cliId}/giro/${anno}/${s.n}` : 'javascript:void(0)'}">
-              <b>${s.n}° ${s.nome}</b><span>${ok ? '✓ ' + dataBreve(ok.data) : pr ? '▶ inizia' : '—'}</span></a>`; }).join('')}
+        <div class="sg2-fasce">
+          ${SLOT.map((s, i) => { const ok = sl[i];
+            return ok ? `<a class="fatta" style="--c:${s.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${s.n}">✓ ${s.nome} ${dataBreve(ok.data).replace(/\/\d+$/, '')}</a>`
+              : `<span style="--c:${s.col}">${s.nome}</span>`; }).join('')}
         </div>
-        ${prossimo ? `<a class="btn sg-inizia" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ Inizia il ${prossimo.n}° controllo · fascetta ${prossimo.nome}</a>` : ''}
-
-        <input type="search" id="fTesto" class="cerca" placeholder="Cerca numero, denominazione, ubicazione…" value="${esc(filtroTesto[cliId] || '')}">
-
-        <div class="tabella">
-          <div class="tr th">
-            <span>N°</span><span>Denominazione</span><span>Dimens.</span><span>Portata</span><span>Ubic.</span><span>N° certif.</span>
-            ${SLOT.map((s, i) => `<span class="th-slot" style="--c:${s.col}">${sl[i] ? dataBreve(sl[i].data) : s.nome}</span>`).join('')}
-            <span>Note</span>
-          </div>
-          ${items.length ? items.map((s) => {
-            const note = noteDi(S, s, anno);
-            return `
-            <a class="tr ${s.dismesso ? 'dismesso' : ''}" href="#/sottoganci/s/${s.id}">
-              <span class="num">${esc(s.numero)}</span>
-              <span class="multi">${s.parti.map((p) => `<i>${esc(p.denominazione)}</i>`).join('')}</span>
-              <span class="multi">${s.parti.map((p) => `<i>${esc(p.dimensioni) || '&nbsp;'}</i>`).join('')}</span>
-              <span>${esc(s.portata)}</span><span>${esc(s.ubicazione)}</span><span>${esc(s.certificato)}</span>
-              ${sl.map((g) => `<span class="multi cod">${s.parti.map((_, pi) => { const cod = g?.righe[s.id]?.codici[pi] || ''; return `<i><em class="${classeCod(cod)}">${esc(cod)}</em></i>`; }).join('')}</span>`).join('')}
-              <span class="multi note">${s.parti.map((_, pi) => `<i>${esc(note[pi] || '')}</i>`).join('')}</span>
-            </a>`; }).join('') : '<p class="nessuno">Nessun sottogancio. Aggiungi il primo con “+ Sottogancio”.</p>'}
+        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ Inizia controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}</small></a>`
+          : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
+        ${tutti.length > 15 ? `<input type="search" id="fTesto" class="cerca" placeholder="Cerca numero, denominazione, ubicazione…" value="${esc(filtroTesto[cliId] || '')}">` : ''}
+        <div class="sg2-tit">Sottoganci · giudizi ${anno}</div>
+        <div class="sg2-lista">
+          ${items.length ? items.map((s) => `
+            <a class="sg2-riga ${s.dismesso ? 'dismesso' : ''}" href="#/sottoganci/s/${s.id}">
+              <span class="n">${esc(s.numero)}</span>
+              <span class="d">${esc(s.parti[0].denominazione)}${s.parti.length > 1 ? ` <small class="muted">+ ${s.parti.length - 1} comp.</small>` : ''}
+                <small>${[s.parti[0].dimensioni, s.portata, s.ubicazione].filter(Boolean).map(esc).join(' · ')}</small></span>
+              <span class="es">${sl.map((g, i) => g?.righe[s.id] ? `<em class="${classeCod(g.righe[s.id].codici[0])}" style="--c:${SLOT[i].col}">${esc(g.righe[s.id].codici.filter(Boolean).join('/'))}</em>` : '').join('')}</span>
+            </a>`).join('') : `<p class="nessuno">${tutti.length ? 'Nessun sottogancio trovato.' : 'Nessun sottogancio. Aggiungi il primo dal menu ⋯ → «+ Nuovo sottogancio».'}</p>`}
         </div>
         <p class="legenda-app">${CODICI.map(([k, l]) => `<span><em class="${classeCod(k)}">${esc(k)}</em> ${l}</span>`).join('')}</p>
       </section>`;
 
     const ft = el.querySelector('#fTesto');
-    ft.oninput = () => {
+    if (ft) ft.oninput = () => {
       filtroTesto[cliId] = ft.value; const pos = ft.selectionStart;
       App.ridisegna(); const n = document.getElementById('fTesto'); n.focus(); n.setSelectionRange(pos, pos);
     };
@@ -319,6 +310,10 @@ window.SG = (function () {
   }
 
   // ---------- CONTROLLO TRIMESTRALE (giro) ----------
+  // Una riga per ogni componente: numero, descrizione e i giudizi. Dopo ogni giudizio si passa da soli al prossimo.
+  // Due modi: elenco (con ricerca, per i clienti con centinaia di accessori) oppure una scheda alla volta a tutto schermo.
+  const PRINCIPALI = ['B', 'D', 'DE', 'E'];
+  let modoGiro = 'elenco';
   function formGiro(el, S, cliId, anno, slotN) {
     const c = cliente(S, cliId);
     if (!c) { el.innerHTML = '<p class="nessuno">Cliente non trovato.</p>'; return { titolo: 'Controllo' }; }
@@ -339,110 +334,187 @@ window.SG = (function () {
         g.righe[s.id] = { codici: s.parti.map(() => ''), note: s.parti.map((_, i) => pr?.note?.[i] || '') };
       }
     });
-    const totale = () => items.reduce((n, s) => n + s.parti.length, 0);
-    const fatti = () => items.reduce((n, s) => n + g.righe[s.id].codici.filter(Boolean).length, 0);
+    // elenco "piatto": una voce per ogni componente
+    const voci = items.flatMap((s) => s.parti.map((p, pi) => ({ s, p, pi, key: s.id + ':' + pi })));
+    const fatti = () => voci.filter((v) => g.righe[v.s.id].codici[v.pi]).length;
+    const sub = (v) => [v.p.dimensioni, v.pi === 0 && v.s.portata, v.pi === 0 && v.s.ubicazione, v.s.parti.length > 1 && `componente ${v.pi + 1} di ${v.s.parti.length}`].filter(Boolean).map(esc).join(' · ');
+    const prima = (v) => precedente?.righe[v.s.id]?.codici[v.pi] || '';
+    const bottoni = (cls) => `<div class="${cls}">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}" title="${esc(CODICI.find((x) => x[0] === k)[1])}">${esc(k)}</button>`).join('')}
+        <button type="button" class="cod-btn altro" data-altro>altro ▾</button></div>
+      <div class="sg2-altri" hidden>${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>`;
 
     el.innerHTML = `
-      <form class="sg form" id="fGiro" novalidate>
+      <form class="sg form sg2-giro modo-${modoGiro}" id="fGiro" novalidate>
         ${esistente ? CONF.avvisoAltro(esistente, `Il ${slotN}° controllo ${anno} (fascetta ${slot.nome})`) : ''}
-        <div class="vis-testa sg-testa" style="--c:${slot.col}">
-          <div class="grow"><b>${slotN}° controllo ${anno} · fascetta ${slot.nome}</b>
-            <div class="vis-imp">${esc(c.nome)} ${esc(c.localita || '')} · ${precedente ? `prima: ${dataBreve(precedente.data)} (${SLOT[precedente.slot - 1].nome}${precedente.anno !== anno ? ' ' + precedente.anno : ''})` : 'primo controllo'}</div></div>
-          ${UI.menu([
-            { t: '✓ Righe mancanti = B (buono)', id: 'btnTutteB' },
-            esistente && !UT.solaLettura() && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' },
-            { t: '📂 Cartella del cliente', href: `#/sottoganci/c/${cliId}?anno=${anno}` }
-          ])}
-        </div>
-        <details class="card dati-vis">
-          <summary><span>📅 <b id="sDat">${fmt(g.data)}</b></span><span>👷 <b id="sTec">${esc(g.tecnico || UT.breve(UT.attuale()))}</b></span><span class="link">modifica</span></summary>
+        <details class="sg2-dati" style="--c:${slot.col}">
+          <summary><b>Fascetta ${slot.nome.toUpperCase()} ${anno}</b><span class="grow"></span><span>📅 <b id="sDat">${fmt(g.data).replace(/\/\d+$/, '')}</b> · 👷 <b id="sTec">${esc(g.tecnico || UT.breve(UT.attuale()))}</b> ✎</span></summary>
           <div class="due giro-dati"><label>Data<input type="date" name="data" value="${g.data}"></label></div>
           ${UT.campoTecnici((g.tecnici || []).map((t) => t.id), g.firmaDi)}
         </details>
-
-        <div class="giro-tools vis-tools">
-          ${precedente ? '<button type="button" class="btn ghost small" data-copia>↺ Copia precedente</button>' : ''}
-          <span class="grow"></span>
-          <span class="progress"><b id="nFatti">0</b>/${totale()}</span>
-          ${UI.info('Tocca la sigla dello stato per ogni riga (toccala di nuovo per toglierla). «Copia precedente» riporta gli stati del controllo prima: poi cambi solo quelli diversi. Le note sono già ricopiate dal controllo precedente. Nel menu ⋯ puoi segnare B su tutte le righe mancanti. Le righe lasciate vuote, al salvataggio, diventano NC.')}
+        <div class="sg2-barra">
+          <input type="search" id="gCerca" class="cerca" placeholder="🔍 Cerca n° o nome" autocomplete="off">
+          <button type="button" class="btn ghost small" id="btnModo">${modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco'}</button>
+          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Le righe lasciate vuote, al salvataggio, diventano NC.')}
         </div>
 
-        <div class="giro-lista">
-          ${items.map((s) => `
-            <div class="giro-item" data-id="${s.id}">
-              <div class="gi-head"><b class="num">${esc(s.numero)}</b>
-                <span>${esc(s.parti[0].denominazione)}${s.parti.length > 1 ? ` <small class="muted">+${s.parti.length - 1} comp.</small>` : ''}</span>
-                <span class="muted small">${esc(s.parti[0].dimensioni)} ${s.portata ? '· ' + esc(s.portata) : ''} ${s.ubicazione ? '· ' + esc(s.ubicazione) : ''}</span></div>
-              ${s.parti.map((p, pi) => {
-                const prima = precedente?.righe[s.id]?.codici[pi];
-                return `
-                <div class="gi-parte" data-p="${pi}">
-                  ${s.parti.length > 1 ? `<div class="gi-comp">${esc(p.denominazione)} <span class="muted">${esc(p.dimensioni)}</span></div>` : ''}
-                  <div class="gi-row">
-                    <div class="codici">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}" title="${l}">${esc(k)}</button>`).join('')}</div>
-                    ${prima ? `<span class="prima">prima: <em class="${classeCod(prima)}">${esc(prima)}</em></span>` : ''}
-                  </div>
-                  <input class="gi-nota" data-nota placeholder="Note" value="${esc(g.righe[s.id].note[pi] || '')}">
-                </div>`; }).join('')}
+        <div class="sg2-lista giro-lista">
+          ${voci.map((v) => `
+            <div class="sg2-gi gi-parte" data-k="${v.key}">
+              <div class="h"><b class="n ${v.pi ? 'comp' : ''}">${esc(v.s.numero)}</b>
+                <span class="d">${esc(v.p.denominazione)}<small>${sub(v)}${prima(v) ? ` · prima: <em class="${classeCod(prima(v))}">${esc(prima(v))}</em>` : ''}</small></span>
+                <button type="button" class="pen" data-pen aria-label="Note">✎</button></div>
+              ${bottoni('sg2-bt')}
+              <div class="notina" data-vedi></div>
+              <input class="gi-nota" data-nota placeholder="Note" value="${esc(g.righe[v.s.id].note[v.pi] || '')}" hidden>
             </div>`).join('')}
+          <p class="nessuno" id="gNessuno" hidden>Nessun sottogancio trovato.</p>
         </div>
 
-        <div class="card">
+        <div class="sg2-uno card" id="uno"></div>
+
+        <div class="card sg2-ng">
           <h2>Note generali (in fondo all'elenco)</h2>
           <textarea name="noteGenerali" rows="3" placeholder="Una riga per ogni nota (massimo 7 righe)">${esc(g.noteGenerali || '')}</textarea>
+          <div class="azioni-form">
+            <a class="link" href="#/sottoganci/c/${cliId}?anno=${anno}">📂 Cartella del cliente</a><span class="grow"></span>
+            ${esistente && !UT.solaLettura() ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}
+          </div>
         </div>
 
-
-        <div class="azioni-form sticky">
-          <a class="btn ghost" href="#/sottoganci/c/${cliId}?anno=${anno}">Annulla</a>
-          <span class="grow"></span>
-          <button class="btn big" type="submit">Salva controllo</button>
+        <div class="sg2-piede">
+          <b><span id="nFatti">0</span>/${voci.length}</b><div class="bar"><i id="gBar"></i></div>
+          <button class="btn big" type="submit">Salva</button>
         </div>
       </form>`;
 
     const f = el.querySelector('#fGiro');
-    const aggiorna = () => (el.querySelector('#nFatti').textContent = fatti());
-    const setCod = (sid, pi, cod) => {
-      g.righe[sid].codici[pi] = cod;
-      const box = el.querySelector(`.giro-item[data-id="${sid}"] .gi-parte[data-p="${pi}"]`);
-      box.querySelectorAll('.cod-btn').forEach((b) => b.classList.toggle('on', b.dataset.c === cod));
+    const riga = (k) => el.querySelector(`.sg2-gi[data-k="${CSS.escape(k)}"]`);
+    let corrente = 0;   // indice della voce "a cui sei arrivato" (anche per la scheda singola)
+    const aggiorna = () => {
+      const n = fatti(); el.querySelector('#nFatti').textContent = n;
+      el.querySelector('#gBar').style.width = (voci.length ? n / voci.length * 100 : 0) + '%';
+    };
+    const segnaBottoni = (box, cod) => {
+      box.querySelectorAll('.cod-btn[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c === cod));
+      const alt = box.querySelector('[data-altro]');
+      const extra = cod && !PRINCIPALI.includes(cod);
+      alt.classList.toggle('on', !!extra); alt.className = 'cod-btn altro ' + (extra ? 'on ' + classeCod(cod) : '');
+      alt.textContent = extra ? cod + ' ▾' : 'altro ▾';
+    };
+    const mostraNota = (box, testo) => { const vd = box.querySelector('[data-vedi]'); vd.textContent = testo ? '📝 ' + testo : ''; vd.hidden = !testo; };
+    const evidenzia = () => el.querySelectorAll('.sg2-gi').forEach((b, i) => b.classList.toggle('ora', i === corrente));
+    const setCod = (i, cod) => {
+      const v = voci[i]; g.righe[v.s.id].codici[v.pi] = cod;
+      const box = riga(v.key); segnaBottoni(box, cod);
       box.classList.remove('manca'); box.classList.toggle('fatto', !!cod);
+      box.querySelector('.sg2-altri').hidden = true;
       aggiorna();
     };
-    items.forEach((s) => s.parti.forEach((_, pi) => {
-      const box = el.querySelector(`.giro-item[data-id="${s.id}"] .gi-parte[data-p="${pi}"]`);
-      box.querySelectorAll('.cod-btn').forEach((b) => (b.onclick = () => setCod(s.id, pi, g.righe[s.id].codici[pi] === b.dataset.c ? '' : b.dataset.c)));
-      if (g.righe[s.id].codici[pi]) setCod(s.id, pi, g.righe[s.id].codici[pi]);
-    }));
-    aggiorna();
-    const copia = () => { let k = 0; items.forEach((s) => s.parti.forEach((_, pi) => {
-      const pr = precedente.righe[s.id]?.codici[pi];
-      if (pr && !g.righe[s.id].codici[pi]) { setCod(s.id, pi, pr); k++; }
-    })); UI.toast(k ? `Copiati ${k} esiti` : 'Niente da copiare', k ? 'ok' : ''); };
-    el.querySelector('[data-copia]')?.addEventListener('click', copia);
-    el.querySelector('#btnTutteB').onclick = () => items.forEach((s) => s.parti.forEach((_, pi) => { if (!g.righe[s.id].codici[pi]) setCod(s.id, pi, 'B'); }));
+    // il prossimo da fare (dopo i), tra quelli visibili con la ricerca
+    const visibile = (i) => !riga(voci[i].key).hidden;
+    const prossimo = (i) => { for (let j = i + 1; j < voci.length; j++) if (!g.righe[voci[j].s.id].codici[voci[j].pi] && visibile(j)) return j;
+      for (let j = 0; j <= i; j++) if (!g.righe[voci[j].s.id].codici[voci[j].pi] && visibile(j)) return j; return -1; };
 
-    // firma (se il controllo esisteva già, mostro la firma salvata)
+    // --- ricerca ---
+    const cerca = el.querySelector('#gCerca');
+    const filtra = () => {
+      const t = cerca.value.trim().toLowerCase(); let k = 0;
+      voci.forEach((v) => { const ok = !t || String(v.s.numero).toLowerCase() === t || testoSg(v.s).includes(t); riga(v.key).hidden = !ok; if (ok) k++; });
+      el.querySelector('#gNessuno').hidden = !!k;
+      if (modoGiro === 'uno') { const j = voci.findIndex((v, i) => visibile(i)); if (j >= 0) { corrente = j; disegnaUno(); } }
+    };
+    cerca.oninput = filtra;
+    cerca.onkeydown = (e) => { if (e.key === 'Enter') e.preventDefault(); };
+
+    const dopoGiudizio = (i) => {
+      if (cerca.value) {   // con la ricerca: la svuoto, pronta per il numero successivo
+        cerca.value = ''; filtra();
+        if (modoGiro === 'elenco') { const j = prossimo(i); corrente = j >= 0 ? j : i; evidenzia(); riga(voci[i].key).scrollIntoView({ block: 'center' }); cerca.focus(); return; }
+      }
+      const j = prossimo(i);
+      corrente = j >= 0 ? j : i; evidenzia();
+      if (modoGiro === 'uno') return disegnaUno();
+      if (j >= 0) riga(voci[j].key).scrollIntoView({ behavior: 'smooth', block: 'center' });
+    };
+
+    voci.forEach((v, i) => {
+      const box = riga(v.key);
+      box.querySelectorAll('.cod-btn[data-c]').forEach((b) => (b.onclick = () => {
+        const nuovo = g.righe[v.s.id].codici[v.pi] === b.dataset.c ? '' : b.dataset.c;
+        setCod(i, nuovo); if (nuovo) dopoGiudizio(i);
+      }));
+      box.querySelector('[data-altro]').onclick = () => { const a = box.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
+      const nota = box.querySelector('[data-nota]');
+      box.querySelector('[data-pen]').onclick = () => { nota.hidden = !nota.hidden; if (!nota.hidden) nota.focus(); };
+      nota.oninput = () => { g.righe[v.s.id].note[v.pi] = nota.value; mostraNota(box, nota.hidden ? nota.value : ''); };
+      nota.onblur = () => { if (nota.value.trim()) { nota.hidden = true; mostraNota(box, nota.value.trim()); } };
+      mostraNota(box, g.righe[v.s.id].note[v.pi]);
+      if (g.righe[v.s.id].codici[v.pi]) setCod(i, g.righe[v.s.id].codici[v.pi]); else segnaBottoni(box, '');
+    });
+    corrente = Math.max(0, prossimo(-1)); evidenzia(); aggiorna();
+
+    // --- una scheda alla volta ---
+    const uno = el.querySelector('#uno');
+    function disegnaUno() {
+      if (!voci.length) { uno.innerHTML = '<p class="nessuno">Nessun sottogancio.</p>'; return; }
+      const v = voci[corrente], cod = g.righe[v.s.id].codici[v.pi], nota = g.righe[v.s.id].note[v.pi] || '';
+      uno.innerHTML = `
+        <div class="u-pos">${corrente + 1} di ${voci.length}</div>
+        <div class="u-num">${esc(v.s.numero)}</div>
+        <div class="u-den">${esc(v.p.denominazione)}</div>
+        <div class="u-dim">${sub(v)}</div>
+        ${prima(v) ? `<div class="u-prima">l'ultima volta: <em class="${classeCod(prima(v))}">${esc(prima(v))}</em></div>` : ''}
+        ${nota ? `<div class="notina">📝 ${esc(nota)}</div>` : ''}
+        <span class="grow"></span>
+        <div class="u-bt">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('')}</div>
+        <div class="u-sotto"><button type="button" class="link" data-ualtro>${cod && !PRINCIPALI.includes(cod) ? '<b>' + esc(cod) + '</b> ▾' : 'altro giudizio ▾'}</button><button type="button" class="link" data-unota>✎ nota</button></div>
+        <div class="sg2-altri" hidden>${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>
+        <input class="gi-nota" data-unotain placeholder="Note" value="${esc(nota)}" hidden>
+        <div class="u-nav"><button type="button" class="link" data-uprec>‹ precedente</button><button type="button" class="link" data-usalta>salta ›</button></div>`;
+      const y = el.querySelector('.sg2-barra').getBoundingClientRect().top + window.scrollY - 70;
+      if (window.scrollY > y + 5) window.scrollTo({ top: Math.max(0, y) });
+      uno.querySelectorAll('.cod-btn[data-c]').forEach((b) => (b.onclick = () => {
+        const nuovo = cod === b.dataset.c ? '' : b.dataset.c; setCod(corrente, nuovo);
+        if (nuovo) dopoGiudizio(corrente); else disegnaUno();
+      }));
+      uno.querySelector('[data-ualtro]').onclick = () => { const a = uno.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
+      const ni = uno.querySelector('[data-unotain]');
+      uno.querySelector('[data-unota]').onclick = () => { ni.hidden = !ni.hidden; if (!ni.hidden) ni.focus(); };
+      ni.oninput = () => { g.righe[v.s.id].note[v.pi] = ni.value; const r = riga(v.key); r.querySelector('[data-nota]').value = ni.value; mostraNota(r, ni.value); };
+      const vai = (d) => { let j = corrente; do { j += d; } while (j >= 0 && j < voci.length && !visibile(j)); if (j >= 0 && j < voci.length) { corrente = j; evidenzia(); disegnaUno(); } };
+      uno.querySelector('[data-uprec]').onclick = () => vai(-1);
+      uno.querySelector('[data-usalta]').onclick = () => vai(1);
+    }
+    el.querySelector('#btnModo').onclick = (e) => {
+      modoGiro = modoGiro === 'elenco' ? 'uno' : 'elenco';
+      f.classList.toggle('modo-uno', modoGiro === 'uno'); f.classList.toggle('modo-elenco', modoGiro === 'elenco');
+      e.currentTarget.textContent = modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco';
+      if (modoGiro === 'uno') disegnaUno(); else riga(voci[corrente]?.key || '')?.scrollIntoView({ block: 'center' });
+    };
+    if (modoGiro === 'uno') disegnaUno();
+
+    // data e tecnici
     const leggiTecnici = UT.collegaTecnici(el, g.firmaDi);
-    const riassunto = () => { const t = leggiTecnici(); el.querySelector('#sDat').textContent = fmt(f.data.value); el.querySelector('#sTec').textContent = t.tecnico || '— scegli —'; };
-    el.querySelector('.dati-vis').addEventListener('change', riassunto); el.querySelector('.dati-vis').addEventListener('click', () => setTimeout(riassunto, 0));
+    const riassunto = () => { const t = leggiTecnici(); el.querySelector('#sDat').textContent = fmt(f.data.value).replace(/\/\d+$/, ''); el.querySelector('#sTec').textContent = t.tecnico || '— scegli —'; };
+    el.querySelector('.sg2-dati').addEventListener('change', riassunto); el.querySelector('.sg2-dati').addEventListener('click', () => setTimeout(riassunto, 0));
     if (!esistente) riassunto();
 
     f.onsubmit = async (e) => {
       e.preventDefault();
-      const mancanti = [];
-      items.forEach((s) => s.parti.forEach((_, pi) => { if (!g.righe[s.id].codici[pi]) mancanti.push(el.querySelector(`.giro-item[data-id="${s.id}"] .gi-parte[data-p="${pi}"]`)); }));
+      const mancanti = voci.map((v, i) => i).filter((i) => !g.righe[voci[i].s.id].codici[voci[i].pi]);
       if (mancanti.length) {
-        mancanti.forEach((b) => b.classList.add('manca'));
-        mancanti[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (!UI.conferma(`${mancanti.length} righe senza esito. Segnarle come NC (non controllate) e salvare?`)) return;
-        items.forEach((s) => s.parti.forEach((_, pi) => { if (!g.righe[s.id].codici[pi]) g.righe[s.id].codici[pi] = 'NC'; }));
+        if (cerca.value) { cerca.value = ''; filtra(); }
+        if (modoGiro === 'uno') el.querySelector('#btnModo').click();
+        mancanti.forEach((i) => riga(voci[i].key).classList.add('manca'));
+        riga(voci[mancanti[0]].key).scrollIntoView({ behavior: 'smooth', block: 'center' });
+        if (!UI.conferma(`${mancanti.length} righe senza giudizio. Segnarle come NC (non controllate) e salvare?`)) return;
+        mancanti.forEach((i) => (g.righe[voci[i].s.id].codici[voci[i].pi] = 'NC'));
       }
       const t = leggiTecnici();
-      if (!t.tecnici.length) { el.querySelector('.dati-vis').open = true; return UI.toast('Scegli almeno un tecnico', 'err'); }
+      if (!t.tecnici.length) { el.querySelector('.sg2-dati').open = true; window.scrollTo({ top: 0, behavior: 'smooth' }); return UI.toast('Scegli almeno un tecnico', 'err'); }
       const firma = t.firmaDi === g.firmaDi && g.firmaTecnico && esistente ? g.firmaTecnico : t.firma;
       if (!firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sull'elenco non comparirà. Salvare lo stesso?`)) return;
-      items.forEach((s) => el.querySelectorAll(`.giro-item[data-id="${s.id}"] [data-nota]`).forEach((n, pi) => (g.righe[s.id].note[pi] = n.value.trim())));
+      voci.forEach((v) => (g.righe[v.s.id].note[v.pi] = (g.righe[v.s.id].note[v.pi] || '').trim()));
       Object.assign(g, {
         data: f.data.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, noteGenerali: f.noteGenerali.value.trim(),
         firmaTecnico: firma
@@ -456,8 +528,9 @@ window.SG = (function () {
       if (!UI.conferma(`Eliminare il ${slotN}° controllo (${slot.nome}) del ${anno}?`)) return;
       await Backend.remove('giriSottoganci', g.id); location.hash = '#/sottoganci/c/' + cliId;
     });
-    return { titolo: `${slotN}° controllo · ${nomeCliente(c)}`, indietro: '#/sottoganci/c/' + cliId, live: false };
+    return { titolo: `${slotN}° controllo · ${nomeCliente(c)}`, indietro: '#/sottoganci/c/' + cliId + '?anno=' + anno, live: false };
   }
+
 
   function route(el, S, parti, query) {
     const [, a, b, cmd, x, y] = parti;
