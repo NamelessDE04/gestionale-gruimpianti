@@ -5,6 +5,16 @@ window.CLI = (function () {
   const { esc, uid, info } = UI;
 
   const nome = (c) => c.ragioneSociale || '';   // il nome breve ora c'è solo sede per sede (sigla)
+  // nome del cliente in una certa data (documenti vecchi): storico della sede (spostata da un altro cliente)
+  // e storico del cliente (cambi di ragione sociale). Ogni voce vale per i documenti datati PRIMA di «fino».
+  function nomeAl(c, data, s) {
+    const d = String(data || '').slice(0, 10); if (!c || !d) return c?.ragioneSociale || '';
+    const prima = (lista) => (lista || []).filter((x) => d < x.fino).sort((a, b) => a.fino.localeCompare(b.fino))[0];
+    const ps = prima(s?.clientiPrecedenti);
+    if (ps) { const vecchio = ps.clienteId && (App.dati?.().clienti || []).find((x) => x.id === ps.clienteId); return vecchio ? nomeAl(vecchio, d) : ps.nome; }
+    return (prima(c.nomiPrecedenti) || {}).nome || c.ragioneSociale || '';
+  }
+  const exNomi = (c) => (c.nomiPrecedenti || []).map((x) => x.nome);
   // N° ordine del contratto annuale di verifica periodica: uno per sede e per anno (sede.ordini = { 2026: 'ABR...' })
   const annoOggi = () => +UI.oggi().slice(0, 4);
   const ordineDi = (s, anno = annoOggi()) => (s?.ordini || {})[anno] || '';
@@ -35,7 +45,7 @@ window.CLI = (function () {
   function lista(el, S) {
     const t = cerca.trim().toLowerCase();
     const vis = [...S.clienti]
-      .filter((c) => !t || [c.ragioneSociale, c.piva, ...(c.sedi || []).flatMap((s) => [s.nome, s.citta, s.sigla]), ...(c.referenti || []).flatMap((r) => [r.nome, r.cognome])]
+      .filter((c) => !t || [c.ragioneSociale, ...exNomi(c), c.piva, ...(c.sedi || []).flatMap((s) => [s.nome, s.citta, s.sigla]), ...(c.referenti || []).flatMap((r) => [r.nome, r.cognome])]
         .join(' ').toLowerCase().includes(t))
       .sort((a, b) => nome(a).localeCompare(nome(b)));
     el.innerHTML = `
@@ -50,7 +60,7 @@ window.CLI = (function () {
             <a class="riga cli-riga" href="#/clienti/${c.id}">
               ${avatar(c)}
               <div class="riga-main">
-                <div class="riga-top"><b>${esc(nome(c))}</b></div>
+                <div class="riga-top"><b>${esc(nome(c))}</b>${exNomi(c).length ? ` <span class="muted small">ex ${esc(exNomi(c).join(', '))}</span>` : ''}</div>
                 <div class="chips-sedi">${(c.sedi || []).map((s) => `<span class="chip-sede">${etichettaSede(s)}</span>`).join('') || '<span class="muted small">Nessuna sede</span>'}</div>
               </div>
               <div class="riga-dx muted small">${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}<br>${(c.referenti || []).length} ${(c.referenti || []).length === 1 ? 'referente' : 'referenti'}</div>
@@ -74,6 +84,7 @@ window.CLI = (function () {
           ${avatar(c, true)}
           <div class="grow">
             <h1>${esc(c.ragioneSociale)}</h1>
+            ${(c.nomiPrecedenti || []).length ? `<p class="muted small">${c.nomiPrecedenti.map((x) => `ex <b>${esc(x.nome)}</b> fino al ${UI.fmt(UI.addGiorni(x.fino, -1))}`).join(' · ')}</p>` : ''}
           </div>
         </div>
 
@@ -94,7 +105,7 @@ window.CLI = (function () {
 
         <div class="card">
           <div class="card-head"><h2>Sedi <span class="conta">${(c.sedi || []).length}</span> ${info('Un cliente può avere più sedi (stabilimenti, cantieri). Impianti e sottoganci sono collegati alla sede. Tocca una sede per modificarla.')}</h2>
-            <button class="btn ghost small" id="btnSede">+ Aggiungi sede</button></div>
+            <div class="card-azioni"><button class="btn ghost small" id="btnSede">+ Aggiungi sede</button>${UT.isMaster() && (c.sedi || []).length ? UI.menu([{ t: '↪ Sposta una sede in un altro cliente', id: 'btnSposta' }]) : ''}</div></div>
           <div class="schede-mini">
             ${(c.sedi || []).map((s) => `
               <div class="mini" data-sede="${s.id}" role="button" tabindex="0">
@@ -124,6 +135,7 @@ window.CLI = (function () {
 
     el.querySelector('#btnDati').onclick = () => modaleDati(S, c);
     el.querySelector('#btnSede').onclick = () => modaleSede(S, c, null);
+    el.querySelector('#btnSposta')?.addEventListener('click', () => spostaSede(S, c));
     el.querySelector('#btnRef').onclick = () => modaleRef(c, null);
     el.querySelectorAll('[data-sede]').forEach((n) => (n.onclick = () => modaleSede(S, c, c.sedi.find((s) => s.id === n.dataset.sede))));
     el.querySelectorAll('[data-ref]').forEach((n) => (n.onclick = (e) => {
@@ -153,6 +165,11 @@ window.CLI = (function () {
       ],
       onSalva: async (v) => {
         const doc = nuovo ? { id: uid(), sedi: [], referenti: [], ...v } : { ...c, ...v };
+        // ragione sociale cambiata: se è un vero cambio di nome, i documenti di prima tengono il nome vecchio
+        if (!nuovo && c.ragioneSociale && v.ragioneSociale && v.ragioneSociale !== c.ragioneSociale
+          && UI.conferma(`Il cliente ha cambiato nome da «${c.ragioneSociale}» a «${v.ragioneSociale}»?\n\nOK = sì: rapportini, schede ed elenchi fatti fino a ieri continueranno a uscire con il nome vecchio.\nAnnulla = era solo una correzione (es. errore di battitura): vale per tutti i documenti.`)) {
+          doc.nomiPrecedenti = [...(c.nomiPrecedenti || []), { nome: c.ragioneSociale, fino: UI.oggi() }];
+        }
         await salva(doc);
         UI.toast(nuovo ? 'Cliente creato' : 'Dati salvati', 'ok');
         if (nuovo) location.hash = '#/clienti/' + doc.id;
@@ -244,6 +261,41 @@ window.CLI = (function () {
   function route(el, S, parti) {
     return parti[1] ? scheda(el, S, parti[1]) : lista(el, S);
   }
+  // ---------- SPOSTA UNA SEDE IN UN ALTRO CLIENTE (es. azienda acquisita da un'altra, P.IVA diversa) ----------
+  // La sede tiene il suo codice: impianti, controlli, sottoganci, layout, lavagna e rapportini restano attaccati.
+  // I documenti datati prima dello spostamento continuano a uscire con il nome del cliente vecchio.
+  function spostaSede(S, c) {
+    const altri = S.clienti.filter((x) => x.id !== c.id).sort((a, b) => nome(a).localeCompare(nome(b)));
+    if (!altri.length) return UI.toast('Prima crea il cliente di destinazione', 'err');
+    const etS = (s) => `${s.sigla ? s.sigla + ' – ' : ''}${s.nome || s.citta || 'Sede'}`;
+    UI.modal({
+      titolo: 'Sposta una sede',
+      infoTxt: 'Usalo quando un\'altra azienda (con un\'altra P.IVA) subentra in una sede. Impianti, controlli, sottoganci, layout e rapportini si spostano con la sede. I documenti fatti fino a ieri continueranno a uscire con il nome del cliente di prima.',
+      valori: {},
+      campi: [
+        { k: 'sede', label: 'Sede da spostare', tipo: 'select', opzioni: c.sedi.map(etS), req: true },
+        { k: 'dest', label: 'Nuovo cliente', tipo: 'select', opzioni: altri.map((x) => nome(x)), req: true }
+      ],
+      testoSalva: 'Sposta',
+      onSalva: async (v) => {
+        const s = c.sedi.find((x) => etS(x) === v.sede), dest = altri.find((x) => nome(x) === v.dest);
+        if (!s || !dest) { UI.toast('Scegli sede e cliente', 'err'); return false; }
+        if (!UI.conferma(`Spostare «${etS(s)}» da ${nome(c)} a ${nome(dest)}?`)) return false;
+        const sd = JSON.parse(JSON.stringify(s));
+        sd.clientiPrecedenti = [...(sd.clientiPrecedenti || []), { nome: nome(c), clienteId: c.id, fino: UI.oggi() }];
+        const nuovoDest = JSON.parse(JSON.stringify(dest)); nuovoDest.sedi = [...(nuovoDest.sedi || []), sd];
+        const vecchio = JSON.parse(JSON.stringify(c)); vecchio.sedi = vecchio.sedi.filter((x) => x.id !== s.id);
+        await salva(nuovoDest); await salva(vecchio);
+        // tutto ciò che era della sede passa al nuovo cliente
+        for (const col of ['impianti', 'schedeControllo', 'sottoganci', 'giriSottoganci', 'rapportini', 'layouts', 'collaudi']) {
+          for (const d of (S[col] || []).filter((x) => x.sedeId === s.id && x.clienteId !== dest.id)) await UI.salva(col, { ...d, clienteId: dest.id });
+        }
+        UT.registra('modifica', `Sede ${etS(s)} spostata da ${nome(c)} a ${nome(dest)}`);
+        UI.toast('Sede spostata', 'ok'); location.hash = '#/clienti/' + dest.id;
+      }
+    });
+  }
+
   // pagina «N° d'ordine da aggiornare» (Master e Risorse Umane): si scrive il nuovo numero oppure si rimanda l'avviso
   function paginaOrdini(el, S) {
     const lista = ordiniDaAggiornare(S), anno = annoOggi();
@@ -276,5 +328,5 @@ window.CLI = (function () {
     return { titolo: 'N° d\'ordine da aggiornare', indietro: '#/', live: true };
   }
 
-  return { route, nome, indirizzo, avatar, ordineDi, ordiniDaAggiornare, paginaOrdini };
+  return { route, nome, nomeAl, indirizzo, avatar, ordineDi, ordiniDaAggiornare, paginaOrdini };
 })();

@@ -362,7 +362,7 @@ window.IMPS = (function () {
             <h1>Scheda impianto</h1>
             <p>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}${i.matricola ? ' · Matr. ' + esc(i.matricola) : ''}</p>
           </div>
-          <div class="r-cli"><b>${esc(c ? c.ragioneSociale : '')}</b><span>${esc(IMP.nomeSede(s))}</span>
+          <div class="r-cli"><b>${esc(c ? CLI.nomeAl(c, UI.oggi(), s) : '')}</b><span>${esc(IMP.nomeSede(s))}</span>
             <span>${esc(s ? CLI.indirizzo(s) : '')}</span><small>Stampato il ${fmt(oggi())}</small></div>
         </header>
 

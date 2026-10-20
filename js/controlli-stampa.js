@@ -18,6 +18,8 @@ window.CTRS = (function () {
   function pagina(S, imp, anno) {
     const { c, s } = CTR.trovaSede(S, imp.sedeId);
     const sc = CTR.schedaDi(S, imp.id, anno);
+    // data della scheda: l'ultimo controllo dell'anno (serve per il nome che il cliente aveva allora)
+    const dataDoc = Object.values(sc?.visite || {}).map((v) => v.dataScheda).filter(Boolean).sort().pop() || `${anno}-12-31`;
     const voci = sc ? sc.voci : [];
     const par = imp.paranchi?.length ? imp.paranchi : [{}];
     const np = par.length;
@@ -41,7 +43,7 @@ window.CTRS = (function () {
     const L = (x, y, l, vx, v, fino) => T(x, y, `<b>${l}</b>`) + T(vx, y, val(v), fino ? 'cs-fit' : '', fino ? fino - vx - 0.8 : 0);
     // ubicazione: solo via con numero civico e città; il testo si rimpicciolisce per stare nella casella
     const ubic = s ? [s.indirizzo, s.citta].map((x) => (x || '').trim()).filter(Boolean).join(' - ') : '';
-    h += L(5.9, 28.5, 'CLIENTE', 17.3, c?.ragioneSociale, 82.38) + T(83.4, 28.5, '<b>UBICAZIONE</b>') + T(99.6, 28.5, `<span class="cs-adatta" data-adatta="0.4" data-righe="2">${val(ubic)}</span>`, 'cs-ubic', 65.6) + L(167.0, 28.5, 'N°INT.', 188.6, imp.numeroInterno, 204.89);
+    h += L(5.9, 28.5, 'CLIENTE', 17.3, CLI.nomeAl(c, dataDoc, s), 82.38) + T(83.4, 28.5, '<b>UBICAZIONE</b>') + T(99.6, 28.5, `<span class="cs-adatta" data-adatta="0.4" data-righe="2">${val(ubic)}</span>`, 'cs-ubic', 65.6) + L(167.0, 28.5, 'N°INT.', 188.6, imp.numeroInterno, 204.89);
     h += L(5.9, 33.7, 'CASA', 17.3, imp.marca, 82.38) + L(83.3, 33.7, 'N°FABBRICA', 99.7, imp.numeroSerie, 165.86);
     h += L(5.9, 39.2, 'ANNO COSTRUZIONE', 32.6, imp.annoCostruzione, 82.38) + L(83.3, 39.2, 'TIPO', 99.7, (imp.tipologia || '').toUpperCase(), 165.86)
       + L(167.0, 39.5, 'PORTATA', 190.5, par.map((p) => kgT(p.portata)).filter(Boolean).join(' + '), 204.89);

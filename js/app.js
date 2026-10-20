@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.34.0';
+  const VERSIONE = '0.35.0';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -124,7 +124,7 @@ window.App = (function () {
   }
 
   document.addEventListener('DOMContentLoaded', avvio);
-  const api = { ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE };
+  const api = { ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
   Object.defineProperty(api, 'tecnici', { get: () => UT.nomi() });
   return api;
 })();

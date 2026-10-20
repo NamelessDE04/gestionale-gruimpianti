@@ -483,7 +483,7 @@ window.RAP = (function () {
               <img src="img/logo-grande.png" alt="Gru Impianti" class="rap-logo">
               <div class="rap-spett">
                 <span>Spett.le</span>
-                <b>${esc(c?.ragioneSociale || '')}</b>
+                <b>${esc(CLI.nomeAl(c, primaData(r), s))}</b>
                 ${s && (c?.sedi || []).length > 1 ? `<span>${esc(s.nome || '')}</span>` : ''}
                 ${indirizzo.map((x) => `<span>${esc(x)}</span>`).join('')}
                 ${c?.piva ? `<span>P.IVA ${esc(c.piva)}</span>` : ''}
