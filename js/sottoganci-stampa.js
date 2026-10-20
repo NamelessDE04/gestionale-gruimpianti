@@ -101,7 +101,7 @@ window.SGStampa = (function () {
           <div class="p-box"></div><div class="p-box-fondo"></div><div class="p-box-tick"></div>
           <img class="p-logo30" src="img/logo-30.png" alt="" onerror="this.remove()">
           <div class="p-titolo" data-adatta="0.4">${esc(c.titoloElenco || 'ELENCO SOTTOGANCI')}&nbsp; ${anno}</div>
-          <div class="p-cliente" data-adatta="0.4">${esc(CLI.nomeAl(c.anagrafica, ultimo?.data || `${anno}-12-31`, c.sede))}</div>
+          <div class="p-cliente" data-adatta="0.4" data-righe="2">${esc(CLI.nomeAl(c.anagrafica, ultimo?.data || `${anno}-12-31`, c.sede))}</div>
           <div class="p-loc" data-adatta="0.4">${esc(c.localita || '')}</div>
           <div class="p-colfasc">colore fascette</div>
           ${SG.SLOT.map((s, i) => `<div class="p-nomefasc" style="left:${(SX + 124.8 + i * 14.3).toFixed(2)}mm">${s.nome}</div>`).join('')}

@@ -1086,3 +1086,6 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .ord-azioni { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ord-in { width: 170px; margin: 0 !important; text-transform: uppercase; }
 .imp-ris p { margin: 8px 0; } .imp-lista { max-height: 50vh; overflow: auto; display: flex; flex-direction: column; gap: 6px; padding: 8px 0; border-top: 1px solid var(--linea); border-bottom: 1px solid var(--linea); }
+/* nome cliente dell'elenco sottoganci: sta in 2 righe se è lungo (ragione sociale completa) */
+.p-cliente { height: 6.2mm; }
+.p-cliente.due-righe { white-space: normal; line-height: 1.05; display: flex; align-items: center; justify-content: center; overflow-wrap: anywhere; }
