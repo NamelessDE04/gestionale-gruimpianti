@@ -1171,6 +1171,12 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .u-den { font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
 .u-dim { color: var(--muted); font-size: 15px; margin-top: 4px; }
 .u-prima { margin-top: 10px; font-size: 14px; color: var(--muted); }
+.u-storia { margin-top: 12px; text-align: center; }
+.u-storia small { display: block; color: var(--muted); font-size: 12px; margin-bottom: 6px; }
+.u-storia > div { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.u-st { display: flex; flex-direction: column; align-items: center; min-width: 74px; border: 1px solid #dde2e8; border-top: 6px solid var(--c); border-radius: 8px; padding: 4px 6px 6px; background: #fff; }
+.u-st i { font-style: normal; font-size: 12px; color: var(--muted); }
+.u-st em { font-style: normal; font-weight: 800; font-size: 18px; padding: 1px 10px; border-radius: 6px; background: #eef1f5; margin-top: 2px; }
 .u-prima em { font-style: normal; font-weight: 800; padding: 2px 7px; border-radius: 6px; background: #eef1f5; }
 .sg2-uno .notina { margin: 8px 0 0; }
 .sg2-uno .grow { flex: 1; min-height: 20px; }

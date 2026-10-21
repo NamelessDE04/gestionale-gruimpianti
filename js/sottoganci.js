@@ -362,6 +362,11 @@ window.SG = (function () {
     const fatti = () => voci.filter((v) => g.righe[v.s.id].codici[v.pi]).length;
     const sub = (v) => [v.p.dimensioni, v.pi === 0 && v.s.portata, v.pi === 0 && v.s.ubicazione, v.s.parti.length > 1 && `componente ${v.pi + 1} di ${v.s.parti.length}`].filter(Boolean).map(esc).join(' · ');
     const prima = (v) => precedente?.righe[v.s.id]?.codici[v.pi] || '';
+    // ultimi controlli fatti prima di questo (al massimo 3), per la vista "una alla volta"
+    const giriPrima = giriDi(S, cliId).filter((x) => x.id !== g.id && (x.anno < anno || (x.anno === anno && x.slot < slotN)))
+      .sort((a, b) => (a.anno - b.anno) || (a.slot - b.slot));
+    const storicoVoce = (v) => giriPrima.filter((x) => x.righe[v.s.id]).slice(-3)
+      .map((x) => ({ col: SLOT[x.slot - 1].col, data: dataBreve(x.data), cod: x.righe[v.s.id].codici[v.pi] || '' }));
     const bottoni = (cls) => `<div class="${cls}">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}" title="${esc(CODICI.find((x) => x[0] === k)[1])}">${esc(k)}</button>`).join('')}
         <button type="button" class="cod-btn altro" data-altro>altro ▾</button></div>
       <div class="sg2-altri" hidden>${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>`;
@@ -486,7 +491,7 @@ window.SG = (function () {
         <div class="u-num">${esc(v.s.numero)}</div>
         <div class="u-den">${esc(v.p.denominazione)}</div>
         <div class="u-dim">${sub(v)}</div>
-        ${prima(v) ? `<div class="u-prima">l'ultima volta: <em class="${classeCod(prima(v))}">${esc(prima(v))}</em></div>` : ''}
+        ${(() => { const st = storicoVoce(v); return st.length ? `<div class="u-storia"><small>controlli precedenti</small><div>${st.map((x) => `<span class="u-st" style="--c:${x.col}"><i>${esc(x.data)}</i><em class="${classeCod(x.cod)}">${esc(x.cod || '—')}</em></span>`).join('')}</div></div>` : '<div class="u-prima">nessun controllo precedente</div>'; })()}
         ${nota ? `<div class="notina">📝 ${esc(nota)}</div>` : ''}
         <span class="grow"></span>
         <div class="u-bt">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('')}</div>
