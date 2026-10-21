@@ -24,8 +24,18 @@ window.SG = (function () {
   // ricerca: se scrivi solo un numero (es. 78, 078, 70a) trova SOLO quel sottogancio; altrimenti cerca nel testo
   const normNum = (x) => String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+(?=\d)/, '');
   const pareNumero = (t) => /^\s*\d+\s*[a-z]?\s*$/i.test(t);
-  const trovaSg = (s, t) => !t || (pareNumero(t) ? normNum(s.numero) === normNum(t) : testoSg(s).includes(t));
-  const testoSg = (s) => (s.numero + ' ' + s.parti.map((p) => p.denominazione + ' ' + p.dimensioni).join(' ') + ' ' + s.ubicazione + ' ' + s.portata + ' ' + s.certificato).toLowerCase();
+  // nel controllo in corso: n° o testo, senza certificati
+  const trovaSg = (s, t) => !t || (pareNumero(t) ? normNum(s.numero) === normNum(t) : testoSg(s, false).includes(t));
+  // nella cartella: anche il n° di certificato (se il numero non è un n° progressivo, lo cerca nei certificati)
+  const trovaInCartella = (lista, t) => {
+    if (!t) return lista;
+    if (pareNumero(t)) {
+      const perNumero = lista.filter((s) => normNum(s.numero) === normNum(t));
+      return perNumero.length ? perNumero : lista.filter((s) => normNum(s.certificato).includes(normNum(t)));
+    }
+    return lista.filter((s) => testoSg(s, true).includes(t) || (normNum(t) && normNum(s.certificato).includes(normNum(t))));
+  };
+  const testoSg = (s, conCert) => (s.numero + ' ' + s.parti.map((p) => p.denominazione + ' ' + p.dimensioni).join(' ') + ' ' + s.ubicazione + ' ' + s.portata + (conCert ? ' ' + s.certificato : '')).toLowerCase();
 
   // ---------- dati ----------
   // Una "cartella" = una sede di un cliente dell'anagrafica.
@@ -132,7 +142,7 @@ window.SG = (function () {
     const inCorso = prossimo && aperto(sl[prossimo.n - 1]) ? sl[prossimo.n - 1] : null;
     const tutti = elenco(S, cliId, anno);
     const t = (filtroTesto[cliId] || '').toLowerCase();
-    const items = tutti.filter((s) => trovaSg(s, t));
+    const items = trovaInCartella(tutti, t);
     const st = statoCartella(S, cliId);
     const nAtt = S.sottoganci.filter((x) => x.sedeId === cliId && !x.dismesso).length;
     el.innerHTML = `
@@ -160,14 +170,14 @@ window.SG = (function () {
         ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ ${inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${inCorso ? ` · ${Object.values(inCorso.righe).reduce((n, r) => n + r.codici.filter(Boolean).length, 0)} giudizi già dati` : ''}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
         ${!UT.solaLettura() ? `<a class="btn ghost sg2-nuovo" href="#/sottoganci/c/${cliId}/nuovo">＋ Aggiungi sottogancio</a>` : ''}
-        ${tutti.length > 15 ? `<input type="search" id="fTesto" class="cerca" placeholder="Cerca numero, denominazione, ubicazione…" value="${esc(filtroTesto[cliId] || '')}">` : ''}
+        ${tutti.length > 5 ? `<input type="search" id="fTesto" class="cerca" placeholder="🔍 Cerca n°, nome o n° certificato" value="${esc(filtroTesto[cliId] || '')}">` : ''}
         <div class="sg2-tit">Sottoganci · giudizi ${anno}</div>
         <div class="sg2-lista">
           ${items.length ? items.map((s) => `
             <a class="sg2-riga ${s.dismesso ? 'dismesso' : ''}" href="#/sottoganci/s/${s.id}">
               <span class="n">${esc(s.numero)}</span>
               <span class="d">${esc(s.parti[0].denominazione)}${s.parti.length > 1 ? ` <small class="muted">+ ${s.parti.length - 1} comp.</small>` : ''}
-                <small>${[s.parti[0].dimensioni, s.portata, s.ubicazione].filter(Boolean).map(esc).join(' · ')}</small></span>
+                <small>${[s.parti[0].dimensioni, s.portata, s.ubicazione, t && s.certificato && 'cert. ' + s.certificato].filter(Boolean).map(esc).join(' · ')}</small></span>
               <span class="es">${sl.map((g, i) => g?.righe[s.id] ? `<em class="${classeCod(g.righe[s.id].codici[0])}" style="--c:${SLOT[i].col}">${esc(g.righe[s.id].codici.filter(Boolean).join('/'))}</em>` : '').join('')}</span>
             </a>`).join('') : `<p class="nessuno">${tutti.length ? 'Nessun sottogancio trovato.' : 'Nessun sottogancio. Aggiungi il primo con «＋ Aggiungi sottogancio».'}</p>`}
         </div>
