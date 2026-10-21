@@ -15,6 +15,9 @@ window.IMP = (function () {
   const portate = (i) => (i.paranchi || []).map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—';
   const ordina = (a, b) => (a.numeroInterno || '~').localeCompare(b.numeroInterno || '~', 'it', { numeric: true }) || (a.matricola || '').localeCompare(b.matricola || '');
   const cliente = (S, id) => S.clienti.find((c) => c.id === id);
+  // stato: in servizio · fuori servizio provvisorio (si controlla ancora) · fuori servizio definitivo (dismesso: grigio, non si controlla più)
+  const statoImp = (i) => (i.dismesso || i.stato === 'fsd' ? 'fsd' : i.stato === 'fsp' ? 'fsp' : '');
+  const pillStato = (i) => ({ fsd: ' · <span class="pill pill-fsd">⛔ fuori servizio definitivo</span>', fsp: ' · <span class="pill pill-fsp">⏸ fuori servizio provvisorio</span>' })[statoImp(i)] || '';
   const sede = (c, id) => (c?.sedi || []).find((s) => s.id === id);
   const nomeSede = (s) => (s ? (s.sigla ? s.sigla + ' · ' : '') + (s.nome || s.citta) : '(sede tolta)');
   const titoloImp = (i) => [i.tipologia, i.marca].filter(Boolean).join(' ') || 'Impianto';
@@ -60,7 +63,8 @@ window.IMP = (function () {
     const c = cliente(S, cliId);
     if (!c) { el.innerHTML = '<p class="nessuno">Cliente non trovato.</p>'; return { titolo: 'Impianti', indietro: '#/impianti' }; }
     const imp = S.impianti.filter((i) => i.clienteId === cliId);
-    const gruppi = (c.sedi || []).map((s) => ({ s, lista: imp.filter((i) => i.sedeId === s.id).sort(ordina) }));
+    const ordSt = (a, b) => ((statoImp(a) === 'fsd') - (statoImp(b) === 'fsd')) || ordina(a, b);
+    const gruppi = (c.sedi || []).map((s) => ({ s, lista: imp.filter((i) => i.sedeId === s.id).sort(ordSt) }));
     const orfani = imp.filter((i) => !sede(c, i.sedeId));
     if (orfani.length) gruppi.push({ s: null, lista: orfani });
     el.innerHTML = `
@@ -75,11 +79,11 @@ window.IMP = (function () {
           <h2 class="sez">${g.s ? UI.magnete(g.s) + ' ' + esc(g.s.nome || g.s.citta) : 'Senza sede'} <span class="conta">${g.lista.length}</span></h2>
           <div class="elenco">
             ${g.lista.map((i) => `
-              <a class="riga imp-riga" href="#/impianti/i/${i.id}">
+              <a class="riga imp-riga ${statoImp(i) === 'fsd' ? 'dismesso' : ''}" href="#/impianti/i/${i.id}">
                 <span class="imp-ico">${icona(i.tipologia)}</span>
                 <div class="riga-main">
                   <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}<b>${esc(titoloImp(i))}</b></div>
-                  <div class="muted small">${[i.matricola && 'Matr. ' + esc(i.matricola), i.annoCostruzione && 'Anno ' + esc(i.annoCostruzione)].filter(Boolean).join(' · ')}</div>
+                  <div class="muted small">${[i.matricola && 'Matr. ' + esc(i.matricola), i.annoCostruzione && 'Anno ' + esc(i.annoCostruzione)].filter(Boolean).join(' · ')}${pillStato(i)}</div>
                 </div>
                 <div class="riga-dx"><b class="portata">${portate(i)}</b></div>
               </a>`).join('') || `<p class="muted vuoto-sede">Nessun impianto in questa sede. ${g.s ? `<a class="link" href="#/impianti/nuovo?cliente=${c.id}&sede=${g.s.id}">Aggiungi</a>` : ''}</p>`}
@@ -132,6 +136,14 @@ window.IMP = (function () {
         <div class="due">
           <label>Scartamento (luce) <span class="unita">(mm)</span><input name="scartamento" type="number" inputmode="numeric" value="${esc(i.scartamento || '')}" placeholder="distanza tra le vie di corsa"></label>
           <span></span>
+        </div>
+        <h2 class="sez-form">Stato ${info('Fuori servizio PROVVISORIO: l\'impianto resta nei controlli (nel controllo si segna con il tasto «⛔ fuori servizio provvisorio»). Fuori servizio DEFINITIVO: diventa grigio, non compare più tra gli impianti da controllare né nel layout; le schede degli anni passati restano.')}</h2>
+        <div class="due">
+          <label>Stato dell'impianto<select name="stato">
+            <option value="" ${statoImp(i) === '' ? 'selected' : ''}>In servizio</option>
+            <option value="fsp" ${statoImp(i) === 'fsp' ? 'selected' : ''}>Fuori servizio provvisorio</option>
+            <option value="fsd" ${statoImp(i) === 'fsd' ? 'selected' : ''}>Fuori servizio definitivo</option></select></label>
+          <label>Dal<input type="date" name="fsDal" value="${esc(i.fsDal || '')}"></label>
         </div>
         <p class="muted small">Sollevamento, carrello, ponte, impianto elettrico e documenti si compilano dalle tab della scheda, dopo il salvataggio.</p>
 
@@ -201,8 +213,10 @@ window.IMP = (function () {
         paranchi: i.paranchi.map((p, n) => ({ ...p, ruolo: RUOLI[n] || 'Paranco ' + (n + 1), portata: p.portata ? +p.portata : '' })),
         scartamento: f.scartamento.value,
         matricola: f.matricola.value.trim(), numeroSerie: f.numeroSerie.value.trim(), numeroInterno: f.numeroInterno.value.trim(),
-        annoCostruzione: f.annoCostruzione.value
+        annoCostruzione: f.annoCostruzione.value,
+        stato: f.stato.value, dismesso: f.stato.value === 'fsd', fsDal: f.stato.value ? (f.fsDal.value || (statoImp(orig || {}) === f.stato.value ? i.fsDal : '') || UI.oggi()) : ''
       });
+      if (f.stato.value === 'fsd' && statoImp(orig || {}) !== 'fsd' && !UI.conferma('Mettere l\'impianto FUORI SERVIZIO DEFINITIVO?\n\nDiventa grigio e non compare più tra gli impianti da controllare né nel layout. Le schede degli anni passati restano.')) return;
       const giaSalvato = !!orig;
       const dop = S.impianti.find((x) => x.id !== i.id && x.matricola && i.matricola && x.matricola.toLowerCase() === i.matricola.toLowerCase());
       if (dop && !UI.conferma(`C'è già un impianto con matricola ${i.matricola}. Salvare comunque?`)) return;
@@ -226,5 +240,5 @@ window.IMP = (function () {
     if (a === 'i') return IMPS.render(el, S, b, query);
     return clienti(el, S);
   }
-  return { route, TIPOLOGIE_BASE, icona, titolo: titoloImp, nomeSede };
+  return { route, TIPOLOGIE_BASE, icona, titolo: titoloImp, nomeSede, statoImp, pillStato };
 })();

@@ -125,7 +125,7 @@ window.CTRS = (function () {
     // ----- osservazioni e legenda -----
     const yo = fine + 3.23;
     h += T(6.7, yo, '<b>OSSERVAZIONI</b>');
-    h += T(70.9, yo, '<b>LEGENDA&nbsp;:&nbsp; X=esame visivo funzionale&nbsp; -&nbsp; R=ripristinato&nbsp; -&nbsp; P=pulito&nbsp; -&nbsp; L=lubrificato&nbsp; -&nbsp; S=sostituito</b>');
+    h += T(70.9, yo, '<b>LEGENDA&nbsp;:&nbsp; X=esame visivo funzionale&nbsp; -&nbsp; R=ripristinato&nbsp; -&nbsp; P=pulito&nbsp; -&nbsp; L=lubrificato&nbsp; -&nbsp; S=sostituito&nbsp; -&nbsp; FS=fuori servizio</b>');
     const oss = (sc?.osservazioni || []).map((o) => `${o.lettera}=${o.testo}${o.risoltaIl ? ' - SISTEMATO IL ' + fmt(o.risoltaIl) : ''}`.toUpperCase());
     const yb = yo + 4.4, hb = Math.max(oss.length, 5) * 3.45 + 0.8;
     h += box(X0, yb, X1 - X0, hb, 'cs-grigio');

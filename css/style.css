@@ -1353,3 +1353,8 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .lay-filtri { display: flex; flex-wrap: wrap; gap: 6px; }
 .lay-scala { display: flex; align-items: center; gap: 6px; margin-left: auto; }
 .lay-scala b { min-width: 44px; text-align: center; font-size: 14px; }
+.pill-fsd { background: #e3e6ea; color: #555; }
+.pill-fsp { background: #fff1d6; color: #9a5b00; }
+.imp-riga.dismesso { opacity: .55; filter: grayscale(1); }
+.vis-fs { display: flex; flex-direction: column; gap: 6px; }
+.vm.vm-vuoto { display: inline-flex; align-items: center; justify-content: center; color: #9aa5b1; }
