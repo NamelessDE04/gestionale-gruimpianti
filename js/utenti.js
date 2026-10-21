@@ -53,6 +53,7 @@ window.UT = (function () {
   const sigla = (u) => (u?.nomeBreve || u?.nome || '');   // sigla (es. VL): solo nei rapportini di intervento
   const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
   const pinValido = (p) => /^\d{4,6}$/.test(p);
+  const pinDevValido = (p) => /^\d{4,10}$/.test(p);   // il PIN Developer può essere più lungo (fino a 10 cifre)
   async function pinGiaUsato(pin, trannId) {
     for (const u of S.utenti) {
       if (u.id !== trannId && u.pinHash && (await hash(u.pinSalt, pin)) === u.pinHash) return true;
@@ -170,7 +171,15 @@ window.UT = (function () {
       for (const u of attivi()) { const d = u.accessoDev; if (d?.pinHash && (d.pinLen || 4) === pin.length && (await hash(d.pinSalt, pin)) === d.pinHash) return entra(u, 'PIN Developer', true); }
       if (forza || pin.length >= max) errore();
     };
-    el.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => { if (pin.length < 6) { pin += b.dataset.n; punti(); if (lunghezze.includes(pin.length)) prova(false); } }));
+    // se c'è un PIN Developer più lungo, il PIN corto si prova dopo una piccola pausa (così si può continuare a scrivere)
+    const lungo = Math.max(...attivi().map((u) => u.accessoDev?.pinLen || 0), 0);
+    let attesa = null;
+    el.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => {
+      if (pin.length >= Math.max(6, lungo)) return;
+      pin += b.dataset.n; punti(); clearTimeout(attesa);
+      if (!lunghezze.includes(pin.length)) return;
+      if (pin.length < lungo) attesa = setTimeout(() => prova(false), 1300); else prova(false);
+    }));
     el.querySelector('[data-canc]').onclick = () => { pin = pin.slice(0, -1); punti(); };
     el.querySelector('[data-ok]').onclick = () => pin && prova(true);
     // anche con la tastiera del PC
@@ -304,8 +313,8 @@ window.UT = (function () {
           <h2>🔒 Accesso Developer separato ${info('Il tuo utente per tutti (e per il Master) resta di un livello normale, per esempio Tecnico, e si entra col PIN di sempre. Con un secondo PIN, diverso, entri come Developer: lo vedi solo tu e vale finché non esci.')}</h2>
           ${u.accessoDev?.pinHash ? `<p>Attivo: col PIN normale entri come <b>${esc(RUOLI[ruoloDi(u)])}</b>, col PIN Developer come <b>Developer</b>.</p>` : `<p class="muted">Ora il tuo utente è Developer per tutti. Puoi farlo diventare <b>Tecnico</b> (come lo vedrà il Master) e tenere il Developer con un secondo PIN.</p>`}
           <form id="fDev" class="form" novalidate>
-            <div class="due"><label>${u.accessoDev?.pinHash ? 'Nuovo PIN Developer' : 'PIN Developer'}<input name="p1" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
-              <label>Ripeti PIN Developer<input name="p2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label></div>
+            <div class="due"><label>${u.accessoDev?.pinHash ? 'Nuovo PIN Developer' : 'PIN Developer'} <span class="unita">(4-10 cifre)</span><input name="p1" type="password" inputmode="numeric" maxlength="10" autocomplete="new-password"></label>
+              <label>Ripeti PIN Developer<input name="p2" type="password" inputmode="numeric" maxlength="10" autocomplete="new-password"></label></div>
             <div class="azioni-form">${u.accessoDev?.pinHash ? '<button type="button" class="btn ghost small" id="btnDevVia">Togli (torno Developer per tutti)</button>' : ''}<span class="grow"></span><button class="btn ${u.accessoDev?.pinHash ? 'ghost' : ''}" type="submit">${u.accessoDev?.pinHash ? 'Cambia PIN Developer' : 'Attiva: divento Tecnico + PIN Developer'}</button></div>
           </form></div>` : ''}
         ${ALTI.includes(r) ? `<div class="card">
@@ -351,7 +360,9 @@ window.UT = (function () {
     const fd = el.querySelector('#fDev');
     if (fd) fd.onsubmit = async (e) => {
       e.preventDefault(); const io = attuale();
-      if (!pinValido(fd.p1.value)) return UI.toast('Il PIN deve avere da 4 a 6 cifre', 'err');
+      if (!pinDevValido(fd.p1.value)) return UI.toast('Il PIN Developer deve avere da 4 a 10 cifre', 'err');
+      // nessun PIN di un collega può essere l'inizio del PIN Developer (entrerebbe lui prima di finire di scriverlo)
+      for (const x of S.utenti) for (let L = 4; L < fd.p1.value.length; L++) if (x.pinHash && (x.pinLen || 4) === L && (await hash(x.pinSalt, fd.p1.value.slice(0, L))) === x.pinHash) return UI.toast('Le prime cifre sono il PIN di qualcuno: scegline un altro', 'err');
       if (fd.p1.value !== fd.p2.value) return UI.toast('I due PIN non coincidono', 'err');
       if (io.pinHash && (await hash(io.pinSalt, fd.p1.value)) === io.pinHash) return UI.toast('Deve essere diverso dal tuo PIN normale', 'err');
       if (await pinGiaUsato(fd.p1.value, io.id)) return UI.toast('PIN già usato da un collega: scegline un altro', 'err');
