@@ -72,6 +72,15 @@ window.CTR = (function () {
     .sort((a, b) => (a.numeroInterno || '~').localeCompare(b.numeroInterno || '~', 'it', { numeric: true }));
   const schedaDi = (S, impId, anno) => S.schedeControllo.find((x) => x.impiantoId === impId && x.anno === anno);
   const nParanchi = (imp) => Math.max(1, (imp.paranchi || []).length);
+  // scheda nuova di un anno: dall'anno prima si portano le osservazioni NON chiuse (stessa lettera) e le note Gru Impianti
+  function nuovaScheda(S, i, anno) {
+    const voci = vociPerImpianto(S, i).map((v) => ({ ...v }));
+    const prima = schedaDi(S, i.id, anno - 1);
+    const nv = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+    const vocDi = (id) => { if (!id) return ''; if (voci.some((v) => v.id === id)) return id; const t = (prima.voci || []).find((v) => v.id === id)?.testo; return voci.find((v) => t && nv(v.testo) === nv(t))?.id || ''; };
+    const osservazioni = prima ? (prima.osservazioni || []).filter((o) => !o.risoltaIl).map((o) => ({ ...o, vocId: vocDi(o.vocId), visita: 0, daAnno: o.daAnno || anno - 1 })) : [];
+    return { id: i.id + '-' + anno, impiantoId: i.id, sedeId: i.sedeId, clienteId: i.clienteId, anno, voci, visite: {}, osservazioni, ...(prima?.noteInterne ? { noteInterne: prima.noteInterne } : {}) };
+  }
 
   // stato di una visita per la sede: fatta se tutti gli impianti l'hanno
   function statoVisite(S, sedeId, anno) {
@@ -214,9 +223,10 @@ window.CTR = (function () {
     const anno = annoScelto;
     const { c, s } = trovaSede(S, i.sedeId); const p = piano(s);
     const sc = schedaDi(S, impId, anno);
-    const voci = sc ? sc.voci : vociPerImpianto(S, i);
+    const scV = sc || nuovaScheda(S, i, anno);   // anno senza controlli: si vedono già le osservazioni e le note portate dall'anno prima
+    const voci = scV.voci;
     const np = nParanchi(i);
-    const oss = sc?.osservazioni || [];
+    const oss = scV.osservazioni || [];
     // voci dovute e lasciate vuote (in app restano vuote; sulla scheda del cliente escono con X)
     const nonFatte = (n) => { const vis = sc?.visite?.[n]; if (!vis) return 0; const per = periodiDi(tipoVisita(p, n));
       return voci.filter((v) => per.includes(v.per)).reduce((t, v) => t + Array.from({ length: np }, (_, k) => (vis.esiti?.[v.id] || [])[k]).filter((x) => !x).length, 0); };
@@ -240,12 +250,12 @@ window.CTR = (function () {
         <div class="card">
           <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con [OK e la data].')}</h2></div>
           ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
-              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}</div></div>
+              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}</div></div>
               ${UT.solaLettura() ? '' : `<div class="oss-bt"><button class="btn ghost small" data-modoss="${o.lettera}" aria-label="Modifica il testo">✏️</button><button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`}</div>`).join('')
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
-        ${!UT.solaLettura() || sc?.noteInterne ? `<div class="card"><div class="card-head"><h2>📝 Note Gru Impianti ${anno} ${info('Appunti nostri: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2></div>
-          <textarea id="noteInt" rows="3" data-libero placeholder="appunti per noi…" ${UT.solaLettura() ? 'readonly' : ''}>${esc(sc?.noteInterne || '')}</textarea>
+        ${!UT.solaLettura() || scV.noteInterne ? `<div class="card"><div class="card-head"><h2>📝 Note Gru Impianti ${anno} ${info('Appunti nostri: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2></div>
+          <textarea id="noteInt" rows="3" data-libero placeholder="appunti per noi…" ${UT.solaLettura() ? 'readonly' : ''}>${esc(scV.noteInterne || '')}</textarea>
           ${UT.solaLettura() ? '' : '<div class="azioni-form"><span class="grow"></span><button type="button" class="btn ghost small" id="btnNoteInt">Salva note</button></div>'}</div>` : ''}
         ${sc?.noteVecchie ? `<div class="card"><div class="card-head"><h2>Note dal programma vecchio ${info('Note interne scritte sul programma vecchio per questo impianto in quest\'anno. Non compaiono sulla scheda del cliente. Se servono, spostale nelle note Gru Impianti; altrimenti eliminale.')}</h2></div><p class="note-vecchie">${esc(sc.noteVecchie)}</p>
           ${UT.solaLettura() ? '' : '<div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnVecchieVia">🗑 Elimina</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnVecchieSposta">↧ Sposta nelle note Gru Impianti</button></div>'}</div>` : ''}
@@ -260,19 +270,19 @@ window.CTR = (function () {
     el.querySelector('#btnVecchieSposta')?.addEventListener('click', () => togliVecchie(true));
     el.querySelector('#btnNoteInt')?.addEventListener('click', async () => {
       const t = el.querySelector('#noteInt').value.trim();
-      const d = sc ? JSON.parse(JSON.stringify(sc)) : { id: impId + '-' + anno, impiantoId: impId, sedeId: i.sedeId, clienteId: i.clienteId, anno, voci: vociPerImpianto(S, i).map((v) => ({ ...v })), visite: {}, osservazioni: [] };
+      const d = JSON.parse(JSON.stringify(scV));
       d.noteInterne = t; await UI.salva('schedeControllo', d); UI.toast('Note salvate', 'ok');
     });
-    el.querySelectorAll('[data-oss]').forEach((b) => (b.onclick = () => toggleOss(S, sc, b.dataset.oss)));
+    el.querySelectorAll('[data-oss]').forEach((b) => (b.onclick = () => toggleOss(S, scV, b.dataset.oss)));
     // correggere a mano il testo (anche di un'osservazione già sistemata) e la data dell'OK
     el.querySelectorAll('[data-modoss]').forEach((b) => (b.onclick = () => {
-      const o = sc.osservazioni.find((x) => x.lettera === b.dataset.modoss); if (!o) return;
+      const o = scV.osservazioni.find((x) => x.lettera === b.dataset.modoss); if (!o) return;
       UI.modal({
         titolo: `Osservazione ${o.lettera}`, valori: { testo: o.testo, data: o.risoltaIl || '' },
         infoTxt: 'Il testo è quello che compare sulla scheda del cliente.' + (o.risoltaIl ? ' La data è quella dell\'[OK].' : ''),
         campi: [{ k: 'testo', label: 'Testo', tipo: 'textarea', req: true, maiuscolo: true }, ...(o.risoltaIl ? [{ k: 'data', label: 'Data dell\'OK', tipo: 'date', req: true }] : [])],
         onSalva: async (v) => {
-          const d = JSON.parse(JSON.stringify(sc)), x = d.osservazioni.find((y) => y.lettera === o.lettera);
+          const d = JSON.parse(JSON.stringify(scV)), x = d.osservazioni.find((y) => y.lettera === o.lettera);
           x.testo = String(v.testo || '').trim().toUpperCase(); if (o.risoltaIl && v.data) x.risoltaIl = v.data;
           await UI.salva('schedeControllo', d); UI.toast('Osservazione corretta', 'ok');
         }
@@ -321,10 +331,7 @@ window.CTR = (function () {
     const { c, s } = trovaSede(S, i.sedeId); const p = piano(s);
     const tipo = tipoVisita(p, n), periodi = periodiDi(tipo), mese = meseVisita(p, n);
     const esistente = schedaDi(S, impId, anno);
-    const sc = esistente ? JSON.parse(JSON.stringify(esistente)) : {
-      id: impId + '-' + anno, impiantoId: impId, sedeId: i.sedeId, clienteId: i.clienteId, anno,
-      voci: vociPerImpianto(S, i).map((v) => ({ ...v })), visite: {}, osservazioni: []
-    };
+    const sc = esistente ? JSON.parse(JSON.stringify(esistente)) : nuovaScheda(S, i, anno);
     const np = nParanchi(i);
     const prima = sc.visite[n];
     const fine = fineMese(anno, mese);
@@ -433,7 +440,7 @@ window.CTR = (function () {
     const disegnaOss = () => {
       el.querySelector('#ossLista').innerHTML = osservazioni.length ? osservazioni.map((o) => `
         <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(o.testo)}
-          <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ' · [OK ' + fmt(o.risoltaIl) + ']' : ''}</div></div>
+          <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ' · [OK ' + fmt(o.risoltaIl) + ']' : ''}</div></div>
           ${o.visita === n && !o.risoltaIl ? `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}">×</button>` : ''}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
       el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = () => {
         const o = osservazioni.find((x) => x.lettera === b.dataset.togli);
