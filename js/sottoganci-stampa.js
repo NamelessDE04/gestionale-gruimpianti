@@ -13,7 +13,7 @@ window.SGStampa = (function () {
   const CAP1 = 27, CAP = 28, CAP_ULTIMA = 14; // righe per pagina
   const H_PIEDE = 76.2;                    // spazio occupato da NOTE + legenda
 
-  const LEGENDA = 'LEGENDA: S = SCORTA ; \\ = ELIMINATE ; B= BUONA ; D= DISCRETA &nbsp;; E= DA ELIMINARE ; SU= SCORTA UTILIZZATA ; NC=NON CONTROLLATA';
+  const LEGENDA = 'LEGENDA: S = SCORTA ; \\ = ELIMINATE ; B= BUONA ; D= DISCRETA &nbsp;; E= DA ELIMINARE ; SU= SCORTA UTILIZZATA ; NC=NON CONTROLLATA ; FS= FUORI SERVIZIO';
   const RIGHE_PIEDE = [
     'N° STAMPIGLIATO<span class="gap"></span>C= CAMPANELLA<span class="gap"></span>P= PIASTRINA<span class="gap"></span>M= MANICOTTO',
     "LE QUOTE SONO INDICATIVE ED UTILIZZATE PER L'IDENTIFICAZIONE",

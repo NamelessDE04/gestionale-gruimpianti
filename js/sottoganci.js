@@ -12,9 +12,9 @@ window.SG = (function () {
   ];
   const CODICI = [
     ['B', 'Buona'], ['D', 'Discreta'], ['DE', 'Discreta / da eliminare'], ['E', 'Da eliminare'],
-    ['S', 'Scorta'], ['SU', 'Scorta utilizzata'], ['\\', 'Eliminata'], ['NC', 'Non controllata']
+    ['S', 'Scorta'], ['SU', 'Scorta utilizzata'], ['\\', 'Eliminata'], ['NC', 'Non controllata'], ['FS', 'Fuori servizio']
   ];
-  const classeCod = (c) => ({ B: 'c-b', D: 'c-d', DE: 'c-e', E: 'c-e', S: 'c-s', SU: 'c-s', '\\': 'c-x', NC: 'c-x' }[c] || '');
+  const classeCod = (c) => ({ B: 'c-b', D: 'c-d', DE: 'c-e', E: 'c-e', S: 'c-s', SU: 'c-s', '\\': 'c-x', NC: 'c-x', FS: 'c-x' }[c] || '');
 
   // data "2026-04-02" -> "2/4/26" (come sull'elenco cartaceo)
   const dataBreve = (s) => { if (!s) return ''; const [y, m, d] = s.split('-'); return `${+d}/${+m}/${y.slice(2)}`; };
