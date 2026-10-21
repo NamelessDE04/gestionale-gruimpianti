@@ -62,7 +62,7 @@ window.DEV = (function () {
   }
 
   // ---------- consumi ufficiali (Cloud Monitoring di Google) ----------
-  let tokenMon = null, scadeMon = 0;
+  let tokenMon = null, scadeMon = 0, accountMon = '';
   async function permessoMonitoraggio() {
     if (tokenMon && Date.now() < scadeMon) return tokenMon;
     const app = firebase.apps.find((a) => a.name === 'monitor') || firebase.initializeApp(window.firebaseConfig, 'monitor');
@@ -76,6 +76,12 @@ window.DEV = (function () {
     try { localStorage.setItem('gid_account_monitor', (r.user.email || '').toLowerCase()); } catch (e) {}
     tokenMon = r.credential && r.credential.accessToken; scadeMon = Date.now() + 50 * 60 * 1000;
     if (!tokenMon) throw new Error('token');
+    // con il consenso "a caselle" di Google il permesso extra va spuntato: controllo che ci sia davvero
+    try {
+      const ti = await (await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(tokenMon))).json();
+      if (ti.scope && !/monitoring/.test(ti.scope)) { tokenMon = null; const e = new Error('scope'); e.account = r.user.email; throw e; }
+    } catch (e) { if (e.message === 'scope') throw e; }
+    accountMon = r.user.email || '';
     return tokenMon;
   }
   // inizio del giorno di Firebase (mezzanotte in California) in ora UTC
@@ -91,7 +97,11 @@ window.DEV = (function () {
       'aggregation.alignmentPeriod': per, 'aggregation.perSeriesAligner': 'ALIGN_SUM', 'aggregation.crossSeriesReducer': 'REDUCE_SUM' });
     const r = await fetch(`https://monitoring.googleapis.com/v3/projects/${encodeURIComponent(Backend.progetto())}/timeSeries?${q}`, { headers: { Authorization: 'Bearer ' + token } });
     if (r.status === 401) { tokenMon = null; throw new Error('scaduto'); }
-    if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error(/has not been used|disabled/i.test(t) ? 'api' : r.status === 403 ? 'permesso' : 'errore ' + r.status); }
+    if (!r.ok) {
+      const t = await r.text().catch(() => ''); let msg = ''; try { msg = JSON.parse(t).error.message || ''; } catch (e) { msg = t.slice(0, 200); }
+      const er = new Error(/has not been used|is disabled|SERVICE_DISABLED/i.test(t) ? 'api' : /SCOPE_INSUFFICIENT|insufficient authentication scopes/i.test(t) ? 'scope' : r.status === 403 ? 'permesso' : 'errore ' + r.status);
+      er.google = msg; throw er;
+    }
     const j = await r.json();
     return (j.timeSeries || []).reduce((t, s) => t + (s.points || []).reduce((u, p) => u + +(p.value.int64Value || p.value.doubleValue || 0), 0), 0);
   }
@@ -111,11 +121,18 @@ window.DEV = (function () {
     } catch (e) {
       console.error(e);
       const m = String(e && (e.code || e.message) || '');
-      UI.toast(/popup-closed|cancelled/.test(m) ? 'Accesso a Google annullato'
-        : m === 'api' ? 'Su Google va attivata la «Cloud Monitoring API» per questo progetto'
-        : m === 'permesso' ? 'Questo account Google non può leggere i consumi del progetto: usa l\'account proprietario'
-        : 'Non riesco a leggere i consumi (' + m + ')', 'err');
-      b.disabled = false; b.textContent = 'Leggi da Google';
+      const spiega = /popup-closed|cancelled/.test(m) ? 'Accesso a Google annullato.'
+        : m === 'scope' ? 'Google non ha dato il permesso di leggere i consumi. Nella finestra di Google, dopo aver scelto l\'account, <b>spunta la casella</b> «Visualizzare i dati di monitoraggio…» prima di premere Continua.'
+        : m === 'api' ? 'Su Google va attivata la <b>Cloud Monitoring API</b> per questo progetto (una volta sola): apri il link qui sotto con l\'account proprietario e premi «Abilita».'
+        : m === 'permesso' ? `L'account <b>${esc(accountMon || '')}</b> non ha il permesso di leggere i consumi del progetto <b>${esc(Backend.progetto())}</b>.`
+        : 'Non riesco a leggere i consumi (' + esc(m) + ').';
+      box.innerHTML = `<p class="txt-ko">${spiega}</p>${e.google ? `<p class="muted small">Risposta di Google: ${esc(e.google)}</p>` : ''}
+        <p class="muted small">Progetto: ${esc(Backend.progetto())}${accountMon ? ' · account usato: ' + esc(accountMon) : ''}</p>
+        <div class="azioni-lista"><a class="btn ghost small" target="_blank" rel="noopener" href="https://console.cloud.google.com/apis/library/monitoring.googleapis.com?project=${esc(Backend.progetto())}">Cloud Monitoring API</a>
+          <a class="btn ghost small" target="_blank" rel="noopener" href="https://console.cloud.google.com/iam-admin/iam?project=${esc(Backend.progetto())}">Permessi del progetto (IAM)</a></div>
+        <div class="azioni-form"><button type="button" class="link" id="btnUffAcc">Usa un altro account Google</button><span class="grow"></span><button type="button" class="btn small" id="btnUff">Riprova</button></div>`;
+      el.querySelector('#btnUff').onclick = () => ufficiali(el);
+      el.querySelector('#btnUffAcc').onclick = () => { try { localStorage.removeItem('gid_account_monitor'); } catch (e) {} tokenMon = null; ufficiali(el); };
     }
   }
 
