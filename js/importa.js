@@ -10,7 +10,7 @@ window.IMPORTA = (function () {
 
   // calcola cosa succede, senza salvare niente
   function piano(S, dati) {
-    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [], giri: [], schede: [], schedeSenzaGru: 0, schedeGia: 0, schedeRifatte: 0, modelli: [] };
+    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [], giri: [], schede: [], schedeSenzaGru: 0, schedeGia: 0, schedeRifatte: 0, modelli: [], attrezzi: [], ctrAttrezzi: [] };
     const tipiNoti = new Set(IMP.TIPOLOGIE_BASE.concat((S.impostazioni.find((x) => x.id === 'tipologieGru') || {}).voci || []).map(norm));
     (dati.clienti || []).forEach((ci) => {
       if (!ci.ragioneSociale) return;
@@ -50,6 +50,21 @@ window.IMPORTA = (function () {
           if (!Object.keys(righe).length) return;
           out.giri.push({ id: uid(), sedeId: sd.id, clienteId: doc.id, anno, slot, data: gi.data || '', tecnici: [], tecnico: gi.tecnico || '', righe, noteGenerali: gi.noteGenerali || '', firmaTecnico: null });
         });
+        // attrezzi sottogancio dei controlli approfonditi (pinze/ganci a C, magneti) con i loro controlli
+        (si.attrezzi || []).forEach((ai) => {
+          const stesso = (x) => x.sedeId === sd.id && x.tipo === ai.tipo && ((ai.nFabbrica && norm(x.nFabbrica) === norm(ai.nFabbrica)) || (ai.nInterno && norm(x.nInterno) === norm(ai.nInterno)) || (ai.matricola && norm(x.matricola) === norm(ai.matricola)));
+          let a = (S.attrezzi || []).find(stesso) || out.attrezzi.find(stesso);
+          if (!a) {
+            const { controlli, ...dati } = ai;
+            a = { id: uid(), sedeId: sd.id, clienteId: doc.id, casa: '', nInterno: '', portata: '', nFabbrica: '', matricola: '', tipoDesc: '', anno: '', classe: '', accessori: '', componenti: [], ...dati, dismesso: !!ai.dismesso };
+            out.attrezzi.push(a); cambiato = true;
+          }
+          (ai.controlli || []).forEach((ci) => {
+            const gia = (x) => x.attrezzoId === a.id && x.anno === +ci.anno && x.slot === +ci.slot;
+            if ((S.controlliAttrezzi || []).some(gia) || out.ctrAttrezzi.some(gia)) return;
+            out.ctrAttrezzi.push({ id: uid(), attrezzoId: a.id, tipo: a.tipo, sedeId: sd.id, clienteId: doc.id, anno: +ci.anno, slot: +ci.slot, data: ci.data || '', righe: ci.righe || [], note: ci.note || '', fuoriServizio: !!ci.fuoriServizio, tecnici: [], tecnico: '', firmaTecnico: null });
+          });
+        });
         // impianti della sede (dal programma vecchio): non si duplicano (stesso codice vecchio o stessa matricola + n° interno)
         (si.impianti || []).forEach((ii) => {
           const gia = S.impianti.some((x) => (ii.vecchioCodice && x.vecchioCodice === ii.vecchioCodice)
@@ -68,7 +83,7 @@ window.IMPORTA = (function () {
         if (!nomeR || doc.referenti.some((r) => norm([r.nome, r.cognome].join(' ')) === nomeR)) return;
         doc.referenti.push({ id: uid(), ...ri }); cambiato = true;
       });
-      if (!cambiato && !out.giri.some((g) => g.clienteId === doc.id)) return;
+      if (!cambiato && !out.giri.some((g) => g.clienteId === doc.id) && !out.ctrAttrezzi.some((g) => g.clienteId === doc.id)) return;
       if (es) out.aggiornati++; else out.nuoviClienti++;
       out.docs.push({ doc, nuovo: !es });
     });
@@ -164,7 +179,7 @@ window.IMPORTA = (function () {
       const p = piano(S, dati), box = el.querySelector('#anteprima');
       box.innerHTML = `
         <div class="imp-ris">
-          <p><b>${p.nuoviClienti}</b> clienti nuovi · <b>${p.nuoveSedi}</b> sedi nuove · <b>${p.aggiornati}</b> clienti già presenti da completare · <b>${p.impianti.length}</b> impianti nuovi${p.sottoganci.length ? ` · <b>${p.sottoganci.length}</b> sottoganci nuovi` : ''}${p.giri.length ? ` · <b>${p.giri.length}</b> controlli sottoganci` : ''}${p.modelli.length ? ` · <b>${p.modelli.length}</b> ${p.modelli.length === 1 ? 'modello' : 'modelli'} di scheda (${p.modelli.map((m) => esc(m.nome)).join(', ')})` : ''}${p.schede.length ? ` · <b>${p.schede.length}</b> schede controlli gru (${p.schede.reduce((n, x) => n + Object.keys(x.visite).length, 0)} controlli)` : ''}</p>
+          <p><b>${p.nuoviClienti}</b> clienti nuovi · <b>${p.nuoveSedi}</b> sedi nuove · <b>${p.aggiornati}</b> clienti già presenti da completare · <b>${p.impianti.length}</b> impianti nuovi${p.sottoganci.length ? ` · <b>${p.sottoganci.length}</b> sottoganci nuovi` : ''}${p.giri.length ? ` · <b>${p.giri.length}</b> controlli sottoganci` : ''}${p.attrezzi.length || p.ctrAttrezzi.length ? ` · <b>${p.attrezzi.length}</b> pinze/ganci a C o magneti con <b>${p.ctrAttrezzi.length}</b> controlli` : ''}${p.modelli.length ? ` · <b>${p.modelli.length}</b> ${p.modelli.length === 1 ? 'modello' : 'modelli'} di scheda (${p.modelli.map((m) => esc(m.nome)).join(', ')})` : ''}${p.schede.length ? ` · <b>${p.schede.length}</b> schede controlli gru (${p.schede.reduce((n, x) => n + Object.keys(x.visite).length, 0)} controlli)` : ''}</p>
           ${p.schedeGia || p.schedeSenzaGru || p.schedeRifatte ? `<p class="muted small">${p.schedeRifatte ? `${p.schedeRifatte} schede importate prima vengono rifatte con i dati nuovi. ` : ''}${p.schedeGia ? `${p.schedeGia} schede ci sono già (compilate in app) e non vengono toccate. ` : ''}${p.schedeSenzaGru ? `${p.schedeSenzaGru} schede sono di gru che non ci sono nell'anagrafica (eliminate o non importate): saltate.` : ''}</p>` : ''}
           ${p.tipologie.length ? `<p class="muted small">Tipologie di gru nuove da aggiungere all'elenco: ${p.tipologie.map(esc).join(', ')}</p>` : ''}
           <div class="imp-lista">${p.docs.map(({ doc, nuovo }) => { const ni = p.impianti.filter((x) => x.clienteId === doc.id).length, ns = p.sottoganci.filter((x) => x.clienteId === doc.id).length, ng = p.giri.filter((x) => x.clienteId === doc.id).length; return `<div><span class="pill ${nuovo ? 'st-ok' : 'st-mai'}">${nuovo ? 'nuovo' : 'completa'}</span> <b>${esc(doc.ragioneSociale)}</b> <span class="muted small">${doc.sedi.map((s) => esc(s.sigla || s.nome)).join(' · ')}${ni ? ` · ${ni} impianti` : ''}${ns ? ` · ${ns} sottoganci` : ''}${ng ? ` · ${ng} controlli` : ''}</span></div>`; }).join('') || (p.schede.length || p.modelli.length ? '' : '<p class="muted">Niente da importare: è già tutto presente.</p>')}</div>
@@ -174,7 +189,7 @@ window.IMPORTA = (function () {
         if (Backend.mode === 'cloud' && !navigator.onLine) return UI.toast('Serve internet', 'err');
         ev.target.disabled = true;
         let n = 0;
-        const tot = p.docs.length + p.impianti.length + p.sottoganci.length + p.giri.length + p.schede.length;
+        const tot = p.docs.length + p.impianti.length + p.sottoganci.length + p.giri.length + p.schede.length + p.attrezzi.length + p.ctrAttrezzi.length;
         for (const { doc } of p.docs) { await UI.salva('clienti', doc); n++; ev.target.textContent = `Importo… ${n}/${tot}`; }
         if (p.tipologie.length) {
           const voci = [...((S.impostazioni.find((x) => x.id === 'tipologieGru') || {}).voci || IMP.TIPOLOGIE_BASE), ...p.tipologie];
@@ -190,6 +205,8 @@ window.IMPORTA = (function () {
           await Backend.saveMany('sottoganci', pezzo); n += pezzo.length; ev.target.textContent = `Importo… ${n}/${tot}`;
         }
         for (const m of p.modelli) await CTR.aggiungiModello(S, m.nome, m.voci);
+        if (p.attrezzi.length) { await Backend.saveMany('attrezzi', p.attrezzi); n += p.attrezzi.length; }
+        if (p.ctrAttrezzi.length) { await Backend.saveMany('controlliAttrezzi', p.ctrAttrezzi); n += p.ctrAttrezzi.length; }
         // le schede hanno dentro le firme: blocchi piccoli
         for (let i = 0; i < p.schede.length; i += 60) {
           const pezzo = p.schede.slice(i, i + 60);
