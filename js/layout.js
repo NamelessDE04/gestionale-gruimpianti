@@ -25,6 +25,8 @@ window.LAY = (function () {
   // famiglie di impianti per il filtro e per il simbolo nel layout
   const FAMIGLIE = { carroponte: 'Carriponte', bandiera: 'Gru a bandiera', pinza: 'Pinze', seghetto: 'Seghetti' };
   const famiglia = (i) => { const t = i?.tipologia || ''; return /bandiera/i.test(t) ? 'bandiera' : /pinz/i.test(t) ? 'pinza' : /seghett/i.test(t) ? 'seghetto' : 'carroponte'; };
+  // nel layout il simbolo si può cambiare a mano (p.fam), altrimenti segue la tipologia
+  const famigliaIn = (L, i) => (L.impianti.find((p) => p.impId === i.id)?.fam) || famiglia(i);
   const SCALE = [1, 0.8, 0.65, 0.5];   // grandezza dei simboli (bandiera, pinza, seghetto)
   const filtroLay = {};               // filtro scelto per sede (solo su questo dispositivo)
   const sigla = (i) => i.numeroInterno || (eBandiera(i) ? 'GB' : 'CP');
@@ -119,7 +121,7 @@ window.LAY = (function () {
     let g = '';
     opz = { ...opz, L };
     els.forEach((e) => (g += elemento(e, u, opz)));
-    L.impianti.forEach((p) => { const i = imp.find((x) => x.id === p.impId); if (i && (!opz.filtro || famiglia(i) === opz.filtro)) g += impianto(L, i, p, u, opz); });
+    L.impianti.forEach((p) => { const i = imp.find((x) => x.id === p.impId); if (i && (!opz.filtro || (p.fam || famiglia(i)) === opz.filtro)) g += impianto(L, i, p, u, opz); });
     // la vista comprende tutto il disegno
     const pts = [...L.elementi.map((e) => [e.x, e.y, +e.w || 0, +e.h || 0]), ...L.impianti.map((p) => [p.x, p.y, 0, 0])];
     if (!pts.length) pts.push([0, 0, 100, 70]);
@@ -179,7 +181,7 @@ window.LAY = (function () {
     const st = opz.stato ? opz.stato(i) : '';
     const col = st === 'fatto' ? '#2e9e5b' : st === 'dafare' ? '#e07a1f' : '#f2b705';
     const nome = esc(sigla(i));
-    const fam = famiglia(i);
+    const fam = p.fam || famiglia(i);
     if (fam !== 'carroponte') {
       const sc = +L.scala || 1, s = u * 1.6 * sc, k2 = Math.max(0.6, sc);
       const ico = fam === 'bandiera'
@@ -287,8 +289,8 @@ window.LAY = (function () {
         </div>` : ''}
         ${!salvato && !modifica ? `<div class="card vuoto-lay"><p>Per questa sede il layout non è ancora stato disegnato.</p>${puoModificare ? '<button class="btn" id="btnMod2">✏️ Disegna il layout</button>' : ''}</div>` : ''}
         ${(salvato || modifica) && imp.length ? `<div class="lay-barra no-print">
-          ${(() => { const presenti = Object.keys(FAMIGLIE).filter((f) => imp.some((i) => famiglia(i) === f)); return presenti.length > 1 ? `<div class="lay-filtri"><button type="button" class="inv-chip ${filtroLay[sedeId] ? '' : 'on'}" data-fam="">Tutti</button>${presenti.map((f) => `<button type="button" class="inv-chip ${filtroLay[sedeId] === f ? 'on' : ''}" data-fam="${f}">${FAMIGLIE[f]} <small>${imp.filter((i) => famiglia(i) === f).length}</small></button>`).join('')}</div>` : ''; })()}
-          ${imp.some((i) => famiglia(i) !== 'carroponte') ? `<div class="lay-scala"><span class="muted small">Simboli</span><button type="button" class="btn ghost small" data-scala="-1" aria-label="Più piccoli">A−</button><b id="scalaVal">${Math.round((+L.scala || 1) * 100)}%</b><button type="button" class="btn ghost small" data-scala="1" aria-label="Più grandi">A+</button></div>` : ''}
+          ${(() => { const presenti = Object.keys(FAMIGLIE).filter((f) => imp.some((i) => famigliaIn(L, i) === f)); return presenti.length > 1 ? `<div class="lay-filtri"><button type="button" class="inv-chip ${filtroLay[sedeId] ? '' : 'on'}" data-fam="">Tutti</button>${presenti.map((f) => `<button type="button" class="inv-chip ${filtroLay[sedeId] === f ? 'on' : ''}" data-fam="${f}">${FAMIGLIE[f]} <small>${imp.filter((i) => famigliaIn(L, i) === f).length}</small></button>`).join('')}</div>` : ''; })()}
+          ${imp.some((i) => famigliaIn(L, i) !== 'carroponte') ? `<div class="lay-scala"><span class="muted small">Simboli</span><button type="button" class="btn ghost small" data-scala="-1" aria-label="Più piccoli">A−</button><b id="scalaVal">${Math.round((+L.scala || 1) * 100)}%</b><button type="button" class="btn ghost small" data-scala="1" aria-label="Più grandi">A+</button></div>` : ''}
         </div>` : ''}
         <div class="lay-foglio" id="foglio" ${!salvato && !modifica ? 'hidden' : ''}>
           <div class="lay-stampa-testa"><b>${esc(CTR.nomeSede(c, s))}</b><span>LAYOUT IMPIANTI · ${UI.fmt(UI.oggi())}</span></div>
@@ -375,8 +377,14 @@ window.LAY = (function () {
       if (tipo === 'imp') {
         const i = imp.find((x) => x.id === id);
         p.innerHTML = `<div class="lay-prop-riga"><b>${esc(i ? sigla(i) : '')}</b><span class="grow">${esc(i ? IMP.titolo(i) : '')}</span>
-          ${i && famiglia(i) !== 'carroponte' ? '<button type="button" class="btn ghost small" id="pRuotaImp">↻ Ruota</button>' : ''}
+          ${i ? `<label class="lay-sim">Simbolo<select id="pSimbolo">${Object.keys(FAMIGLIE).map((k) => `<option value="${k}" ${famigliaIn(L, i) === k ? 'selected' : ''}>${{ carroponte: 'Carroponte', bandiera: 'Gru a bandiera', pinza: 'Pinza', seghetto: 'Seghetto' }[k]}${k === famiglia(i) ? ' (dalla tipologia)' : ''}</option>`).join('')}</select></label>` : ''}
+          ${i && famigliaIn(L, i) !== 'carroponte' ? '<button type="button" class="btn ghost small" id="pRuotaImp">↻ Ruota</button>' : ''}
           <button type="button" class="btn ghost small danger" id="pTogli">Togli dal layout</button><button type="button" class="btn ghost small" id="pChiudi">Fatto</button></div>`;
+        p.querySelector('#pSimbolo')?.addEventListener('change', (e) => {
+          const q = L.impianti.find((x) => x.impId === id); if (!q) return;
+          if (e.target.value === famiglia(i)) delete q.fam; else q.fam = e.target.value;
+          ridisegna(); proprieta(); salva();
+        });
         p.querySelector('#pRuotaImp')?.addEventListener('click', () => { const q = L.impianti.find((x) => x.impId === id); q.rot = ((+q.rot || 0) + 45) % 360; ridisegna(); salva(); });
         p.querySelector('#pTogli').onclick = () => { L.impianti = L.impianti.filter((x) => x.impId !== id); scelto = null; ridisegna(); proprieta(); salva(); };
       } else {

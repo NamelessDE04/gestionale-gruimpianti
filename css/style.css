@@ -1358,3 +1358,4 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .imp-riga.dismesso { opacity: .55; filter: grayscale(1); }
 .vis-fs { display: flex; flex-direction: column; gap: 6px; }
 .vm.vm-vuoto { display: inline-flex; align-items: center; justify-content: center; color: #9aa5b1; }
+.lay-sim { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; } .lay-sim select { min-height: 36px; font-size: 14px; }
