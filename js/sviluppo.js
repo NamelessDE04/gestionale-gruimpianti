@@ -28,7 +28,10 @@ window.DEV = (function () {
       <section class="cli dv">
         <div class="sez-head"><h1>Consumi e stato dell'app ${info('Pagina riservata al Developer. I consumi di Firebase li conta l\'app stessa (Firebase non li fornisce alle app): sono una stima molto vicina al vero, ma il dato ufficiale è nella console di Firebase. Il giorno di Firebase finisce a mezzanotte ora della California (le 9 del mattino in Italia).')}</h1></div>
 
-        <div class="card"><h2>☁️ Firebase · oggi ${cloud ? `<small class="muted">(giorno ${esc(Backend.giornoFirebase())})</small>` : ''}</h2>
+        ${cloud ? `<div class="card"><h2>✅ Consumi ufficiali Google · oggi ${info('Il totale vero di tutto il progetto Firebase, letto da Google (Cloud Monitoring): conta tutti i dispositivi, la Lavagna e anche la console. Serve il tuo account Google proprietario del progetto: la prima volta Google chiede il permesso di leggere i dati di monitoraggio. Il dato arriva con qualche minuto di ritardo.')}</h2>
+          <div id="dvUff"><button type="button" class="btn" id="btnUff">Leggi da Google</button></div></div>` : ''}
+
+        <div class="card"><h2>☁️ Conteggio dell'app · oggi ${cloud ? `<small class="muted">(giorno ${esc(Backend.giornoFirebase())})</small>` : ''} ${info('Somma di quello che contano da soli tutti i dispositivi con l\'app aggiornata. Non conta la Lavagna, la console di Firebase e i dispositivi con versioni vecchie: per il totale vero usa «Consumi ufficiali Google».')}</h2>
           <div id="dvOggi">${cloud ? '<p class="muted">Carico i consumi…</p>' : '<p class="muted">L\'app è in modalità «solo su questo dispositivo»: nessun consumo sul cloud.</p>'}</div></div>
 
         ${cloud ? `<div class="card"><h2>📈 Ultimi 30 giorni</h2><div id="dvStorico"><p class="muted">Carico…</p></div></div>` : ''}
@@ -54,7 +57,62 @@ window.DEV = (function () {
           <a class="btn ghost" target="_blank" rel="noopener" href="https://github.com/${REPO}/actions">Pubblicazioni (Actions)</a></div></div>
       </section>`;
     caricaCloud(el); caricaDisp(el); caricaGit(el);
+    el.querySelector('#btnUff')?.addEventListener('click', () => ufficiali(el));
     return { titolo: 'Consumi e stato', indietro: '#/profilo', live: false };
+  }
+
+  // ---------- consumi ufficiali (Cloud Monitoring di Google) ----------
+  let tokenMon = null, scadeMon = 0;
+  async function permessoMonitoraggio() {
+    if (tokenMon && Date.now() < scadeMon) return tokenMon;
+    const app = firebase.apps.find((a) => a.name === 'monitor') || firebase.initializeApp(window.firebaseConfig, 'monitor');
+    if (!firebase.auth) throw new Error('auth');
+    const p = new firebase.auth.GoogleAuthProvider();
+    p.addScope('https://www.googleapis.com/auth/monitoring.read');
+    const acc = Backend.account && Backend.account(); p.setCustomParameters(acc ? { login_hint: acc } : { prompt: 'select_account' });
+    const r = await app.auth().signInWithPopup(p);
+    tokenMon = r.credential && r.credential.accessToken; scadeMon = Date.now() + 50 * 60 * 1000;
+    if (!tokenMon) throw new Error('token');
+    return tokenMon;
+  }
+  // inizio del giorno di Firebase (mezzanotte in California) in ora UTC
+  function inizioGiornoFb() {
+    const ora = new Date();
+    const pz = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(ora).map((x) => [x.type, x.value]));
+    const sec = ((+pz.hour % 24) * 3600) + (+pz.minute * 60) + (+pz.second);
+    return new Date(ora.getTime() - sec * 1000);
+  }
+  async function serie(token, metrica, da, a) {
+    const per = Math.max(60, Math.ceil((a - da) / 1000)) + 's';
+    const q = new URLSearchParams({ filter: `metric.type="firestore.googleapis.com/document/${metrica}"`, 'interval.startTime': da.toISOString(), 'interval.endTime': a.toISOString(),
+      'aggregation.alignmentPeriod': per, 'aggregation.perSeriesAligner': 'ALIGN_SUM', 'aggregation.crossSeriesReducer': 'REDUCE_SUM' });
+    const r = await fetch(`https://monitoring.googleapis.com/v3/projects/${encodeURIComponent(Backend.progetto())}/timeSeries?${q}`, { headers: { Authorization: 'Bearer ' + token } });
+    if (r.status === 401) { tokenMon = null; throw new Error('scaduto'); }
+    if (!r.ok) { const t = await r.text().catch(() => ''); throw new Error(/has not been used|disabled/i.test(t) ? 'api' : r.status === 403 ? 'permesso' : 'errore ' + r.status); }
+    const j = await r.json();
+    return (j.timeSeries || []).reduce((t, s) => t + (s.points || []).reduce((u, p) => u + +(p.value.int64Value || p.value.doubleValue || 0), 0), 0);
+  }
+  async function ufficiali(el) {
+    const box = el.querySelector('#dvUff'), b = el.querySelector('#btnUff');
+    b.disabled = true; b.textContent = '🔐 Permesso di Google…';
+    try {
+      const t = await permessoMonitoraggio();
+      b.textContent = '⏳ Leggo i consumi…';
+      const da = inizioGiornoFb(), a = new Date();
+      const [rd, wr, dl] = await Promise.all(['read_count', 'write_count', 'delete_count'].map((m) => serie(t, m, da, a)));
+      box.innerHTML = `${barra('Letture', rd, QUOTE.letture)}${barra('Scritture', wr, QUOTE.scritture)}${barra('Cancellazioni', dl, QUOTE.cancellazioni)}
+        <p class="muted small">Restano oggi <b>${n(Math.max(0, QUOTE.letture - rd))}</b> letture e <b>${n(Math.max(0, QUOTE.scritture - wr))}</b> scritture del piano gratuito · letto alle ${esc(a.toTimeString().slice(0, 5))}.</p>
+        <button type="button" class="btn ghost small" id="btnUff">↻ Aggiorna</button>`;
+      el.querySelector('#btnUff').onclick = () => ufficiali(el);
+    } catch (e) {
+      console.error(e);
+      const m = String(e && (e.code || e.message) || '');
+      UI.toast(/popup-closed|cancelled/.test(m) ? 'Accesso a Google annullato'
+        : m === 'api' ? 'Su Google va attivata la «Cloud Monitoring API» per questo progetto'
+        : m === 'permesso' ? 'Questo account Google non può leggere i consumi del progetto: usa l\'account proprietario'
+        : 'Non riesco a leggere i consumi (' + m + ')', 'err');
+      b.disabled = false; b.textContent = 'Leggi da Google';
+    }
   }
 
   async function caricaCloud(el) {

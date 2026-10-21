@@ -38,18 +38,26 @@ window.UT = (function () {
   };
   const ruoloDi = (u) => (u?.ruolo === 'admin' ? 'master' : u?.ruolo || 'tecnico');   // gli "admin" della v0.8 diventano Master
   const attivi = () => (S?.utenti || []).filter((u) => u.attivo !== false);
-  const attuale = () => { const id = SESS.get(); return attivi().find((u) => u.id === id) || null; };
-  const isMaster = () => ALTI.includes(ruoloDi(attuale()));
-  const isDev = () => ruoloDi(attuale()) === 'developer';
-  const solaLettura = () => ruoloDi(attuale()) === 'ru';
+  // ACCESSO DEVELOPER SEPARATO: la stessa persona ha due PIN. Con quello normale è il livello che vedono tutti
+  // (es. Tecnico); con il PIN Developer (accessoDev) diventa Developer, ma solo per quella sessione e lo vede solo lui.
+  const sessId = () => String(SESS.get() || '').split('|')[0];
+  const elevato = () => String(SESS.get() || '').endsWith('|dev');
+  const attuale = () => { const id = sessId(); return attivi().find((u) => u.id === id) || null; };
+  const ruoloSess = () => { const u = attuale(); return u && elevato() && u.accessoDev?.pinHash ? 'developer' : ruoloDi(u); };
+  const isMaster = () => ALTI.includes(ruoloSess());
+  const isDev = () => ruoloSess() === 'developer';
+  const solaLettura = () => ruoloSess() === 'ru';
   // stampare e inviare ai clienti rapportini, schede di controllo e sottoganci: solo Master e Risorse Umane
-  const puoInviare = () => ['developer', 'master', 'ru'].includes(ruoloDi(attuale()));
+  const puoInviare = () => ['developer', 'master', 'ru'].includes(ruoloSess());
   const breve = (u) => (u?.nome || '');   // il nome della persona: lavagna, controlli, sottoganci e tutto il resto
   const sigla = (u) => (u?.nomeBreve || u?.nome || '');   // sigla (es. VL): solo nei rapportini di intervento
   const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
   const pinValido = (p) => /^\d{4,6}$/.test(p);
   async function pinGiaUsato(pin, trannId) {
-    for (const u of S.utenti) if (u.id !== trannId && u.pinHash && (await hash(u.pinSalt, pin)) === u.pinHash) return true;
+    for (const u of S.utenti) {
+      if (u.id !== trannId && u.pinHash && (await hash(u.pinSalt, pin)) === u.pinHash) return true;
+      if (u.accessoDev?.pinHash && (await hash(u.accessoDev.pinSalt, pin)) === u.accessoDev.pinHash) return true;
+    }
     return false;
   }
 
@@ -146,7 +154,7 @@ window.UT = (function () {
         </div>
       </section>`;
     let pin = '';
-    const lunghezze = [...new Set(attivi().filter((u) => u.pinHash).map((u) => u.pinLen || 4))];
+    const lunghezze = [...new Set([...attivi().filter((u) => u.pinHash).map((u) => u.pinLen || 4), ...attivi().filter((u) => u.accessoDev?.pinHash).map((u) => u.accessoDev.pinLen || 4)])];
     const max = Math.max(4, ...lunghezze);
     const punti = () => (el.querySelector('#punti').innerHTML = Array.from({ length: Math.max(4, pin.length) }, (_, k) => `<span class="${k < pin.length ? 'on' : ''}"></span>`).join(''));
     const errore = () => {
@@ -159,6 +167,7 @@ window.UT = (function () {
     const prova = async (forza) => {
       if (Date.now() < bloccoFino) { pin = ''; punti(); return UI.toast('Troppi tentativi: aspetta qualche secondo', 'err'); }
       for (const u of attivi()) if (u.pinHash && (u.pinLen || 4) === pin.length && (await hash(u.pinSalt, pin)) === u.pinHash) return entra(u, 'PIN');
+      for (const u of attivi()) { const d = u.accessoDev; if (d?.pinHash && (d.pinLen || 4) === pin.length && (await hash(d.pinSalt, pin)) === d.pinHash) return entra(u, 'PIN Developer', true); }
       if (forza || pin.length >= max) errore();
     };
     el.querySelectorAll('[data-n]').forEach((b) => (b.onclick = () => { if (pin.length < 6) { pin += b.dataset.n; punti(); if (lunghezze.includes(pin.length)) prova(false); } }));
@@ -230,8 +239,8 @@ window.UT = (function () {
     el.querySelector('#btnIndietro').onclick = () => schermata(el, S);
   }
 
-  function entra(u, metodo) {
-    SESS.set(u.id);
+  function entra(u, metodo, dev) {
+    SESS.set(u.id + (dev ? '|dev' : ''));
     document.body.classList.remove('fuori'); document.onkeydown = null; tentativi = 0;
     registra('accesso', `Accesso con ${metodo}`);
     UI.toast('Ciao ' + u.nome.split(' ')[0], 'ok');
@@ -246,7 +255,7 @@ window.UT = (function () {
 
   // ---------- profilo personale: firma, PIN, account Google ----------
   function profilo(el, dati) {
-    S = dati; const u = attuale(), r = ruoloDi(u);
+    S = dati; const u = attuale(), r = ruoloSess();
     el.innerHTML = `
       <section class="cli">
         <div class="card cli-head">
@@ -291,6 +300,14 @@ window.UT = (function () {
             <p class="muted small">L'accesso con Google si attiverà con il collegamento al cloud.</p>
           </form>
         </div>`}
+        ${r === 'developer' ? `<div class="card">
+          <h2>🔒 Accesso Developer separato ${info('Il tuo utente per tutti (e per il Master) resta di un livello normale, per esempio Tecnico, e si entra col PIN di sempre. Con un secondo PIN, diverso, entri come Developer: lo vedi solo tu e vale finché non esci.')}</h2>
+          ${u.accessoDev?.pinHash ? `<p>Attivo: col PIN normale entri come <b>${esc(RUOLI[ruoloDi(u)])}</b>, col PIN Developer come <b>Developer</b>.</p>` : `<p class="muted">Ora il tuo utente è Developer per tutti. Puoi farlo diventare <b>Tecnico</b> (come lo vedrà il Master) e tenere il Developer con un secondo PIN.</p>`}
+          <form id="fDev" class="form" novalidate>
+            <div class="due"><label>${u.accessoDev?.pinHash ? 'Nuovo PIN Developer' : 'PIN Developer'}<input name="p1" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label>
+              <label>Ripeti PIN Developer<input name="p2" type="password" inputmode="numeric" maxlength="6" autocomplete="new-password"></label></div>
+            <div class="azioni-form">${u.accessoDev?.pinHash ? '<button type="button" class="btn ghost small" id="btnDevVia">Togli (torno Developer per tutti)</button>' : ''}<span class="grow"></span><button class="btn ${u.accessoDev?.pinHash ? 'ghost' : ''}" type="submit">${u.accessoDev?.pinHash ? 'Cambia PIN Developer' : 'Attiva: divento Tecnico + PIN Developer'}</button></div>
+          </form></div>` : ''}
         ${ALTI.includes(r) ? `<div class="card">
           <h2>Strumenti del ${r === 'developer' ? 'Developer' : 'Master'}</h2>
           <div class="azioni-lista">
@@ -331,6 +348,31 @@ window.UT = (function () {
       const pinSalt = uid(); await UI.salva('utenti', { ...io, pinSalt, pinHash: await hash(pinSalt, f.nuovo.value), pinLen: f.nuovo.value.length });
       f.reset(); UI.toast('PIN salvato', 'ok'); App.ridisegna();
     };
+    const fd = el.querySelector('#fDev');
+    if (fd) fd.onsubmit = async (e) => {
+      e.preventDefault(); const io = attuale();
+      if (!pinValido(fd.p1.value)) return UI.toast('Il PIN deve avere da 4 a 6 cifre', 'err');
+      if (fd.p1.value !== fd.p2.value) return UI.toast('I due PIN non coincidono', 'err');
+      if (io.pinHash && (await hash(io.pinSalt, fd.p1.value)) === io.pinHash) return UI.toast('Deve essere diverso dal tuo PIN normale', 'err');
+      if (await pinGiaUsato(fd.p1.value, io.id)) return UI.toast('PIN già usato da un collega: scegline un altro', 'err');
+      const d = { ...io, accessoDev: { pinSalt: uid(), pinLen: fd.p1.value.length } };
+      d.accessoDev.pinHash = await hash(d.accessoDev.pinSalt, fd.p1.value);
+      if (!io.accessoDev?.pinHash) {
+        if (!S.utenti.some((x) => x.id !== io.id && x.attivo !== false && ALTI.includes(ruoloDi(x)))) return UI.toast('Prima serve un altro Master attivo (es. il titolare)', 'err');
+        if (!UI.conferma('Da ora il tuo utente sarà TECNICO per tutti (anche per il Master).\n\nCol PIN di sempre entri come Tecnico; con questo PIN nuovo entri come Developer.\n\nContinuare?')) return;
+        d.ruolo = 'tecnico';
+      }
+      await UI.salva('utenti', d); SESS.set(io.id + '|dev');
+      registra('modifica', 'Accesso Developer separato ' + (io.accessoDev?.pinHash ? 'aggiornato' : 'attivato'));
+      sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d));
+      fd.reset(); UI.toast(io.accessoDev?.pinHash ? 'PIN Developer cambiato' : 'Fatto: ora sei Tecnico per tutti, Developer col PIN nuovo', 'ok'); App.ridisegna();
+    };
+    el.querySelector('#btnDevVia')?.addEventListener('click', async () => {
+      if (!UI.conferma('Togliere l\'accesso separato? Il tuo utente torna Developer per tutti e il PIN Developer non vale più.')) return;
+      const d = { ...attuale(), ruolo: 'developer' }; delete d.accessoDev;
+      await UI.salva('utenti', d); SESS.set(d.id); registra('modifica', 'Accesso Developer separato tolto');
+      sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d)); UI.toast('Sei di nuovo Developer per tutti', 'ok'); App.ridisegna();
+    });
     el.querySelector('#btnScollega')?.addEventListener('click', async () => {
       if (!UI.conferma('Scollegare questo dispositivo dall\'account Google? Per rientrare servirà di nuovo l\'accesso con Google.')) return;
       registra('uscita', 'Dispositivo scollegato dall\'account Google'); SESS.del();
@@ -643,7 +685,7 @@ window.UT = (function () {
       if (ruoloIniziale(email) === 'developer') {
         try {
           const u = (await Backend.leggiTutti('utenti')).find((x) => (x.google || '').toLowerCase() === email);
-          if (u && ruoloDi(u) !== 'developer') { await Backend.save('utenti', { ...u, ruolo: 'developer' }); await Backend.impostaRuolo(email, 'developer', u.nome); }
+          if (u && ruoloDi(u) !== 'developer' && !u.accessoDev?.pinHash) { await Backend.save('utenti', { ...u, ruolo: 'developer' }); await Backend.impostaRuolo(email, 'developer', u.nome); }
         } catch (e) { console.error(e); }
       }
       // primo accesso con Google su questo dispositivo: entro subito come la persona di quell'account
@@ -678,7 +720,7 @@ window.UT = (function () {
 
   // ---------- percorsi vietati per livello ----------
   function vietato(parti) {
-    const r = ruoloDi(attuale()), p = parti.join('/');
+    const r = ruoloSess(), p = parti.join('/');
     if (['registro', 'azzera', 'importa', 'sviluppo'].includes(parti[0]) && r !== 'developer') return 'Questa sezione è riservata al Developer.';
     if (['utenti', 'conflitti'].includes(parti[0]) && !ALTI.includes(r)) return 'Questa sezione è riservata al Master.';
     // stampa e invio ai clienti: solo Master e Risorse Umane
@@ -717,7 +759,7 @@ window.UT = (function () {
   }
 
   return {
-    descrivi, attuale, isMaster, isDev, puoInviare, solaLettura, ruolo: () => ruoloDi(attuale()), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
+    descrivi, attuale, isMaster, isDev, puoInviare, solaLettura, ruolo: () => ruoloSess(), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
     campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, sigla, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
 })();
