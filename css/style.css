@@ -1360,3 +1360,4 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .vm.vm-vuoto { display: inline-flex; align-items: center; justify-content: center; color: #9aa5b1; }
 .lay-sim { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; } .lay-sim select { min-height: 36px; font-size: 14px; }
 .oss-bt { display: flex; gap: 6px; flex: none; }
+.frasi-rapide { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }

@@ -13,7 +13,7 @@ window.RAP = (function () {
   const OGGETTI = [
     { k: 'cp', t: 'Carriponte', x: 'DEI VOSTRI CARRIPONTE' },
     { k: 'gb', t: 'Gru a bandiera', x: 'DELLE VOSTRE GRU A BANDIERA' },
-    { k: 'sg', t: 'Accessori sottoganci', x: 'DEI VOSTRI ACCESSORI SOTTOGANCI' },
+    { k: 'sg', t: 'Accessori sottogancio', x: 'DEI VOSTRI ACCESSORI SOTTOGANCIO' },
     { k: 'pm', t: 'Pinze motorizzate', x: 'DELLE VOSTRE PINZE MOTORIZZATE' }
   ];
   const elenca = (a) => (a.length < 2 ? a.join('') : a.slice(0, -1).join(', ') + ' E ' + a[a.length - 1]);
@@ -210,6 +210,7 @@ window.RAP = (function () {
           </div>
           <div class="card">
             <div class="card-head"><h2>Lavori da eseguire</h2></div>
+            <div class="frasi-rapide"><button type="button" class="chip-s" data-frase-da="COME DA SCHEDE DI CONTROLLO.">＋ Come da schede di controllo</button></div>
             <textarea name="daEseguire" rows="4" placeholder="Lavori da fare in seguito (se ce ne sono)">${esc(r.daEseguire)}</textarea>
           </div>
           <div class="card">
@@ -334,6 +335,12 @@ window.RAP = (function () {
     const leggiGiorni = () => el.querySelectorAll('.giorno-rap').forEach((box) => leggiUno(box, r.giorni[+box.dataset.g]));
     el.querySelector('#btnGiorno').onclick = () => { leggiGiorni(); r.giorni.push(giornoVuoto(sedeAttuale(), r.giorni[r.giorni.length - 1])); disegnaGiorni(); el.querySelector('.giorno-rap:last-child').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
 
+    // --- frasi pronte dei lavori da eseguire: si aggiungono in fondo (una volta sola)
+    el.querySelectorAll('[data-frase-da]').forEach((b) => (b.onclick = () => {
+      const t = el.querySelector('textarea[name="daEseguire"]'), fr = b.dataset.fraseDa;
+      if (t.value.toUpperCase().includes(fr.replace(/\.$/, ''))) return UI.toast('La frase c\'è già', '');
+      t.value = (t.value.trim() ? t.value.trim() + '\n' : '') + fr; t.dispatchEvent(new Event('input', { bubbles: true })); t.focus();
+    }));
     // --- frase del controllo periodico
     // periodicità e mese di scadenza proposti dal piano controlli della sede (in base alla data del rapportino),
     // "di cosa" in base a cosa c'è nella sede; tutto si può cambiare a mano
