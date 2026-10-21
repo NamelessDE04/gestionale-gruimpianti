@@ -41,6 +41,28 @@ window.CLI = (function () {
   const usaSede = (S, sedeId) => S.sottoganci.filter((x) => x.sedeId === sedeId).length + S.impianti.filter((x) => x.sedeId === sedeId).length
     + (S.attrezzi || []).filter((x) => x.sedeId === sedeId).length + (S.schedeApprofondite || []).filter((x) => x.sedeId === sedeId).length;
 
+  // Master/Developer: elimina il cliente con TUTTO quello che gli è collegato (impianti, controlli, sottoganci, rapportini…)
+  const COLLEGATI = [
+    ['impianti', 'impianti'], ['schedeControllo', 'schede di controllo'], ['sottoganci', 'sottoganci'], ['giriSottoganci', 'controlli sottoganci'],
+    ['rapportini', 'rapportini'], ['layouts', 'layout'], ['collaudi', 'rapporti di collaudo'], ['attrezzi', 'pinze e magneti'],
+    ['controlliAttrezzi', 'controlli di pinze e magneti'], ['schedeApprofondite', 'controlli approfonditi']
+  ];
+  async function eliminaTutto(S, c) {
+    const sedi = new Set((c.sedi || []).map((s) => s.id));
+    const imp = new Set((S.impianti || []).filter((i) => sedi.has(i.sedeId) || i.clienteId === c.id).map((i) => i.id));
+    const da = COLLEGATI.map(([col, lab]) => [col, lab, (S[col] || []).filter((d) => d.clienteId === c.id || sedi.has(d.sedeId) || sedi.has(d.id) || (d.impiantoId && imp.has(d.impiantoId))).map((d) => d.id)]).filter((x) => x[2].length);
+    const elenco = da.map(([, lab, ids]) => `• ${ids.length} ${lab}`).join('\n');
+    if (!UI.conferma(`Eliminare ${nome(c)} con TUTTO quello che gli è collegato?\n\n• ${(c.sedi || []).length} sedi e ${(c.referenti || []).length} referenti\n${elenco}\n\nNon si può tornare indietro. Prima, se vuoi, scarica un backup da Profilo → Esporta dati.`)) return false;
+    if (!UI.conferma(`Ultima conferma: cancello davvero ${nome(c)} e tutti i suoi dati?`)) return false;
+    try {
+      for (const [col, , ids] of da) await Backend.removeMany(col, ids);
+      await Backend.remove('clienti', c.id);
+    } catch (e) { console.error(e); UI.toast('Eliminazione non completata: controlla la connessione e riprova', 'err'); return false; }
+    UT.registra('eliminazione', `Cliente ${nome(c)} eliminato con tutti i dati collegati (${da.map(([, lab, ids]) => ids.length + ' ' + lab).join(', ') || 'nessun dato collegato'})`);
+    UI.toast('Cliente eliminato', 'ok'); location.hash = '#/clienti';
+    return true;
+  }
+
   // ---------- ELENCO CLIENTI ----------
   let cerca = '';
   function lista(el, S) {
@@ -177,7 +199,8 @@ window.CLI = (function () {
       },
       onElimina: nuovo ? null : async () => {
         const n = (c.sedi || []).reduce((t, s) => t + usaSede(S, s.id), 0);
-        if (n) { UI.toast(`Non si può eliminare: ha impianti, sottoganci o controlli collegati (${n})`, 'err'); return false; }
+        if (n && UT.isMaster()) return eliminaTutto(S, c);
+        if (n) { UI.toast(`Non si può eliminare: ha impianti, sottoganci o controlli collegati (${n}). Può farlo solo il Master.`, 'err'); return false; }
         if (!UI.conferma(`Eliminare ${nome(c)} con tutte le sue sedi e referenti?`)) return false;
         for (const g of S.giriSottoganci.filter((g) => (c.sedi || []).some((s) => s.id === g.sedeId))) await Backend.remove('giriSottoganci', g.id);
         await Backend.remove('clienti', c.id); location.hash = '#/clienti';

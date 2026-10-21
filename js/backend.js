@@ -43,6 +43,7 @@
       async remove(col, id) {
         write(col, read(col).filter((d) => d.id !== id));
       },
+      async removeMany(col, ids) { const via = new Set(ids); write(col, read(col).filter((d) => !via.has(d.id))); },
       // aggiunge in fondo senza avvisare l'app (usato per il registro attività); tiene solo gli ultimi "max"
       append(col, doc, max) {
         const arr = read(col); arr.push(doc);
@@ -217,6 +218,11 @@
           t.update(rRef, { numero: n, numeroInAttesa: false });
           return n;
         });
+      },
+      // cancella più documenti insieme (a blocchi di 400)
+      async removeMany(col, ids) {
+        conta('d', ids.length);
+        for (const pezzo of aPezzi(ids, 400)) { const b = db.batch(); pezzo.forEach((id) => b.delete(db.collection(col).doc(id))); const p = b.commit(); if (navigator.onLine) await p; else p.catch((e) => console.error(e)); }
       },
       async remove(col, id) { conta('d'); const p = db.collection(col).doc(id).delete(); if (navigator.onLine) await p; },
       append(col, doc) { conta('w'); db.collection(col).doc(doc.id).set(codifica(doc)).catch(() => {}); },
