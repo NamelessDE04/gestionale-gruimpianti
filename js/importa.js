@@ -10,7 +10,7 @@ window.IMPORTA = (function () {
 
   // calcola cosa succede, senza salvare niente
   function piano(S, dati) {
-    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [], giri: [], schede: [], schedeSenzaGru: 0, schedeGia: 0 };
+    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [], giri: [], schede: [], schedeSenzaGru: 0, schedeGia: 0, schedeRifatte: 0 };
     const tipiNoti = new Set(IMP.TIPOLOGIE_BASE.concat((S.impostazioni.find((x) => x.id === 'tipologieGru') || {}).voci || []).map(norm));
     (dati.clienti || []).forEach((ci) => {
       if (!ci.ragioneSociale) return;
@@ -88,7 +88,11 @@ window.IMPORTA = (function () {
       const i = perCodice[x.vecchioCodice];
       if (!i) { out.schedeSenzaGru++; return; }
       const anno = +x.anno;
-      if (S.schedeControllo.some((sc) => sc.impiantoId === i.id && sc.anno === anno) || out.schede.some((sc) => sc.impiantoId === i.id && sc.anno === anno)) { out.schedeGia++; return; }
+      // una scheda già importata dal programma vecchio e non ancora toccata in app si può rifare (es. file rigenerato)
+      const es = S.schedeControllo.find((sc) => sc.impiantoId === i.id && sc.anno === anno);
+      const rifacibile = es && es.importato && Object.values(es.visite || {}).every((v) => v._da === 'programma vecchio');
+      if ((es && !rifacibile) || out.schede.some((sc) => sc.impiantoId === i.id && sc.anno === anno)) { out.schedeGia++; return; }
+      if (rifacibile) out.schedeRifatte++;
       const modello = CTR.vociPerImpianto(S, i), usate = new Set(), mappa = {};
       const voci = x.voci.map((ov) => {
         const a = nt(ov.testo);
@@ -158,7 +162,7 @@ window.IMPORTA = (function () {
       box.innerHTML = `
         <div class="imp-ris">
           <p><b>${p.nuoviClienti}</b> clienti nuovi · <b>${p.nuoveSedi}</b> sedi nuove · <b>${p.aggiornati}</b> clienti già presenti da completare · <b>${p.impianti.length}</b> impianti nuovi${p.sottoganci.length ? ` · <b>${p.sottoganci.length}</b> sottoganci nuovi` : ''}${p.giri.length ? ` · <b>${p.giri.length}</b> controlli sottoganci` : ''}${p.schede.length ? ` · <b>${p.schede.length}</b> schede controlli gru (${p.schede.reduce((n, x) => n + Object.keys(x.visite).length, 0)} controlli)` : ''}</p>
-          ${p.schedeGia || p.schedeSenzaGru ? `<p class="muted small">${p.schedeGia ? `${p.schedeGia} schede ci sono già e non vengono toccate. ` : ''}${p.schedeSenzaGru ? `${p.schedeSenzaGru} schede sono di gru che non ci sono nell'anagrafica (eliminate o non importate): saltate.` : ''}</p>` : ''}
+          ${p.schedeGia || p.schedeSenzaGru || p.schedeRifatte ? `<p class="muted small">${p.schedeRifatte ? `${p.schedeRifatte} schede importate prima vengono rifatte con i dati nuovi. ` : ''}${p.schedeGia ? `${p.schedeGia} schede ci sono già (compilate in app) e non vengono toccate. ` : ''}${p.schedeSenzaGru ? `${p.schedeSenzaGru} schede sono di gru che non ci sono nell'anagrafica (eliminate o non importate): saltate.` : ''}</p>` : ''}
           ${p.tipologie.length ? `<p class="muted small">Tipologie di gru nuove da aggiungere all'elenco: ${p.tipologie.map(esc).join(', ')}</p>` : ''}
           <div class="imp-lista">${p.docs.map(({ doc, nuovo }) => { const ni = p.impianti.filter((x) => x.clienteId === doc.id).length, ns = p.sottoganci.filter((x) => x.clienteId === doc.id).length, ng = p.giri.filter((x) => x.clienteId === doc.id).length; return `<div><span class="pill ${nuovo ? 'st-ok' : 'st-mai'}">${nuovo ? 'nuovo' : 'completa'}</span> <b>${esc(doc.ragioneSociale)}</b> <span class="muted small">${doc.sedi.map((s) => esc(s.sigla || s.nome)).join(' · ')}${ni ? ` · ${ni} impianti` : ''}${ns ? ` · ${ns} sottoganci` : ''}${ng ? ` · ${ng} controlli` : ''}</span></div>`; }).join('') || (p.schede.length ? '' : '<p class="muted">Niente da importare: è già tutto presente.</p>')}</div>
           ${p.docs.length || p.schede.length ? '<div class="azioni-form"><span class="grow"></span><button class="btn big" id="btnImp">📥 Importa</button></div>' : ''}
