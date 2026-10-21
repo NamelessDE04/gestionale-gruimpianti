@@ -41,7 +41,7 @@ window.SGStampa = (function () {
       const fisse2 = i === 0 ? `<td${rs} data-adatta="0.4" data-righe="2">${esc(sg.portata)}</td><td${rs} data-adatta="0.4" data-righe="2">${esc(sg.ubicazione)}</td><td${rs} data-adatta="0.4" data-righe="2">${esc(sg.certificato)}</td>` : '';
       const cod = giri.map((g) => {
         const c = g?.righe[sg.id]?.codici[i] || '';
-        return `<td class="${/E/.test(c) ? 'p-giallo' : ''}">${esc(c)}</td>`;
+        return `<td class="${({ D: 'p-esD', DE: 'p-esDE', E: 'p-esE' })[c] || ''}">${esc(c)}</td>`;
       }).join('');
       return `<tr style="height:${H_R}mm" class="${i < n - 1 ? 'p-sub' : ''}">${fisse}<td data-adatta="0.4" data-righe="2">${esc(p.denominazione)}</td><td data-adatta="0.4" data-righe="2">${esc(p.dimensioni)}</td>${fisse2}
         <td class="p-sp"></td>${cod}<td class="p-sp"></td><td class="p-nota" data-adatta="0.4" data-righe="2">${esc(note[i] || '')}</td></tr>`;

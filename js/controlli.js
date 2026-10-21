@@ -245,6 +245,7 @@ window.CTR = (function () {
               <button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`).join('')
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
+        ${sc?.noteVecchie ? `<div class="card"><div class="card-head"><h2>Note dal programma vecchio ${info('Note interne scritte sul programma vecchio per questo impianto in quest\'anno. Non compaiono sulla scheda del cliente.')}</h2></div><p class="note-vecchie">${esc(sc.noteVecchie)}</p></div>` : ''}
       </section>`;
     el.querySelector('#btnVoci')?.addEventListener('click', () => modaleVoci(S, i));
     el.querySelectorAll('[data-oss]').forEach((b) => (b.onclick = () => toggleOss(S, sc, b.dataset.oss)));

@@ -392,6 +392,9 @@ em.c-e { background: #ffef00; color: #8a1b12; } em.c-s { background: var(--info-
 .p-tab td.p-sp { background: #bfbfbf; }
 .p-tab td.p-nota { text-align: left; padding-left: .6mm; }
 .p-tab td.p-giallo { background: #ffff00; }
+.p-tab td.p-esD { background: #ffff00; }
+.p-tab td.p-esDE { background: #ffa500; }
+.p-tab td.p-esE { background: #ff2a2a; color: #fff; font-weight: 700; }
 .p-tab tr.p-sub td.p-sp { border-bottom-color: #bfbfbf; }
 .p-notetab { border: .35mm solid #000; }
 .p-notetab td { border: .2mm solid #000 !important; }
@@ -1327,3 +1330,4 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .dv-col span { position: absolute; bottom: -14px; left: 0; right: 0; text-align: center; font-size: 8px; color: var(--muted); }
 .dv-leg { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; } .dv-leg.l { background: #1f5fbf; } .dv-leg.s { background: #e09b00; margin-left: 8px; }
 .sg2-piede #btnSalvaG { background: #fff; color: var(--ok); border: 2px solid var(--ok); box-shadow: none; }
+.note-vecchie { white-space: pre-line; overflow-wrap: anywhere; margin: 0; font-size: 14px; }
