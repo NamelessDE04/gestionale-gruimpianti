@@ -1157,15 +1157,17 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .sg2-gi .notina, .sg2-uno .notina { font-size: 12px; color: #8a6500; margin: 6px 0 0 48px; overflow-wrap: anywhere; }
 .sg2-gi .notina[hidden] { display: none; }
 .sg2-gi .gi-nota { margin-top: 8px; }
-.sg2-ng { margin-bottom: 90px; }
+.sg2-ng { margin-bottom: 14px; }
 .sg2-piede { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 12px; background: #fff; padding: 10px max(12px, calc((100vw - 900px) / 2)); padding-bottom: max(10px, env(safe-area-inset-bottom)); box-shadow: 0 -2px 10px rgba(0,0,0,.12); }
 .sg2-piede .bar { flex: 1; height: 9px; background: #e6e9ee; border-radius: 5px; overflow: hidden; }
 .sg2-piede .bar i { display: block; height: 100%; width: 0; background: var(--ok); transition: width .2s; }
-.sg2-piede .btn { min-width: 110px; }
+.sg2-piede .btn { min-width: 0; padding-left: 14px; padding-right: 14px; white-space: nowrap; }
+.sg2-fasce a.in-corso { border-style: dashed; }
 /* una alla volta */
 .sg2-uno { display: none; }
 .sg2-giro.modo-uno .sg2-lista, .sg2-giro.modo-uno .sg2-ng { display: none; }
-.sg2-giro.modo-uno .sg2-uno { display: flex; flex-direction: column; text-align: center; min-height: calc(100vh - 290px); margin-bottom: 90px; }
+.sg2-giro.modo-uno .sg2-uno { display: flex; flex-direction: column; text-align: center; min-height: calc(100vh - 290px); margin-bottom: 14px; }
+.sg2-azz { margin: 4px 0 96px; flex-wrap: wrap; gap: 8px; }
 .u-pos { font-size: 12px; color: var(--muted); font-weight: 700; }
 .u-num { font-size: 64px; font-weight: 900; line-height: 1.05; overflow-wrap: anywhere; }
 .u-den { font-size: 22px; font-weight: 800; overflow-wrap: anywhere; }
@@ -1324,3 +1326,4 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .dv-col i { flex: 1; background: #1f5fbf; border-radius: 2px 2px 0 0; min-height: 1px; } .dv-col em { flex: 1; background: #e09b00; border-radius: 2px 2px 0 0; min-height: 1px; }
 .dv-col span { position: absolute; bottom: -14px; left: 0; right: 0; text-align: center; font-size: 8px; color: var(--muted); }
 .dv-leg { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; } .dv-leg.l { background: #1f5fbf; } .dv-leg.s { background: #e09b00; margin-left: 8px; }
+.sg2-piede #btnSalvaG { background: #fff; color: var(--ok); border: 2px solid var(--ok); box-shadow: none; }

@@ -123,7 +123,9 @@ window.SG = (function () {
     if (query.get('anno')) annoScelto = +query.get('anno');
     const anno = annoScelto;
     const sl = slotGiri(S, cliId, anno);
-    const prossimo = SLOT.find((s, i) => !sl[i]);
+    const aperto = (g) => g && g.chiuso === false;   // controllo salvato ma non ancora finito
+    const prossimo = SLOT.find((s, i) => !sl[i] || aperto(sl[i]));
+    const inCorso = prossimo && aperto(sl[prossimo.n - 1]) ? sl[prossimo.n - 1] : null;
     const tutti = elenco(S, cliId, anno);
     const t = (filtroTesto[cliId] || '').toLowerCase();
     const items = tutti.filter((s) => !t || testoSg(s).includes(t));
@@ -148,10 +150,10 @@ window.SG = (function () {
         </div>
         <div class="sg2-fasce">
           ${SLOT.map((s, i) => { const ok = sl[i];
-            return ok ? `<a class="fatta" style="--c:${s.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${s.n}">✓ ${s.nome} ${dataBreve(ok.data).replace(/\/\d+$/, '')}</a>`
+            return ok ? `<a class="fatta ${aperto(ok) ? 'in-corso' : ''}" style="--c:${s.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${s.n}">${aperto(ok) ? '⏸' : '✓'} ${s.nome}${aperto(ok) ? '' : ' ' + dataBreve(ok.data).replace(/\/\d+$/, '')}</a>`
               : `<span style="--c:${s.col}">${s.nome}</span>`; }).join('')}
         </div>
-        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ Inizia controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}</small></a>`
+        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ ${inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${inCorso ? ` · ${Object.values(inCorso.righe).reduce((n, r) => n + r.codici.filter(Boolean).length, 0)} giudizi già dati` : ''}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
         ${!UT.solaLettura() ? `<a class="btn ghost sg2-nuovo" href="#/sottoganci/c/${cliId}/nuovo">＋ Aggiungi sottogancio</a>` : ''}
         ${tutti.length > 15 ? `<input type="search" id="fTesto" class="cerca" placeholder="Cerca numero, denominazione, ubicazione…" value="${esc(filtroTesto[cliId] || '')}">` : ''}
@@ -382,7 +384,7 @@ window.SG = (function () {
         <div class="sg2-barra">
           <input type="search" id="gCerca" class="cerca" placeholder="🔍 Cerca n° o nome" autocomplete="off">
           <button type="button" class="btn ghost small" id="btnModo">${modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco'}</button>
-          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Quelli lasciati senza giudizio, al salvataggio, diventano NC (non controllati).')}
+          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. «💾 Salva» salva a metà: dopo riprendi da dove eri. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
         </div>
 
         <div class="sg2-lista giro-lista">
@@ -403,15 +405,17 @@ window.SG = (function () {
         <div class="card sg2-ng">
           <h2>Note generali (in fondo all'elenco)</h2>
           <textarea name="noteGenerali" rows="3" placeholder="Una riga per ogni nota (massimo 7 righe)">${esc(g.noteGenerali || '')}</textarea>
-          <div class="azioni-form">
-            <a class="link" href="#/sottoganci/c/${cliId}?anno=${anno}">📂 Cartella del cliente</a><span class="grow"></span>
-            ${esistente && !UT.solaLettura() ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}
-          </div>
+        </div>
+        <div class="azioni-form sg2-azz">
+          <a class="link" href="#/sottoganci/c/${cliId}?anno=${anno}">📂 Cartella del cliente</a><span class="grow"></span>
+          ${!UT.solaLettura() ? '<button type="button" class="btn ghost small" id="btnAzzera">↺ Azzera e ricomincia</button>' : ''}
+          ${esistente && !UT.solaLettura() ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}
         </div>
 
         <div class="sg2-piede">
           <b><span id="nFatti">0</span>/${voci.length}</b><div class="bar"><i id="gBar"></i></div>
-          <button class="btn big" type="submit">Salva</button>
+          <button class="btn ghost big" type="button" id="btnSalvaG">💾 Salva</button>
+          <button class="btn big" type="submit">✓ Finisci</button>
         </div>
       </form>`;
 
@@ -527,28 +531,38 @@ window.SG = (function () {
     el.querySelector('.sg2-dati').addEventListener('change', riassunto); el.querySelector('.sg2-dati').addEventListener('click', () => setTimeout(riassunto, 0));
     if (!esistente) riassunto();
 
-    f.onsubmit = async (e) => {
-      e.preventDefault();
+    // 💾 Salva = salva a metà (si riprende dopo); ✓ Finisci = chiude il controllo: quello senza giudizio diventa NC
+    async function salvaGiro(finisci) {
       const mancanti = voci.map((v, i) => i).filter((i) => !g.righe[voci[i].s.id].codici[voci[i].pi]);
-      if (mancanti.length) {
-        // quello che non è stato trovato passa da solo a NC (non controllato)
-        mancanti.forEach((i) => setCod(i, 'NC'));
-        UI.toast(`${mancanti.length} ${mancanti.length === 1 ? 'sottogancio senza giudizio segnato' : 'sottoganci senza giudizio segnati'} NC`, '');
-      }
       const t = leggiTecnici();
       if (!t.tecnici.length) { el.querySelector('.sg2-dati').open = true; window.scrollTo({ top: 0, behavior: 'smooth' }); return UI.toast('Scegli almeno un tecnico', 'err'); }
+      if (finisci) {
+        const msg = mancanti.length
+          ? `Finire il controllo?\n\n${mancanti.length} ${mancanti.length === 1 ? 'componente non ha' : 'componenti non hanno'} il giudizio: ${mancanti.length === 1 ? 'verrà segnato' : 'verranno segnati'} NC (non controllato).`
+          : 'Finire e salvare il controllo?';
+        if (!UI.conferma(msg)) return;
+      }
       const firma = t.firmaDi === g.firmaDi && g.firmaTecnico && esistente ? g.firmaTecnico : t.firma;
-      if (!firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sull'elenco non comparirà. Salvare lo stesso?`)) return;
+      if (finisci && !firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sull'elenco non comparirà. Salvare lo stesso?`)) return;
+      if (finisci) mancanti.forEach((i) => setCod(i, 'NC'));
       voci.forEach((v) => (g.righe[v.s.id].note[v.pi] = (g.righe[v.s.id].note[v.pi] || '').trim()));
       Object.assign(g, {
         data: f.data.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, noteGenerali: f.noteGenerali.value.trim(),
-        firmaTecnico: firma
+        firmaTecnico: firma, chiuso: finisci ? true : !!(esistente && esistente.chiuso !== false && !mancanti.length)
       });
       try { await UI.salva('giriSottoganci', g); } catch (er) { return; }
       App.ricordaTecnico(g.tecnico);
-      UI.toast('Controllo salvato', 'ok');
+      UI.toast(finisci ? 'Controllo finito e salvato' : `Salvato · ${voci.length - mancanti.length}/${voci.length} fatti: puoi riprendere quando vuoi`, 'ok');
       location.hash = '#/sottoganci/c/' + cliId + '?anno=' + anno;
-    };
+    }
+    f.onsubmit = (e) => { e.preventDefault(); salvaGiro(true); };
+    el.querySelector('#btnSalvaG').onclick = () => salvaGiro(false);
+    el.querySelector('#btnAzzera')?.addEventListener('click', async () => {
+      if (!UI.conferma('Azzerare il controllo?\n\nTutti i giudizi dati verranno cancellati e si riparte da capo.')) return;
+      voci.forEach((v) => { g.righe[v.s.id].codici[v.pi] = ''; g.righe[v.s.id].note[v.pi] = precedente?.righe[v.s.id]?.note?.[v.pi] || ''; });
+      if (esistente) { g.chiuso = false; try { await UI.salva('giriSottoganci', g); } catch (er) { return; } }
+      UI.toast('Controllo azzerato', 'ok'); App.ridisegna();
+    });
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${slotN}° controllo (${slot.nome}) del ${anno}?`)) return;
       await Backend.remove('giriSottoganci', g.id); location.hash = '#/sottoganci/c/' + cliId;
