@@ -142,7 +142,8 @@ window.SG = (function () {
             UT.puoInviare() && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
             UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=sottoganci&sede=${cliId}&anno=${anno}&da=${encodeURIComponent('#/sottoganci/c/' + cliId)}` },
             { t: '⚙ Titolo dell\'elenco', href: `#/sottoganci/cartella/${cliId}` },
-            { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` }
+            { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` },
+            UT.isMaster() && { t: '🗑 Elimina cartella', id: 'btnEliminaCart', cls: 'txt-ko' }
           ])}
         </div>
         <div class="sg2-fasce">
@@ -167,12 +168,32 @@ window.SG = (function () {
         <p class="legenda-app">${CODICI.map(([k, l]) => `<span><em class="${classeCod(k)}">${esc(k)}</em> ${l}</span>`).join('')}</p>
       </section>`;
 
+    el.querySelector('#btnEliminaCart')?.addEventListener('click', () => eliminaCartella(S, cliId));
     const ft = el.querySelector('#fTesto');
     if (ft) ft.oninput = () => {
       filtroTesto[cliId] = ft.value; const pos = ft.selectionStart;
       App.ridisegna(); const n = document.getElementById('fTesto'); n.focus(); n.setSelectionRange(pos, pos);
     };
     return { titolo: nomeCliente(c), indietro: '#/sottoganci', live: true };
+  }
+
+  // elimina una cartella: i suoi sottoganci e i loro controlli (la sede resta in anagrafica)
+  async function eliminaCartella(S, sedeId) {
+    const c = cliente(S, sedeId); if (!c) return false;
+    const sg = S.sottoganci.filter((x) => x.sedeId === sedeId), gi = giriDi(S, sedeId);
+    const testo = sg.length || gi.length
+      ? `Eliminare la cartella ${nomeCliente(c)}?\n\nVerranno cancellati ${sg.length} sottoganci e ${gi.length} controlli fatti. Non si può tornare indietro.\nLa sede resta in anagrafica clienti.`
+      : `Eliminare la cartella vuota ${nomeCliente(c)}? La sede resta in anagrafica clienti.`;
+    if (!UI.conferma(testo)) return false;
+    if (sg.length && !UI.conferma(`Sicuro? ${sg.length} sottoganci spariranno anche dagli elenchi degli anni passati.`)) return false;
+    for (const g of gi) await Backend.remove('giriSottoganci', g.id);
+    for (const x of sg) await Backend.remove('sottoganci', x.id);
+    const cl = S.clienti.find((x) => (x.sedi || []).some((sd) => sd.id === sedeId));
+    const copia = JSON.parse(JSON.stringify(cl)); copia.sedi.find((sd) => sd.id === sedeId).cartellaSottoganci = false;
+    await UI.salva('clienti', copia);
+    UT.registra('eliminazione', `Cartella sottoganci ${nomeCliente(c)} (${sg.length} sottoganci, ${gi.length} controlli)`);
+    UI.toast('Cartella eliminata', 'ok'); location.hash = '#/sottoganci';
+    return true;
   }
 
   // ---------- CARTELLA (nuova / impostazioni) ----------
@@ -195,7 +216,7 @@ window.SG = (function () {
         <label>Titolo dell'elenco stampato<input name="titolo" value="${esc(c ? c.titoloElenco : 'ELENCO SOTTOGANCI')}" placeholder="es. ELENCO FUNI"></label>
         <p class="muted small">Sulla stampa viene aggiunto l'anno: «${esc(c ? c.titoloElenco : 'ELENCO SOTTOGANCI')} ${annoCorrente()}».</p>
         <div class="azioni-form">
-          ${c && !S.sottoganci.some((x) => x.sedeId === sedeId) ? '<button type="button" class="btn danger ghost" id="btnChiudi">Chiudi cartella</button>' : ''}
+          ${c && (UT.isMaster() || !S.sottoganci.some((x) => x.sedeId === sedeId)) ? '<button type="button" class="btn danger ghost" id="btnChiudi">🗑 Elimina cartella</button>' : ''}
           <span class="grow"></span>
           <a class="btn ghost" href="${c ? '#/sottoganci/c/' + sedeId : '#/sottoganci'}">Annulla</a>
           <button class="btn" type="submit">Salva</button>
@@ -215,11 +236,7 @@ window.SG = (function () {
       await salvaSede(id, { cartellaSottoganci: true, titoloElenco: f.titolo.value.trim().toUpperCase() || 'ELENCO SOTTOGANCI' });
       UI.toast('Salvato', 'ok'); location.hash = '#/sottoganci/c/' + id;
     };
-    el.querySelector('#btnChiudi')?.addEventListener('click', async () => {
-      if (!UI.conferma('Chiudere questa cartella vuota? La sede resta in anagrafica.')) return;
-      for (const g of giriDi(S, sedeId)) await Backend.remove('giriSottoganci', g.id);
-      await salvaSede(sedeId, { cartellaSottoganci: false }); location.hash = '#/sottoganci';
-    });
+    el.querySelector('#btnChiudi')?.addEventListener('click', () => eliminaCartella(S, sedeId));
     return { titolo: c ? 'Impostazioni elenco' : 'Nuova cartella', indietro: c ? '#/sottoganci/c/' + sedeId : '#/sottoganci', live: false };
   }
 
