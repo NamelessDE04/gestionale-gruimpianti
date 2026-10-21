@@ -139,6 +139,7 @@ window.CLI = (function () {
             ${campo('Telefono', tel(c.telefono))}
             ${campo('Email', mail(c.email))}
             ${campo('PEC', mail(c.pec))}
+            ${(c.altreEmail || []).length ? campo('Altre email', c.altreEmail.map((x) => `${mail(x.e)}${x.l ? ` <small class="muted">${esc(x.l)}</small>` : ''}`).join('<br>')) : ''}
           </div>
           ${c.note ? `<p class="cli-note">${esc(c.note)}</p>` : ''}
         </div>
@@ -191,7 +192,7 @@ window.CLI = (function () {
     UI.modal({
       titolo: nuovo ? 'Nuovo cliente' : 'Dati generali',
       infoTxt: nuovo ? 'Dopo il salvataggio potrai aggiungere sedi e referenti.' : null,
-      valori: c || {},
+      valori: c ? { ...c, altreEmailTxt: (c.altreEmail || []).map((x) => x.e + (x.l ? ' - ' + x.l : '')).join('\n') } : {},
       campi: [
         { k: 'logo', label: 'Logo del cliente', tipo: 'immagine', vuoto: 'Nessun logo: si vedono le iniziali' },
         { k: 'ragioneSociale', label: 'Ragione sociale', req: true, maiuscolo: true },
@@ -201,9 +202,18 @@ window.CLI = (function () {
         { k: 'telefono', label: 'Telefono fisso', tipo: 'tel', mezza: true },
         { k: 'email', label: 'Email generale', tipo: 'email', mezza: true },
         { k: 'pec', label: 'PEC', tipo: 'email' },
+        { k: 'altreEmailTxt', label: 'Altre email', tipo: 'textarea', placeholder: 'una per riga, es.\namministrazione@ditta.it - fatture\nmanutenzione@ditta.it - ufficio tecnico', aiuto: 'Email non legate a un referente. Dopo il trattino puoi scrivere a cosa servono. Compaiono anche nell\'invio ai clienti.' },
         { k: 'note', label: 'Note', tipo: 'textarea', placeholder: 'es. orari di accesso, chi avvisare…' }
       ],
       onSalva: async (v) => {
+        // altre email: una per riga, "indirizzo - a cosa serve"
+        const altre = [];
+        for (const riga of String(v.altreEmailTxt || '').split(/\n+/).map((x) => x.trim()).filter(Boolean)) {
+          const m = riga.match(/^([^\s,;]+@[^\s,;]+\.[^\s,;]+)\s*[-–:,;]?\s*(.*)$/);
+          if (!m) { UI.toast('Email non valida: ' + riga, 'err'); return false; }
+          if (!altre.some((x) => x.e === m[1].toLowerCase())) altre.push({ e: m[1].toLowerCase(), l: m[2].trim() });
+        }
+        delete v.altreEmailTxt; v.altreEmail = altre;
         const doc = nuovo ? { id: uid(), sedi: [], referenti: [], ...v } : { ...c, ...v };
         // ragione sociale cambiata: se è un vero cambio di nome, i documenti di prima tengono il nome vecchio
         if (!nuovo && c.ragioneSociale && v.ragioneSociale && v.ragioneSociale !== c.ragioneSociale

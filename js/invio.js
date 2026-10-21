@@ -58,6 +58,7 @@ window.INVIO = (function () {
     const out = [];
     if (c.email) out.push({ e: c.email, l: 'Email generale' });
     if (c.pec) out.push({ e: c.pec, l: 'PEC' });
+    (c.altreEmail || []).forEach((x) => out.push({ e: x.e, l: x.l || 'Altra email' }));
     (c.referenti || []).filter((r) => r.email).forEach((r) => out.push({ e: r.email, l: [r.nome, r.cognome].filter(Boolean).join(' ') }));
     return out.filter((x, i, a) => a.findIndex((y) => y.e.toLowerCase() === x.e.toLowerCase()) === i);
   };
