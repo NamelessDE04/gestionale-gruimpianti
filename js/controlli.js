@@ -350,7 +350,7 @@ window.CTR = (function () {
                 ${Array.from({ length: np }, (_, k) => k + 1).map((pi) => `
                   <div class="gi-parte" data-p="${pi}">
                     ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
-                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta">⚠ <b>${esc(o.lettera)}</b> ${esc(o.testo)} <button type="button" class="link" data-sistema="${o.lettera}">✓ sistemata</button></div>`).join('')}
+                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta">⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(o.testo)}</div>`).join('')}
                     <div class="gi-row">
                       <div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>
                       ${haValore(v) ? `<label class="valore"><input type="text" ${unitaDi(v) ? 'inputmode="decimal"' : ''} data-val placeholder="valore" aria-label="Valore${unitaDi(v) ? ' in ' + esc(unitaDi(v)) : ''}">${unitaDi(v) ? `<span>${esc(unitaDi(v))}</span>` : ''}</label>${nominale(v, pi) ? `<span class="prima">nom. ${esc(nominale(v, pi))}</span>` : ''}` : ''}
