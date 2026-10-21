@@ -1,6 +1,6 @@
 // Service worker: l'app funziona anche senza rete.
 // Prima prova la rete (così gli aggiornamenti arrivano subito), se non c'è usa la copia salvata.
-const VERSIONE = '0.41.14';
+const VERSIONE = '0.41.15';
 const CACHE = 'gi-demo-' + VERSIONE;
 const FILES = ['./', 'index.html', 'manifest.json', 'css/style.css',
   'js/config.js', 'js/backend.js', 'js/ui.js', 'js/illustrazioni.js',

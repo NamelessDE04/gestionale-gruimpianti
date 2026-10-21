@@ -313,6 +313,17 @@ window.CTR = (function () {
       vis.esiti[v.id] = vis.esiti[v.id] || Array(np).fill('');
       for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) { const a = aperte(v.id, pi)[0]; if (a && !prima) vis.esiti[v.id][pi - 1] = a.lettera; }
     });
+    // ultimo valore preso (questo anno nei controlli prima, altrimenti gli anni prima): voce uguale per id o per nome
+    const ultimoValore = (v, pi) => {
+      const nv = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+      for (let a = anno; a >= anno - 3; a--) {
+        const sch = a === anno ? sc : schedaDi(S, impId, a); if (!sch) continue;
+        const vid = (sch.voci || []).find((x) => x.id === v.id || nv(x.testo) === nv(v.testo))?.id; if (!vid) continue;
+        const nn = Object.keys(sch.visite || {}).map(Number).filter((k) => a < anno || k < n).sort((x, y) => y - x);
+        for (const k of nn) { const val = sch.visite[k]?.valori?.[vid]?.[pi - 1]; if (val) return { val, data: sch.visite[k].dataScheda }; }
+      }
+      return null;
+    };
     const nominale = (v, pi) => (/DIAMETRO/i.test(v.testo) ? i.paranchi?.[pi - 1]?.fune?.diametro : '');
     // per lavorare in fila: il prossimo impianto della sede che non ha ancora questo controllo
     const fila = impiantiSede(S, i.sedeId), pos = fila.findIndex((x) => x.id === i.id);
@@ -353,7 +364,7 @@ window.CTR = (function () {
                     ${aperte(v.id, pi).map((o) => `<div class="oss-aperta">⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(o.testo)}</div>`).join('')}
                     <div class="gi-row">
                       <div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>
-                      ${haValore(v) ? `<label class="valore"><input type="text" ${unitaDi(v) ? 'inputmode="decimal"' : ''} data-val placeholder="valore" aria-label="Valore${unitaDi(v) ? ' in ' + esc(unitaDi(v)) : ''}">${unitaDi(v) ? `<span>${esc(unitaDi(v))}</span>` : ''}</label>${nominale(v, pi) ? `<span class="prima">nom. ${esc(nominale(v, pi))}</span>` : ''}` : ''}
+                      ${haValore(v) ? `<label class="valore"><input type="text" ${unitaDi(v) ? 'inputmode="decimal"' : ''} data-val placeholder="valore" aria-label="Valore${unitaDi(v) ? ' in ' + esc(unitaDi(v)) : ''}">${unitaDi(v) ? `<span>${esc(unitaDi(v))}</span>` : ''}</label>${nominale(v, pi) ? `<span class="prima">nom. ${esc(nominale(v, pi))}</span>` : ''}${(() => { const u = ultimoValore(v, pi); return u ? `<span class="prima ult-val">ultimo: <b>${esc(u.val)}${unitaDi(v) ? ' ' + esc(unitaDi(v)) : ''}</b> · ${esc(fmt(u.data))}</span>` : ''; })()}` : ''}
                       <button type="button" class="btn ghost small anom-btn" data-anom aria-label="Anomalia">⚠<span class="anom-txt"> Anomalia</span></button>
                       <span class="val-lettera"></span>
                     </div>
