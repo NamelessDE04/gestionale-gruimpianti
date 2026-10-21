@@ -241,7 +241,7 @@ window.CTR = (function () {
           <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con [OK e la data].')}</h2></div>
           ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
               <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}</div></div>
-              <button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`).join('')
+              ${UT.solaLettura() ? '' : `<div class="oss-bt"><button class="btn ghost small" data-modoss="${o.lettera}" aria-label="Modifica il testo">✏️</button><button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`}</div>`).join('')
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
         ${!UT.solaLettura() || sc?.noteInterne ? `<div class="card"><div class="card-head"><h2>📝 Note Gru Impianti ${anno} ${info('Appunti nostri: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2></div>
@@ -264,6 +264,20 @@ window.CTR = (function () {
       d.noteInterne = t; await UI.salva('schedeControllo', d); UI.toast('Note salvate', 'ok');
     });
     el.querySelectorAll('[data-oss]').forEach((b) => (b.onclick = () => toggleOss(S, sc, b.dataset.oss)));
+    // correggere a mano il testo (anche di un'osservazione già sistemata) e la data dell'OK
+    el.querySelectorAll('[data-modoss]').forEach((b) => (b.onclick = () => {
+      const o = sc.osservazioni.find((x) => x.lettera === b.dataset.modoss); if (!o) return;
+      UI.modal({
+        titolo: `Osservazione ${o.lettera}`, valori: { testo: o.testo, data: o.risoltaIl || '' },
+        infoTxt: 'Il testo è quello che compare sulla scheda del cliente.' + (o.risoltaIl ? ' La data è quella dell\'[OK].' : ''),
+        campi: [{ k: 'testo', label: 'Testo', tipo: 'textarea', req: true, maiuscolo: true }, ...(o.risoltaIl ? [{ k: 'data', label: 'Data dell\'OK', tipo: 'date', req: true }] : [])],
+        onSalva: async (v) => {
+          const d = JSON.parse(JSON.stringify(sc)), x = d.osservazioni.find((y) => y.lettera === o.lettera);
+          x.testo = String(v.testo || '').trim().toUpperCase(); if (o.risoltaIl && v.data) x.risoltaIl = v.data;
+          await UI.salva('schedeControllo', d); UI.toast('Osservazione corretta', 'ok');
+        }
+      });
+    }));
     return { titolo: 'Scheda ' + anno + ' · ' + IMP.titolo(i), indietro: '#/controlli/s/' + i.sedeId + '?anno=' + anno, live: true };
   }
   const vocNome = (voci, id) => voci.find((v) => v.id === id)?.testo || '';
