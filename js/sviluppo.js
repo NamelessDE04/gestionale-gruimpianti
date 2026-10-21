@@ -28,7 +28,7 @@ window.DEV = (function () {
       <section class="cli dv">
         <div class="sez-head"><h1>Consumi e stato dell'app ${info('Pagina riservata al Developer. I consumi di Firebase li conta l\'app stessa (Firebase non li fornisce alle app): sono una stima molto vicina al vero, ma il dato ufficiale è nella console di Firebase. Il giorno di Firebase finisce a mezzanotte ora della California (le 9 del mattino in Italia).')}</h1></div>
 
-        ${cloud ? `<div class="card"><h2>✅ Consumi ufficiali Google · oggi ${info('Il totale vero di tutto il progetto Firebase, letto da Google (Cloud Monitoring): conta tutti i dispositivi, la Lavagna e anche la console. Serve il tuo account Google proprietario del progetto: la prima volta Google chiede il permesso di leggere i dati di monitoraggio. Il dato arriva con qualche minuto di ritardo.')}</h2>
+        ${cloud ? `<div class="card"><h2>✅ Consumi ufficiali Google · oggi ${info('Il totale vero di tutto il progetto Firebase, letto da Google (Cloud Monitoring): conta tutti i dispositivi, la Lavagna e anche la console. Si sceglie l\'account Google proprietario del progetto Firebase (può essere diverso da quello con cui usi l\'app, che non cambia): la prima volta Google chiede il permesso di leggere i dati di monitoraggio, poi se lo ricorda. Il dato arriva con qualche minuto di ritardo.')}</h2>
           <div id="dvUff"><button type="button" class="btn" id="btnUff">Leggi da Google</button></div></div>` : ''}
 
         <div class="card"><h2>☁️ Conteggio dell'app · oggi ${cloud ? `<small class="muted">(giorno ${esc(Backend.giornoFirebase())})</small>` : ''} ${info('Somma di quello che contano da soli tutti i dispositivi con l\'app aggiornata. Non conta la Lavagna, la console di Firebase e i dispositivi con versioni vecchie: per il totale vero usa «Consumi ufficiali Google».')}</h2>
@@ -69,8 +69,11 @@ window.DEV = (function () {
     if (!firebase.auth) throw new Error('auth');
     const p = new firebase.auth.GoogleAuthProvider();
     p.addScope('https://www.googleapis.com/auth/monitoring.read');
-    const acc = Backend.account && Backend.account(); p.setCustomParameters(acc ? { login_hint: acc } : { prompt: 'select_account' });
+    // l'account proprietario del progetto Firebase può essere diverso da quello dell'app: si sceglie qui e si ricorda
+    let ult = ''; try { ult = localStorage.getItem('gid_account_monitor') || ''; } catch (e) {}
+    p.setCustomParameters(ult ? { login_hint: ult } : { prompt: 'select_account' });
     const r = await app.auth().signInWithPopup(p);
+    try { localStorage.setItem('gid_account_monitor', (r.user.email || '').toLowerCase()); } catch (e) {}
     tokenMon = r.credential && r.credential.accessToken; scadeMon = Date.now() + 50 * 60 * 1000;
     if (!tokenMon) throw new Error('token');
     return tokenMon;
@@ -102,7 +105,8 @@ window.DEV = (function () {
       const [rd, wr, dl] = await Promise.all(['read_count', 'write_count', 'delete_count'].map((m) => serie(t, m, da, a)));
       box.innerHTML = `${barra('Letture', rd, QUOTE.letture)}${barra('Scritture', wr, QUOTE.scritture)}${barra('Cancellazioni', dl, QUOTE.cancellazioni)}
         <p class="muted small">Restano oggi <b>${n(Math.max(0, QUOTE.letture - rd))}</b> letture e <b>${n(Math.max(0, QUOTE.scritture - wr))}</b> scritture del piano gratuito · letto alle ${esc(a.toTimeString().slice(0, 5))}.</p>
-        <button type="button" class="btn ghost small" id="btnUff">↻ Aggiorna</button>`;
+        <div class="azioni-form"><button type="button" class="link" id="btnUffAcc">Usa un altro account Google</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnUff">↻ Aggiorna</button></div>`;
+      el.querySelector('#btnUffAcc').onclick = () => { try { localStorage.removeItem('gid_account_monitor'); } catch (e) {} tokenMon = null; ufficiali(el); };
       el.querySelector('#btnUff').onclick = () => ufficiali(el);
     } catch (e) {
       console.error(e);
