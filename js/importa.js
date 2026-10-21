@@ -10,7 +10,7 @@ window.IMPORTA = (function () {
 
   // calcola cosa succede, senza salvare niente
   function piano(S, dati) {
-    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [] };
+    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [], giri: [] };
     const tipiNoti = new Set(IMP.TIPOLOGIE_BASE.concat((S.impostazioni.find((x) => x.id === 'tipologieGru') || {}).voci || []).map(norm));
     (dati.clienti || []).forEach((ci) => {
       if (!ci.ragioneSociale) return;
@@ -35,6 +35,21 @@ window.IMPORTA = (function () {
             parti: (g.parti || []).map((p) => ({ denominazione: String(p.denominazione || '').toUpperCase(), dimensioni: String(p.dimensioni || '').toUpperCase() })) });
           cambiato = true;
         });
+        // controlli sottoganci già fatti (giri): righe indicate per numero; uno per anno+fascetta, mai doppioni
+        (si.giri || []).forEach((gi) => {
+          const anno = +gi.anno, slot = +gi.slot;
+          if (!anno || !(slot >= 1 && slot <= 4)) return;
+          if (S.giriSottoganci.some((x) => x.sedeId === sd.id && x.anno === anno && x.slot === slot)) return;
+          const tutti = S.sottoganci.filter((x) => x.sedeId === sd.id).concat(out.sottoganci.filter((x) => x.sedeId === sd.id));
+          const righe = {};
+          Object.entries(gi.righe || {}).forEach(([num, r]) => {
+            const sg = tutti.find((x) => norm(x.numero) === norm(num));
+            if (!sg) return;
+            righe[sg.id] = { codici: sg.parti.map((_, i) => String((r.codici || [])[i] || '').toUpperCase()), note: sg.parti.map((_, i) => String((r.note || [])[i] || '')) };
+          });
+          if (!Object.keys(righe).length) return;
+          out.giri.push({ id: uid(), sedeId: sd.id, clienteId: doc.id, anno, slot, data: gi.data || '', tecnici: [], tecnico: gi.tecnico || '', righe, noteGenerali: gi.noteGenerali || '', firmaTecnico: null });
+        });
         // impianti della sede (dal programma vecchio): non si duplicano (stesso codice vecchio o stessa matricola + n° interno)
         (si.impianti || []).forEach((ii) => {
           const gia = S.impianti.some((x) => (ii.vecchioCodice && x.vecchioCodice === ii.vecchioCodice)
@@ -51,7 +66,7 @@ window.IMPORTA = (function () {
         if (!nomeR || doc.referenti.some((r) => norm([r.nome, r.cognome].join(' ')) === nomeR)) return;
         doc.referenti.push({ id: uid(), ...ri }); cambiato = true;
       });
-      if (!cambiato) return;
+      if (!cambiato && !out.giri.some((g) => g.clienteId === doc.id)) return;
       if (es) out.aggiornati++; else out.nuoviClienti++;
       out.docs.push({ doc, nuovo: !es });
     });
@@ -75,16 +90,16 @@ window.IMPORTA = (function () {
       const p = piano(S, dati), box = el.querySelector('#anteprima');
       box.innerHTML = `
         <div class="imp-ris">
-          <p><b>${p.nuoviClienti}</b> clienti nuovi · <b>${p.nuoveSedi}</b> sedi nuove · <b>${p.aggiornati}</b> clienti già presenti da completare · <b>${p.impianti.length}</b> impianti nuovi${p.sottoganci.length ? ` · <b>${p.sottoganci.length}</b> sottoganci nuovi` : ''}</p>
+          <p><b>${p.nuoviClienti}</b> clienti nuovi · <b>${p.nuoveSedi}</b> sedi nuove · <b>${p.aggiornati}</b> clienti già presenti da completare · <b>${p.impianti.length}</b> impianti nuovi${p.sottoganci.length ? ` · <b>${p.sottoganci.length}</b> sottoganci nuovi` : ''}${p.giri.length ? ` · <b>${p.giri.length}</b> controlli sottoganci` : ''}</p>
           ${p.tipologie.length ? `<p class="muted small">Tipologie di gru nuove da aggiungere all'elenco: ${p.tipologie.map(esc).join(', ')}</p>` : ''}
-          <div class="imp-lista">${p.docs.map(({ doc, nuovo }) => { const ni = p.impianti.filter((x) => x.clienteId === doc.id).length, ns = p.sottoganci.filter((x) => x.clienteId === doc.id).length; return `<div><span class="pill ${nuovo ? 'st-ok' : 'st-mai'}">${nuovo ? 'nuovo' : 'completa'}</span> <b>${esc(doc.ragioneSociale)}</b> <span class="muted small">${doc.sedi.map((s) => esc(s.sigla || s.nome)).join(' · ')}${ni ? ` · ${ni} impianti` : ''}${ns ? ` · ${ns} sottoganci` : ''}</span></div>`; }).join('') || '<p class="muted">Niente da importare: è già tutto presente.</p>'}</div>
+          <div class="imp-lista">${p.docs.map(({ doc, nuovo }) => { const ni = p.impianti.filter((x) => x.clienteId === doc.id).length, ns = p.sottoganci.filter((x) => x.clienteId === doc.id).length, ng = p.giri.filter((x) => x.clienteId === doc.id).length; return `<div><span class="pill ${nuovo ? 'st-ok' : 'st-mai'}">${nuovo ? 'nuovo' : 'completa'}</span> <b>${esc(doc.ragioneSociale)}</b> <span class="muted small">${doc.sedi.map((s) => esc(s.sigla || s.nome)).join(' · ')}${ni ? ` · ${ni} impianti` : ''}${ns ? ` · ${ns} sottoganci` : ''}${ng ? ` · ${ng} controlli` : ''}</span></div>`; }).join('') || '<p class="muted">Niente da importare: è già tutto presente.</p>'}</div>
           ${p.docs.length ? '<div class="azioni-form"><span class="grow"></span><button class="btn big" id="btnImp">📥 Importa</button></div>' : ''}
         </div>`;
       box.querySelector('#btnImp')?.addEventListener('click', async (ev) => {
         if (Backend.mode === 'cloud' && !navigator.onLine) return UI.toast('Serve internet', 'err');
         ev.target.disabled = true;
         let n = 0;
-        const tot = p.docs.length + p.impianti.length + p.sottoganci.length;
+        const tot = p.docs.length + p.impianti.length + p.sottoganci.length + p.giri.length;
         for (const { doc } of p.docs) { await UI.salva('clienti', doc); n++; ev.target.textContent = `Importo… ${n}/${tot}`; }
         if (p.tipologie.length) {
           const voci = [...((S.impostazioni.find((x) => x.id === 'tipologieGru') || {}).voci || IMP.TIPOLOGIE_BASE), ...p.tipologie];
@@ -99,7 +114,8 @@ window.IMPORTA = (function () {
           const pezzo = p.sottoganci.slice(i, i + 200);
           await Backend.saveMany('sottoganci', pezzo); n += pezzo.length; ev.target.textContent = `Importo… ${n}/${tot}`;
         }
-        UT.registra('creazione', `Importazione dati: ${p.nuoviClienti} clienti nuovi, ${p.nuoveSedi} sedi nuove, ${p.aggiornati} completati, ${p.impianti.length} impianti, ${p.sottoganci.length} sottoganci`);
+        for (const g of p.giri) { await UI.salva('giriSottoganci', g); n++; ev.target.textContent = `Importo… ${n}/${tot}`; }
+        UT.registra('creazione', `Importazione dati: ${p.nuoviClienti} clienti nuovi, ${p.nuoveSedi} sedi nuove, ${p.aggiornati} completati, ${p.impianti.length} impianti, ${p.sottoganci.length} sottoganci, ${p.giri.length} controlli sottoganci`);
         UI.toast('Importazione completata', 'ok'); location.hash = '#/clienti';
       });
     };
