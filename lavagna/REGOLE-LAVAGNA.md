@@ -201,7 +201,7 @@ Posizionare: **tocca il magnete → il cassetto si chiude → tocca il giorno** 
 
 ## 15. Accesso e sicurezza (Firebase)
 
-- Progetto Firebase `lavagna-officina`, piano gratuito Spark, Firestore in Europa, login con Google (dominio GitHub Pages autorizzato in Authentication).
+- Dentro il gestionale usa il progetto Firebase `gestionale-gruimpianti` (lo stesso del gestionale), login con Google.
 - Utenti ammessi (regole Firestore): `vaisittiluca@gmail.com`, `cau.gruimpianti@gmail.com`, `andretricca@gmail.com`, `fabiorosa004@gmail.com`. Un account non in elenco vede "account non autorizzato".
 - Regole in vigore:
 
