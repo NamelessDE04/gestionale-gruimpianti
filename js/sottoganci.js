@@ -77,16 +77,20 @@ window.SG = (function () {
   let annoScelto = annoCorrente();
 
   // ---------- ELENCO CARTELLE CLIENTI ----------
+  const FILTRO = { q: '' };
   function cartelle(el, S) {
     const anno = annoCorrente();
-    const lista = cartelleDi(S);
+    const tutte = cartelleDi(S), q = FILTRO.q.trim().toLowerCase();
+    const lista = tutte.filter((c) => !q || [c.nome, c.localita, c.sigla, c.titoloElenco, c.sede?.citta].join(' ').toLowerCase().includes(q));
     el.innerHTML = `
       <section class="sg">
         <div class="sez-head">
           <h1>Cartelle clienti ${UI.info('Ogni cartella è una sede di un cliente con i suoi sottoganci. Le 4 caselle colorate sono i controlli dell\'anno (fascette blu, giallo, arancio, verde).')}</h1>
           <a class="btn fab" href="#/sottoganci/cartella-nuova"><span class="fab-piu">+</span><span class="fab-txt"> Nuova cartella</span></a>
         </div>
-        ${lista.length ? '' : `<p class="nessuno">Nessuna cartella. ${S.clienti.length ? 'Creane una con «+ Nuova cartella» scegliendo la sede del cliente.' : 'Prima aggiungi i clienti e le loro sedi in <a class="link" href="#/clienti">Anagrafica clienti</a>.'}</p>`}
+        ${tutte.length ? `<input type="search" id="fCerca" class="cerca" placeholder="Cerca cliente, sede o sigla…" value="${esc(FILTRO.q)}" autocomplete="off">` : ''}
+        ${tutte.length && !lista.length ? '<p class="nessuno">Nessuna cartella trovata.</p>' : ''}
+        ${tutte.length ? '' : `<p class="nessuno">Nessuna cartella. ${S.clienti.length ? 'Creane una con «+ Nuova cartella» scegliendo la sede del cliente.' : 'Prima aggiungi i clienti e le loro sedi in <a class="link" href="#/clienti">Anagrafica clienti</a>.'}</p>`}
         <div class="cartelle">
           ${lista.map((c) => {
             const st = statoCartella(S, c.id), n = S.sottoganci.filter((s) => s.sedeId === c.id && !s.dismesso).length;
@@ -105,6 +109,8 @@ window.SG = (function () {
             </a>`; }).join('')}
         </div>
       </section>`;
+    const ft = el.querySelector('#fCerca');
+    ft && (ft.oninput = () => { FILTRO.q = ft.value; const pos = ft.selectionStart; App.ridisegna(); const n = document.getElementById('fCerca'); n.focus(); n.setSelectionRange(pos, pos); });
     return { titolo: 'Controllo sottoganci', indietro: '#/schede', live: true };
   }
   const icoCartella = `<svg viewBox="0 0 64 52" aria-hidden="true"><path d="M3 9a4 4 0 0 1 4-4h16l6 6h28a4 4 0 0 1 4 4v30a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z" fill="#f2b705" stroke="#16324f" stroke-width="3" stroke-linejoin="round"/><path d="M3 19h58" stroke="#16324f" stroke-width="3"/><rect x="22" y="27" width="20" height="9" rx="2" fill="#fff" stroke="#16324f" stroke-width="2.5"/></svg>`;

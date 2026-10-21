@@ -103,15 +103,20 @@ window.CTR = (function () {
   };
 
   // ---------- 1. ELENCO SEDI ----------
+  const FILTRO = { q: '' };
+  const testoSede = (c, s) => [CLI.nome(c), ...(CLI.exNomi ? CLI.exNomi(c) : []), s.nome, s.citta, s.sigla, s.indirizzo].join(' ').toLowerCase();
   function sedi(el, S) {
-    const lista = sediConImpianti(S); const anno = annoOggi();
+    const tutte = sediConImpianti(S); const anno = annoOggi();
+    const q = FILTRO.q.trim().toLowerCase();
+    const lista = tutte.filter(({ c, s }) => !q || testoSede(c, s).includes(q));
     el.innerHTML = `
       <section class="sg">
         <div class="sez-head">
           <h1>Controllo carriponte e gru a bandiera ${info('Qui trovi le sedi che hanno impianti. Ogni sede ha il suo piano dei controlli (in che mese si parte e quale controllo è l\'annuale). Le voci da controllare stanno nei «Modelli di scheda», uguali per tutti gli impianti dello stesso tipo.')}</h1>
           ${UT.solaLettura() ? '' : '<a class="btn ghost small" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
         </div>
-        ${lista.length ? '' : `<p class="nessuno">Nessun impianto inserito. Aggiungi prima gli impianti in <a class="link" href="#/impianti">Anagrafica impianti</a>.</p>`}
+        ${tutte.length ? `<input type="search" id="fCerca" class="cerca" placeholder="Cerca cliente, sede, città o sigla…" value="${esc(FILTRO.q)}" autocomplete="off">` : ''}
+        ${tutte.length ? (lista.length ? '' : '<p class="nessuno">Nessuna sede trovata.</p>') : `<p class="nessuno">Nessun impianto inserito. Aggiungi prima gli impianti in <a class="link" href="#/impianti">Anagrafica impianti</a>.</p>`}
         <div class="cartelle">
           ${lista.map(({ c, s }) => {
             const p = piano(s), st = statoVisite(S, s.id, anno), pr = prossima(S, s.id, anno);
@@ -127,6 +132,8 @@ window.CTR = (function () {
           }).join('')}
         </div>
       </section>`;
+    const ft = el.querySelector('#fCerca');
+    ft && (ft.oninput = () => { FILTRO.q = ft.value; const pos = ft.selectionStart; App.ridisegna(); const n = document.getElementById('fCerca'); n.focus(); n.setSelectionRange(pos, pos); });
     return { titolo: 'Controllo carriponte e gru a bandiera', indietro: '#/schede', live: true };
   }
 
