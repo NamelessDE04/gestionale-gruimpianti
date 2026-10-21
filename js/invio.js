@@ -93,7 +93,17 @@ window.INVIO = (function () {
   async function creaPdf(S, sedeId, anno, p) {
     const { c, s } = CTR.trovaSede(S, sedeId), nome = pulito(c ? CLI.nome(c) : 'cliente') + (s?.sigla ? '_' + pulito(s.sigla) : '');
     const out = [];
-    if (p.imp.length) out.push({ nome: `Schede_controllo_${anno}_${nome}${p.data ? '_' + p.data.split('-').reverse().join('-') : ''}.pdf`, bytes: await PDFX.daStampa((el) => CTRS.render(el, S, p.imp, anno, '#/'), '.foglio-p', true) });
+    if (p.imp.length && p.separati) {
+      // un PDF per ogni scheda, col numero interno dell'impianto nel nome
+      const usati = new Set();
+      for (const id of p.imp) {
+        const i = S.impianti.find((x) => x.id === id) || {};
+        let base = `Scheda_${String(i.numeroInterno || i.matricola || IMP.titolo(i) || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9-]+/g, '_').replace(/^_+|_+$/g, '') || 'impianto'}_${anno}_${nome}`, f = base, k = 2;
+        while (usati.has(f)) f = base + '_' + k++;
+        usati.add(f);
+        out.push({ nome: f + '.pdf', bytes: await PDFX.daStampa((el) => CTRS.render(el, S, [id], anno, '#/'), '.foglio-p', true) });
+      }
+    } else if (p.imp.length) out.push({ nome: `Schede_controllo_${anno}_${nome}${p.data ? '_' + p.data.split('-').reverse().join('-') : ''}.pdf`, bytes: await PDFX.daStampa((el) => CTRS.render(el, S, p.imp, anno, '#/'), '.foglio-p', true) });
     for (const id of p.rap) {
       const r = S.rapportini.find((x) => x.id === id);
       out.push({ nome: `Rapportino_${r.numero}-${r.anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => RAP.route(el, S, ['rapportini', 'r', id], new URLSearchParams()), '.recap', true) });
@@ -109,14 +119,14 @@ window.INVIO = (function () {
   // le email da mandare: tutto insieme, oppure una per ogni data di controllo (rapportini ed elenco vanno nella prima)
   function piano(S, st, sch) {
     const imp = sch.filter((x) => st.imp.has(x.id));
-    const base = { rap: [...st.rap], sg: st.sg };
+    const base = { rap: [...st.rap], sg: st.sg, separati: st.separati };
     if (st.modo !== 'date' || !imp.length) return [{ ...base, imp: imp.map((x) => x.id), data: '' }];
     const date = [...new Set(imp.map((x) => x.data))].sort();
-    return date.map((d, k) => ({ rap: k ? [] : base.rap, sg: k ? false : base.sg, imp: imp.filter((x) => x.data === d).map((x) => x.id), data: d }));
+    return date.map((d, k) => ({ separati: st.separati, rap: k ? [] : base.rap, sg: k ? false : base.sg, imp: imp.filter((x) => x.data === d).map((x) => x.id), data: d }));
   }
 
   // ---------- pagina ----------
-  const stato = { rap: new Set(), imp: new Set(), sg: false, modo: 'una', chiave: '' };
+  const stato = { rap: new Set(), imp: new Set(), sg: false, modo: 'una', chiave: '', separati: false };
   function pagina(el, S, query) {
     if (!UT.puoInviare()) { el.innerHTML = '<p class="nessuno">Solo il Master e Risorse Umane possono inviare i documenti ai clienti.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
     const st = stato;
@@ -187,9 +197,14 @@ window.INVIO = (function () {
         <h2>Come inviarli</h2>
         <div class="seg"><button type="button" class="${st.modo === 'una' ? 'on' : ''}" data-modo="una">Tutto in una email</button>
           <button type="button" class="${st.modo === 'date' ? 'on' : ''}" data-modo="date" ${nd < 2 ? 'disabled' : ''}>Una email per data di controllo</button></div>
+        ${scelte.length > 1 ? `<h3 class="inv-sotto">PDF delle schede</h3>
+        <div class="seg"><button type="button" class="${st.separati ? '' : 'on'}" data-sep="0">Tutte in un PDF</button>
+          <button type="button" class="${st.separati ? 'on' : ''}" data-sep="1">Un PDF per ogni scheda</button></div>
+        ${st.separati ? '<p class="muted small">Ogni PDF ha nel nome il numero interno dell\'impianto (es. Scheda_M-C27_2026_…pdf).</p>' : ''}` : ''}
         <ol class="inv-piano">${pp.map((p) => `<li>${[p.imp.length && `${p.imp.length} ${p.imp.length === 1 ? 'scheda' : 'schede'}${p.data ? ' del ' + fmt(p.data) : ''}`, p.rap.length && `${p.rap.length} ${p.rap.length === 1 ? 'rapportino' : 'rapportini'}`, p.sg && 'elenco sottoganci'].filter(Boolean).join(' · ')}</li>`).join('')}</ol>
         <p class="muted small">${pp.length === 1 ? 'Parte 1 email.' : `Partono ${pp.length} email.`} Se una supera il limite di Gmail (circa 18 MB di allegati) viene divisa da sola in più parti.</p>`;
       el.querySelectorAll('[data-modo]').forEach((b) => (b.onclick = () => { st.modo = b.dataset.modo; disegnaModo(); testi(); }));
+      el.querySelectorAll('[data-sep]').forEach((b) => (b.onclick = () => { st.separati = b.dataset.sep === '1'; disegnaModo(); }));
     };
     const testi = () => { if (st.testoMio) return; const t = testoBase(S, totale(), st.anno); el.querySelector('#oggetto').value = t.oggetto; el.querySelector('#testo').value = t.testo; };
     const aggiorna = () => { disegnaModo(); testi();

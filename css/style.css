@@ -1346,3 +1346,4 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .seg button:disabled { opacity: .45; cursor: default; }
 .invio .seg button { white-space: normal; line-height: 1.2; }
 .inv-lista > * { flex-shrink: 0; }
+.inv-sotto { font-size: 14px; margin: 14px 0 6px; color: var(--muted); }
