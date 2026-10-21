@@ -63,6 +63,23 @@ window.CLI = (function () {
     return true;
   }
 
+  // Master/Developer: toglie UNA sede con tutto quello che le è collegato (il cliente e le altre sedi restano)
+  async function eliminaSedeTutto(S, c, sd) {
+    const imp = new Set((S.impianti || []).filter((i) => i.sedeId === sd.id).map((i) => i.id));
+    const da = COLLEGATI.map(([col, lab]) => [col, lab, (S[col] || []).filter((d) => d.sedeId === sd.id || (col === 'layouts' && d.id === sd.id) || (d.impiantoId && imp.has(d.impiantoId))).map((d) => d.id)]).filter((x) => x[2].length);
+    const elenco = da.map(([, lab, ids]) => `• ${ids.length} ${lab}`).join('\n');
+    if (!UI.conferma(`Togliere la sede ${sd.nome || sd.sigla || ''} di ${nome(c)} con TUTTO quello che le è collegato?\n\n${elenco}\n\nIl cliente e le altre sedi restano. Non si può tornare indietro.`)) return false;
+    if (!UI.conferma(`Ultima conferma: cancello davvero la sede ${sd.nome || sd.sigla || ''} e tutti i suoi dati?`)) return false;
+    try {
+      for (const [col, , ids] of da) await Backend.removeMany(col, ids);
+      const doc = JSON.parse(JSON.stringify(c)); doc.sedi = doc.sedi.filter((x) => x.id !== sd.id);
+      await salva(doc);
+    } catch (e) { console.error(e); UI.toast('Eliminazione non completata: controlla la connessione e riprova', 'err'); return false; }
+    UT.registra('eliminazione', `Sede ${sd.nome || sd.sigla || ''} di ${nome(c)} eliminata con i dati collegati (${da.map(([, lab, ids]) => ids.length + ' ' + lab).join(', ')})`);
+    UI.toast('Sede eliminata', 'ok');
+    return true;
+  }
+
   // ---------- ELENCO CLIENTI ----------
   let cerca = '';
   function lista(el, S) {
@@ -247,7 +264,8 @@ window.CLI = (function () {
       },
       onElimina: sd ? async () => {
         const n = usaSede(S, sd.id);
-        if (n) { UI.toast(`Non si può togliere: la sede ha impianti o sottoganci collegati (${n})`, 'err'); return false; }
+        if (n && UT.isMaster()) return eliminaSedeTutto(S, c, sd);
+        if (n) { UI.toast(`Non si può togliere: la sede ha impianti o sottoganci collegati (${n}). Può farlo solo il Master.`, 'err'); return false; }
         if (!UI.conferma(`Togliere la sede ${sd.nome}?`)) return false;
         const doc = JSON.parse(JSON.stringify(c)); doc.sedi = doc.sedi.filter((x) => x.id !== sd.id);
         await salva(doc);
