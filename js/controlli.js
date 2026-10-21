@@ -87,7 +87,14 @@ window.CTR = (function () {
     const voci = vociPerImpianto(S, i).map((v) => ({ ...v }));
     const prima = schedaDi(S, i.id, anno - 1);
     const nv = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
-    const vocDi = (id) => { if (!id) return ''; if (voci.some((v) => v.id === id)) return id; const t = (prima.voci || []).find((v) => v.id === id)?.testo; return voci.find((v) => t && nv(v.testo) === nv(t))?.id || ''; };
+    // voce dell'osservazione nella scheda nuova; se nel modello non c'è (es. NOTE GENERALI) la porto con me
+    const vocDi = (id) => {
+      if (!id) return ''; if (voci.some((v) => v.id === id)) return id;
+      const pv = (prima.voci || []).find((v) => v.id === id); if (!pv) return '';
+      const m = voci.find((v) => nv(v.testo) === nv(pv.testo)); if (m) return m.id;
+      if (nv(pv.testo) === 'NOTEGENERALI') voci.unshift({ ...pv }); else voci.push({ ...pv });
+      return pv.id;
+    };
     const osservazioni = prima ? (prima.osservazioni || []).filter((o) => !o.risoltaIl).map((o) => ({ ...o, vocId: vocDi(o.vocId), visita: 0, daAnno: o.daAnno || anno - 1 })) : [];
     return { id: i.id + '-' + anno, impiantoId: i.id, sedeId: i.sedeId, clienteId: i.clienteId, anno, voci, visite: {}, osservazioni, ...(prima?.noteInterne ? { noteInterne: prima.noteInterne } : {}) };
   }
@@ -386,6 +393,8 @@ window.CTR = (function () {
     // per lavorare in fila: il prossimo impianto della sede che non ha ancora questo controllo
     const fila = impiantiSede(S, i.sedeId), pos = fila.findIndex((x) => x.id === i.id);
     const prossimoImp = [...fila.slice(pos + 1), ...fila.slice(0, pos)].find((x) => !schedaDi(S, x.id, anno)?.visite?.[n]) || null;
+    // annotazione di fuori servizio provvisorio ancora aperta (nata in un controllo prima di questo)
+    const fsAperta = osservazioni.find((o) => !o.risoltaIl && /FUORI SERVIZIO PROVVISORIO/.test(o.testo) && o.visita < n) || null;
     const prossimaLettera = () => { const usate = osservazioni.map((o) => o.lettera); let k = 0; let l; do { l = k < 26 ? String.fromCharCode(65 + k) : 'A' + String.fromCharCode(65 + k - 26); k++; } while (usate.includes(l)); return l; };
 
     el.innerHTML = `
@@ -396,6 +405,11 @@ window.CTR = (function () {
             <div class="vis-imp">${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))} · ${esc(c ? nomeSede(c, s) : '')}</div></div>
           ${UI.menu([prima && !UT.solaLettura() && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' }, { t: '📋 Scheda dell\'anno', href: `#/controlli/i/${impId}?anno=${anno}` }, { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }])}
         </div>
+        ${fsAperta && !UT.solaLettura() ? `<div class="card vis-fs vis-fs-on" id="boxFsOn">
+          <b>⏸ Impianto fuori servizio provvisorio</b> <span class="muted small">(annotazione ${esc(fsAperta.lettera)} dal ${fmt(fsAperta.data)})</span>
+          <div class="azioni-form"><button type="button" class="btn ghost" id="btnFsp">⛔ Ancora fuori servizio: salva così</button><button type="button" class="btn" id="btnFsVia">✅ Rimetti in servizio</button></div>
+          <p class="muted small">«Rimetti in servizio» chiude l'annotazione con [OK] alla data di questo controllo: poi compili il controllo normalmente e salvi.</p>
+        </div>` : ''}
         <details class="card dati-vis" ${prima ? '' : ''}>
           <summary><span>📅 <b id="sDat">${fmt(vis.dataScheda)}</b></span><span>👷 <b id="sTec">${esc(vis.tecnico || UT.breve(UT.attuale()))}</b></span><span class="link">modifica</span></summary>
           <div class="due giro-dati">
@@ -438,9 +452,9 @@ window.CTR = (function () {
           <h2>📝 Note Gru Impianti ${info('Appunti nostri su questo impianto per quest\'anno: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2>
           <textarea name="noteInterne" rows="3" data-libero placeholder="es. portare ricambio freno, chiedere chiavi al capoturno…">${esc(sc.noteInterne || '')}</textarea>
         </div>
-        ${UT.solaLettura() ? '' : `<div class="card vis-fs">
+        ${UT.solaLettura() || fsAperta ? '' : `<div class="card vis-fs">
           <button type="button" class="btn ghost" id="btnFsp">⛔ Impianto fuori servizio provvisorio</button>
-          <p class="muted small">Salva il controllo con tutte le voci vuote e su «NOTE GENERALI» l'annotazione «FUORI SERVIZIO PROVVISORIO». Le osservazioni aperte restano nell'elenco dell'anno.</p>
+          <p class="muted small">Salva il controllo con le voci vuote (restano solo le lettere delle osservazioni ancora aperte) e su «NOTE GENERALI» l'annotazione «FUORI SERVIZIO PROVVISORIO».</p>
         </div>`}
         <div class="azioni-form sticky vis-salva">
           <button class="btn ghost big" type="submit" data-dopo="sede">Salva</button>
@@ -503,14 +517,16 @@ window.CTR = (function () {
     // fuori servizio provvisorio: tutte le caselle vuote; sulla voce NOTE GENERALI (la prima, aggiunta se manca)
     // va l'annotazione FUORI SERVIZIO PROVVISORIO. Le osservazioni aperte restano nell'elenco dell'anno.
     el.querySelector('#btnFsp')?.addEventListener('click', async () => {
-      if (!UI.conferma(`Segnare ${i.numeroInterno ? 'N° ' + i.numeroInterno : IMP.titolo(i)} FUORI SERVIZIO PROVVISORIO in questo controllo?\n\nTutte le voci restano vuote e su «NOTE GENERALI» si aggiunge l'annotazione «FUORI SERVIZIO PROVVISORIO».`)) return;
+      if (!UI.conferma(`Segnare ${i.numeroInterno ? 'N° ' + i.numeroInterno : IMP.titolo(i)} FUORI SERVIZIO PROVVISORIO in questo controllo?\n\nLe voci restano vuote (con le lettere delle osservazioni ancora aperte) e su «NOTE GENERALI» ${fsAperta ? 'resta' : 'si aggiunge'} l'annotazione «FUORI SERVIZIO PROVVISORIO».`)) return;
       const nvt = (t) => String(t || '').toUpperCase().replace(/[^A-Z]/g, '');
       let ng = sc.voci[0] && nvt(sc.voci[0].testo) === 'NOTEGENERALI' ? sc.voci[0] : null;
       if (!ng) { ng = { id: uid(), per: 'T', testo: 'NOTE GENERALI', tipo: 'codice' }; sc.voci.unshift(ng); }
-      voci.forEach((v) => (vis.esiti[v.id] = Array(np).fill('')));
+      // caselle vuote: restano solo le lettere delle osservazioni ancora aperte
+      voci.forEach((v) => (vis.esiti[v.id] = Array.from({ length: np }, (_, k) => aperte(v.id, k + 1).filter((o) => !/FUORI SERVIZIO PROVVISORIO/.test(o.testo))[0]?.lettera || '')));
       Object.keys(vis.valori || {}).forEach((k) => (vis.valori[k] = Array(np).fill('')));
       const d = f.dataScheda.value || oggi();
-      let o = osservazioni.find((x) => !x.risoltaIl && x.vocId === ng.id && /FUORI SERVIZIO PROVVISORIO/.test(x.testo));
+      let o = fsAperta || osservazioni.find((x) => !x.risoltaIl && x.vocId === ng.id && /FUORI SERVIZIO PROVVISORIO/.test(x.testo));
+      if (o) o.vocId = ng.id;
       if (!o) { o = { lettera: prossimaLettera(), testo: 'FUORI SERVIZIO PROVVISORIO', vocId: ng.id, p: 1, visita: n, data: d }; osservazioni.push(o); }
       vis.esiti[ng.id] = Array(np).fill(''); vis.esiti[ng.id][0] = o.lettera;
       vis.fs = true;
@@ -522,6 +538,16 @@ window.CTR = (function () {
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
       UI.toast('Controllo salvato: impianto fuori servizio provvisorio', 'ok');
       location.hash = torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
+    });
+    // rimetti in servizio: l'annotazione si chiude con [OK] alla data di questo controllo (resta fino al controllo prima)
+    el.querySelector('#btnFsVia')?.addEventListener('click', async () => {
+      const d = f.dataScheda.value || oggi();
+      if (!UI.conferma(`Rimettere in servizio l'impianto?\n\nL'annotazione ${fsAperta.lettera} «FUORI SERVIZIO PROVVISORIO» si chiude con [OK ${fmt(d)}]. Poi compila il controllo e salva.`)) return;
+      fsAperta.risoltaIl = d;
+      Object.keys(vis.esiti).forEach((k) => (vis.esiti[k] = vis.esiti[k].map((x) => (x === fsAperta.lettera ? '' : x))));
+      try { await UI.salva('impianti', { ...i, stato: '', fsDal: '' }); } catch (e) {}
+      el.querySelector('#boxFsOn').innerHTML = `<b>✅ Rimesso in servizio</b> <span class="muted small">l'annotazione ${esc(fsAperta.lettera)} si chiude con [OK ${esc(fmt(d))}] quando salvi il controllo</span>`;
+      disegnaOss(); UI.toast('Impianto in servizio: compila il controllo e salva', 'ok');
     });
     const leggiTecnici = UT.collegaTecnici(el, vis.firmaDi);
     // riga riassuntiva di data e tecnici, salti rapidi tra le sezioni
