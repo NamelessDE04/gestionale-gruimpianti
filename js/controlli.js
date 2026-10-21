@@ -53,6 +53,16 @@ window.CTR = (function () {
     S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: m }];
     return m;
   }
+  // nuovo modello di scheda dalle voci date (es. quelle di una scheda importata); stesso nome = non si duplica
+  async function aggiungiModello(S, nome, voci) {
+    const ms = JSON.parse(JSON.stringify(await assicuraModelli(S)));
+    nome = String(nome || '').trim(); if (!nome) return null;
+    if (ms.some((m) => m.nome.toLowerCase() === nome.toLowerCase())) return false;
+    const m = { id: uid(), nome, voci: voci.map((v) => ({ id: uid(), per: v.per || 'T', testo: String(v.testo || '').toUpperCase(), tipo: 'codice', ...(v.valore || v.tipo === 'misura' ? { valore: true, unita: v.unita || 'mm' } : {}) })) };
+    ms.push(m); await UI.salva('impostazioni', { id: 'modelliScheda', modelli: ms });
+    S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: ms }];
+    return m;
+  }
   const modelloDi = (S, imp) => {
     const ms = modelli(S) || MODELLI_BASE();
     return ms.find((m) => m.id === imp.controllo?.modelloId) || ms.find((m) => m.id === (/bandiera/i.test(imp.tipologia || '') ? 'bandiera' : 'carroponte')) || ms[0];
@@ -242,6 +252,7 @@ window.CTR = (function () {
           ${UI.menu([
             UT.puoInviare() && { t: `🖨️ Stampa scheda ${anno}`, href: `#/controlli/i/${impId}/${anno}/stampa` },
             !UT.solaLettura() && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
+            UT.isMaster() && sc && { t: '💾 Salva queste voci come modello', id: 'btnComeModello' },
             { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
           ])}
         </div>
@@ -261,6 +272,16 @@ window.CTR = (function () {
           ${UT.solaLettura() ? '' : '<div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnVecchieVia">🗑 Elimina</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnVecchieSposta">↧ Sposta nelle note Gru Impianti</button></div>'}</div>` : ''}
       </section>`;
     el.querySelector('#btnVoci')?.addEventListener('click', () => modaleVoci(S, i));
+    el.querySelector('#btnComeModello')?.addEventListener('click', () => UI.modal({
+      titolo: 'Salva le voci come modello',
+      infoTxt: `Le ${sc.voci.length} voci di questa scheda, così come sono, diventano un nuovo modello nella lista «Modelli di scheda». Poi lo puoi scegliere per gli altri impianti.`,
+      campi: [{ k: 'nome', label: 'Nome del modello', req: true, maiuscolo: true, placeholder: 'es. CLN' }],
+      onSalva: async (v) => {
+        const m = await aggiungiModello(S, v.nome, sc.voci);
+        if (m === false) { UI.toast('C\'è già un modello con questo nome', 'err'); return false; }
+        UI.toast(`Modello «${m.nome}» salvato (${m.voci.length} voci)`, 'ok');
+      }
+    }));
     const togliVecchie = async (sposta) => {
       const d = JSON.parse(JSON.stringify(sc));
       if (sposta) { const ora = (el.querySelector('#noteInt')?.value || d.noteInterne || '').trim(); d.noteInterne = [ora, d.noteVecchie.trim()].filter(Boolean).join('\n'); }
@@ -614,5 +635,5 @@ window.CTR = (function () {
     return sedi(el, S);
   }
 
-  return { route, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+  return { route, aggiungiModello, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
 })();

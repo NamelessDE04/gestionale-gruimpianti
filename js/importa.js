@@ -10,7 +10,7 @@ window.IMPORTA = (function () {
 
   // calcola cosa succede, senza salvare niente
   function piano(S, dati) {
-    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [], giri: [], schede: [], schedeSenzaGru: 0, schedeGia: 0, schedeRifatte: 0 };
+    const out = { nuoviClienti: 0, nuoveSedi: 0, aggiornati: 0, docs: [], impianti: [], tipologie: [], sottoganci: [], giri: [], schede: [], schedeSenzaGru: 0, schedeGia: 0, schedeRifatte: 0, modelli: [] };
     const tipiNoti = new Set(IMP.TIPOLOGIE_BASE.concat((S.impostazioni.find((x) => x.id === 'tipologieGru') || {}).voci || []).map(norm));
     (dati.clienti || []).forEach((ci) => {
       if (!ci.ragioneSociale) return;
@@ -73,6 +73,9 @@ window.IMPORTA = (function () {
       out.docs.push({ doc, nuovo: !es });
     });
     storico(S, dati, out);
+    // modelli di scheda (voci di controllo): uno con lo stesso nome non si duplica
+    const nomiMod = ((S.impostazioni.find((x) => x.id === 'modelliScheda') || {}).modelli || []).map((m) => norm(m.nome));
+    (dati.modelliScheda || []).forEach((m) => { if (m.nome && (m.voci || []).length && !nomiMod.includes(norm(m.nome))) out.modelli.push(m); });
     return out;
   }
 
@@ -161,11 +164,11 @@ window.IMPORTA = (function () {
       const p = piano(S, dati), box = el.querySelector('#anteprima');
       box.innerHTML = `
         <div class="imp-ris">
-          <p><b>${p.nuoviClienti}</b> clienti nuovi · <b>${p.nuoveSedi}</b> sedi nuove · <b>${p.aggiornati}</b> clienti già presenti da completare · <b>${p.impianti.length}</b> impianti nuovi${p.sottoganci.length ? ` · <b>${p.sottoganci.length}</b> sottoganci nuovi` : ''}${p.giri.length ? ` · <b>${p.giri.length}</b> controlli sottoganci` : ''}${p.schede.length ? ` · <b>${p.schede.length}</b> schede controlli gru (${p.schede.reduce((n, x) => n + Object.keys(x.visite).length, 0)} controlli)` : ''}</p>
+          <p><b>${p.nuoviClienti}</b> clienti nuovi · <b>${p.nuoveSedi}</b> sedi nuove · <b>${p.aggiornati}</b> clienti già presenti da completare · <b>${p.impianti.length}</b> impianti nuovi${p.sottoganci.length ? ` · <b>${p.sottoganci.length}</b> sottoganci nuovi` : ''}${p.giri.length ? ` · <b>${p.giri.length}</b> controlli sottoganci` : ''}${p.modelli.length ? ` · <b>${p.modelli.length}</b> ${p.modelli.length === 1 ? 'modello' : 'modelli'} di scheda (${p.modelli.map((m) => esc(m.nome)).join(', ')})` : ''}${p.schede.length ? ` · <b>${p.schede.length}</b> schede controlli gru (${p.schede.reduce((n, x) => n + Object.keys(x.visite).length, 0)} controlli)` : ''}</p>
           ${p.schedeGia || p.schedeSenzaGru || p.schedeRifatte ? `<p class="muted small">${p.schedeRifatte ? `${p.schedeRifatte} schede importate prima vengono rifatte con i dati nuovi. ` : ''}${p.schedeGia ? `${p.schedeGia} schede ci sono già (compilate in app) e non vengono toccate. ` : ''}${p.schedeSenzaGru ? `${p.schedeSenzaGru} schede sono di gru che non ci sono nell'anagrafica (eliminate o non importate): saltate.` : ''}</p>` : ''}
           ${p.tipologie.length ? `<p class="muted small">Tipologie di gru nuove da aggiungere all'elenco: ${p.tipologie.map(esc).join(', ')}</p>` : ''}
-          <div class="imp-lista">${p.docs.map(({ doc, nuovo }) => { const ni = p.impianti.filter((x) => x.clienteId === doc.id).length, ns = p.sottoganci.filter((x) => x.clienteId === doc.id).length, ng = p.giri.filter((x) => x.clienteId === doc.id).length; return `<div><span class="pill ${nuovo ? 'st-ok' : 'st-mai'}">${nuovo ? 'nuovo' : 'completa'}</span> <b>${esc(doc.ragioneSociale)}</b> <span class="muted small">${doc.sedi.map((s) => esc(s.sigla || s.nome)).join(' · ')}${ni ? ` · ${ni} impianti` : ''}${ns ? ` · ${ns} sottoganci` : ''}${ng ? ` · ${ng} controlli` : ''}</span></div>`; }).join('') || (p.schede.length ? '' : '<p class="muted">Niente da importare: è già tutto presente.</p>')}</div>
-          ${p.docs.length || p.schede.length ? '<div class="azioni-form"><span class="grow"></span><button class="btn big" id="btnImp">📥 Importa</button></div>' : ''}
+          <div class="imp-lista">${p.docs.map(({ doc, nuovo }) => { const ni = p.impianti.filter((x) => x.clienteId === doc.id).length, ns = p.sottoganci.filter((x) => x.clienteId === doc.id).length, ng = p.giri.filter((x) => x.clienteId === doc.id).length; return `<div><span class="pill ${nuovo ? 'st-ok' : 'st-mai'}">${nuovo ? 'nuovo' : 'completa'}</span> <b>${esc(doc.ragioneSociale)}</b> <span class="muted small">${doc.sedi.map((s) => esc(s.sigla || s.nome)).join(' · ')}${ni ? ` · ${ni} impianti` : ''}${ns ? ` · ${ns} sottoganci` : ''}${ng ? ` · ${ng} controlli` : ''}</span></div>`; }).join('') || (p.schede.length || p.modelli.length ? '' : '<p class="muted">Niente da importare: è già tutto presente.</p>')}</div>
+          ${p.docs.length || p.schede.length || p.modelli.length ? '<div class="azioni-form"><span class="grow"></span><button class="btn big" id="btnImp">📥 Importa</button></div>' : ''}
         </div>`;
       box.querySelector('#btnImp')?.addEventListener('click', async (ev) => {
         if (Backend.mode === 'cloud' && !navigator.onLine) return UI.toast('Serve internet', 'err');
@@ -186,6 +189,7 @@ window.IMPORTA = (function () {
           const pezzo = p.sottoganci.slice(i, i + 200);
           await Backend.saveMany('sottoganci', pezzo); n += pezzo.length; ev.target.textContent = `Importo… ${n}/${tot}`;
         }
+        for (const m of p.modelli) await CTR.aggiungiModello(S, m.nome, m.voci);
         // le schede hanno dentro le firme: blocchi piccoli
         for (let i = 0; i < p.schede.length; i += 60) {
           const pezzo = p.schede.slice(i, i + 60);
