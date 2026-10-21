@@ -1348,3 +1348,8 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .invio .seg button { white-space: normal; line-height: 1.2; }
 .inv-lista > * { flex-shrink: 0; }
 .inv-sotto { font-size: 14px; margin: 14px 0 6px; color: var(--muted); }
+/* layout: filtro famiglie e grandezza simboli */
+.lay-barra { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin: 0 0 10px; }
+.lay-filtri { display: flex; flex-wrap: wrap; gap: 6px; }
+.lay-scala { display: flex; align-items: center; gap: 6px; margin-left: auto; }
+.lay-scala b { min-width: 44px; text-align: center; font-size: 14px; }

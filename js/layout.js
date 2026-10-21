@@ -22,6 +22,11 @@ window.LAY = (function () {
     return L;
   }
   const eBandiera = (i) => /bandiera/i.test(i?.tipologia || '');
+  // famiglie di impianti per il filtro e per il simbolo nel layout
+  const FAMIGLIE = { carroponte: 'Carriponte', bandiera: 'Gru a bandiera', pinza: 'Pinze', seghetto: 'Seghetti' };
+  const famiglia = (i) => { const t = i?.tipologia || ''; return /bandiera/i.test(t) ? 'bandiera' : /pinz/i.test(t) ? 'pinza' : /seghett/i.test(t) ? 'seghetto' : 'carroponte'; };
+  const SCALE = [1, 0.8, 0.65, 0.5];   // grandezza dei simboli (bandiera, pinza, seghetto)
+  const filtroLay = {};               // filtro scelto per sede (solo su questo dispositivo)
   const sigla = (i) => i.numeroInterno || (eBandiera(i) ? 'GB' : 'CP');
   const RIDIM = ['capannone', 'zona', 'uffici', 'corsia', 'corridoio'];
 
@@ -114,7 +119,7 @@ window.LAY = (function () {
     let g = '';
     opz = { ...opz, L };
     els.forEach((e) => (g += elemento(e, u, opz)));
-    L.impianti.forEach((p) => { const i = imp.find((x) => x.id === p.impId); if (i) g += impianto(L, i, p, u, opz); });
+    L.impianti.forEach((p) => { const i = imp.find((x) => x.id === p.impId); if (i && (!opz.filtro || famiglia(i) === opz.filtro)) g += impianto(L, i, p, u, opz); });
     // la vista comprende tutto il disegno
     const pts = [...L.elementi.map((e) => [e.x, e.y, +e.w || 0, +e.h || 0]), ...L.impianti.map((p) => [p.x, p.y, 0, 0])];
     if (!pts.length) pts.push([0, 0, 100, 70]);
@@ -174,14 +179,20 @@ window.LAY = (function () {
     const st = opz.stato ? opz.stato(i) : '';
     const col = st === 'fatto' ? '#2e9e5b' : st === 'dafare' ? '#e07a1f' : '#f2b705';
     const nome = esc(sigla(i));
-    if (eBandiera(i)) {
-      const s = u * 1.6;
+    const fam = famiglia(i);
+    if (fam !== 'carroponte') {
+      const sc = +L.scala || 1, s = u * 1.6 * sc, k2 = Math.max(0.6, sc);
+      const ico = fam === 'bandiera'
+        ? `<path d="M${-s * 0.6} ${s} L${-s * 0.6} ${-s} L${s * 0.9} ${-s}" fill="none" stroke="#c99a00" stroke-width="${u * 0.35 * sc}"/>
+        <path d="M${s * 0.6} ${-s} L${s * 0.6} ${-s * 0.3}" stroke="#111" stroke-width="${u * 0.12 * sc}"/>`
+        : fam === 'pinza'
+          ? `<path d="M0 ${-s} L0 ${-s * 0.4} M${-s * 0.7} ${-s * 0.4} L${s * 0.7} ${-s * 0.4} M${-s * 0.6} ${-s * 0.4} L${-s * 0.6} ${s * 0.8} L${-s * 0.2} ${s * 0.8} M${s * 0.6} ${-s * 0.4} L${s * 0.6} ${s * 0.8} L${s * 0.2} ${s * 0.8}" fill="none" stroke="#1f5fbf" stroke-width="${u * 0.3 * sc}" stroke-linejoin="round"/>`
+          : `<circle r="${s * 0.85}" fill="none" stroke="#7a3fb0" stroke-width="${u * 0.25 * sc}" stroke-dasharray="${u * 0.35 * sc} ${u * 0.2 * sc}"/><circle r="${s * 0.2}" fill="#7a3fb0"/>`;
       return `<g class="lay-drag lay-imp${sel(opz, k)} st-${st}" data-k="${k}" transform="translate(${p.x} ${p.y})">
-        <rect x="${-s * 1.6}" y="${-s * 2.6}" width="${s * 3.2}" height="${s * 4}" fill="#fff" fill-opacity="0"/>
-        <g transform="rotate(${+p.rot || 0})"><rect x="${-s * 1.3}" y="${-s * 1.3}" width="${s * 2.6}" height="${s * 2.6}" rx="${u * 0.3}" fill="${st ? col : '#fff8e0'}" fill-opacity="${st ? 0.22 : 1}" stroke="${col}" stroke-width="${u * 0.15}"/>
-        <path d="M${-s * 0.6} ${s} L${-s * 0.6} ${-s} L${s * 0.9} ${-s}" fill="none" stroke="#c99a00" stroke-width="${u * 0.35}"/>
-        <path d="M${s * 0.6} ${-s} L${s * 0.6} ${-s * 0.3}" stroke="#111" stroke-width="${u * 0.12}"/></g>
-        <text x="0" y="${-s * 1.55}" font-size="${u * 2}" text-anchor="middle" font-weight="700" fill="#111">${nome}</text></g>`;
+        <rect x="${-s * 1.6}" y="${-s * 1.6 - u * 2 * k2}" width="${s * 3.2}" height="${s * 3.2 + u * 2 * k2}" fill="#fff" fill-opacity="0"/>
+        <g transform="rotate(${+p.rot || 0})"><rect x="${-s * 1.3}" y="${-s * 1.3}" width="${s * 2.6}" height="${s * 2.6}" rx="${u * 0.3 * sc}" fill="${st ? col : '#fff8e0'}" fill-opacity="${st ? 0.22 : 1}" stroke="${col}" stroke-width="${u * 0.15 * sc}"/>
+        ${ico}</g>
+        <text x="0" y="${-s * 1.3 - u * 0.4 * k2}" font-size="${u * 2 * k2}" text-anchor="middle" font-weight="700" fill="#111">${nome}</text></g>`;
     }
     // carroponte: trave che attraversa tutta la sua campata (anche nei capannoni con campate orizzontali)
     const cp = campataDi(L, p.x, p.y), h = u * 0.9;
@@ -275,6 +286,10 @@ window.LAY = (function () {
           <div class="lay-pal-voci" id="impFuori"></div>
         </div>` : ''}
         ${!salvato && !modifica ? `<div class="card vuoto-lay"><p>Per questa sede il layout non è ancora stato disegnato.</p>${puoModificare ? '<button class="btn" id="btnMod2">✏️ Disegna il layout</button>' : ''}</div>` : ''}
+        ${(salvato || modifica) && imp.length ? `<div class="lay-barra no-print">
+          ${(() => { const presenti = Object.keys(FAMIGLIE).filter((f) => imp.some((i) => famiglia(i) === f)); return presenti.length > 1 ? `<div class="lay-filtri"><button type="button" class="inv-chip ${filtroLay[sedeId] ? '' : 'on'}" data-fam="">Tutti</button>${presenti.map((f) => `<button type="button" class="inv-chip ${filtroLay[sedeId] === f ? 'on' : ''}" data-fam="${f}">${FAMIGLIE[f]} <small>${imp.filter((i) => famiglia(i) === f).length}</small></button>`).join('')}</div>` : ''; })()}
+          ${imp.some((i) => famiglia(i) !== 'carroponte') ? `<div class="lay-scala"><span class="muted small">Simboli</span><button type="button" class="btn ghost small" data-scala="-1" aria-label="Più piccoli">A−</button><b id="scalaVal">${Math.round((+L.scala || 1) * 100)}%</b><button type="button" class="btn ghost small" data-scala="1" aria-label="Più grandi">A+</button></div>` : ''}
+        </div>` : ''}
         <div class="lay-foglio" id="foglio" ${!salvato && !modifica ? 'hidden' : ''}>
           <div class="lay-stampa-testa"><b>${esc(CTR.nomeSede(c, s))}</b><span>LAYOUT IMPIANTI · ${UI.fmt(UI.oggi())}</span></div>
           <div id="svgBox"></div>
@@ -286,11 +301,19 @@ window.LAY = (function () {
 
     const box = el.querySelector('#svgBox');
     const ridisegna = () => {
-      box.innerHTML = (salvato || modifica) ? disegna(S, L, { modifica, stato, scelto }) : '';
+      box.innerHTML = (salvato || modifica) ? disegna(S, L, { modifica, stato, scelto, filtro: filtroLay[sedeId] || '' }) : '';
       if (modifica) { disegnaPal(); collegaTrascina(); }
       else collegaTocchi();
     };
 
+    el.querySelectorAll('[data-fam]').forEach((b) => (b.onclick = () => {
+      filtroLay[sedeId] = b.dataset.fam; el.querySelectorAll('[data-fam]').forEach((x) => x.classList.toggle('on', x === b)); ridisegna();
+    }));
+    el.querySelectorAll('[data-scala]').forEach((b) => (b.onclick = async () => {
+      const ora = SCALE.indexOf(+L.scala || 1), k = Math.min(SCALE.length - 1, Math.max(0, (ora < 0 ? 0 : ora) - +b.dataset.scala));
+      L.scala = SCALE[k]; el.querySelector('#scalaVal').textContent = Math.round(L.scala * 100) + '%'; ridisegna();
+      if (puoModificare && salvato && !modifica) { try { await UI.salva('layouts', L); } catch (e) {} } else if (modifica) salva();
+    }));
     // ---- vista: tocco su un impianto ----
     function collegaTocchi() {
       box.querySelectorAll('.lay-imp').forEach((g) => {
@@ -315,7 +338,7 @@ window.LAY = (function () {
       const c0 = cs[0]; return { x: c0.x + c0.w / 2, y: c0.y + c0.h / 2 };
     };
     function disegnaPal() {
-      el.querySelector('#impFuori').innerHTML = fuori().map((i) => `<button type="button" class="chip-s chip-imp" data-addimp="${i.id}">${eBandiera(i) ? '🏗️' : '═'} ${esc(sigla(i))}</button>`).join('') || '<span class="muted small">Tutti gli impianti sono nel layout ✓</span>';
+      el.querySelector('#impFuori').innerHTML = fuori().map((i) => `<button type="button" class="chip-s chip-imp" data-addimp="${i.id}">${({ bandiera: '🏗️', pinza: '🗜️', seghetto: '🪚' })[famiglia(i)] || '═'} ${esc(sigla(i))}</button>`).join('') || '<span class="muted small">Tutti gli impianti sono nel layout ✓</span>';
       el.querySelectorAll('[data-addimp]').forEach((b) => (b.onclick = () => {
         // un posto libero: una campata dopo l'altra del primo capannone, scendendo
         const c0 = capannoni(L)[0], k = L.impianti.length;
@@ -352,7 +375,7 @@ window.LAY = (function () {
       if (tipo === 'imp') {
         const i = imp.find((x) => x.id === id);
         p.innerHTML = `<div class="lay-prop-riga"><b>${esc(i ? sigla(i) : '')}</b><span class="grow">${esc(i ? IMP.titolo(i) : '')}</span>
-          ${i && eBandiera(i) ? '<button type="button" class="btn ghost small" id="pRuotaImp">↻ Ruota</button>' : ''}
+          ${i && famiglia(i) !== 'carroponte' ? '<button type="button" class="btn ghost small" id="pRuotaImp">↻ Ruota</button>' : ''}
           <button type="button" class="btn ghost small danger" id="pTogli">Togli dal layout</button><button type="button" class="btn ghost small" id="pChiudi">Fatto</button></div>`;
         p.querySelector('#pRuotaImp')?.addEventListener('click', () => { const q = L.impianti.find((x) => x.impId === id); q.rot = ((+q.rot || 0) + 45) % 360; ridisegna(); salva(); });
         p.querySelector('#pTogli').onclick = () => { L.impianti = L.impianti.filter((x) => x.impId !== id); scelto = null; ridisegna(); proprieta(); salva(); };
