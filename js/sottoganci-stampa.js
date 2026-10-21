@@ -85,7 +85,7 @@ window.SGStampa = (function () {
 
   function documento(S, cliId, anno) {
     const c = SG.cliente(S, cliId);
-    const items = SG.elenco(S, cliId, anno);
+    const items = SG.elenco(S, cliId, anno).filter((s) => !s.dismesso);   // gli sbarrati (eliminati dall'elenco) non vanno al cliente
     const giri = SG.slotGiri(S, cliId, anno);
     const ultimo = giri.filter(Boolean).pop();
     const pagine = impagina(items);

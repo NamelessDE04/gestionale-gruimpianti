@@ -57,9 +57,17 @@ window.SG = (function () {
   const slotGiri = (S, cliId, anno) => SLOT.map((s) => giriDi(S, cliId, anno).find((g) => g.slot === s.n) || null);
 
   // sottoganci da mostrare in un anno: quelli attivi + quelli controllati quell'anno
+  // eliminato con «\» in un anno passato: nell'ultimo controllo che lo contiene tutti i componenti giudicati hanno «\».
+  // Dall'anno dopo non compare più (come uno sbarrato).
+  const eliminatoPrima = (S, s, anno) => {
+    const u = S.giriSottoganci.filter((g) => g.sedeId === s.sedeId && g.anno < anno && g.righe[s.id])
+      .sort((a, b) => (b.anno - a.anno) || (b.slot - a.slot))[0];
+    const cod = u ? u.righe[s.id].codici.filter(Boolean) : [];
+    return cod.length > 0 && cod.every((c) => c === '\\');
+  };
   function elenco(S, cliId, anno) {
     const giri = giriDi(S, cliId, anno);
-    return S.sottoganci.filter((s) => s.sedeId === cliId && (!s.dismesso || giri.some((g) => g.righe[s.id])))
+    return S.sottoganci.filter((s) => s.sedeId === cliId && ((!s.dismesso && !eliminatoPrima(S, s, anno)) || giri.some((g) => g.righe[s.id])))
       .sort(ordinaNum);
   }
   // note da mostrare: quelle dell'ultimo controllo dell'anno che contiene il sottogancio
@@ -375,6 +383,10 @@ window.SG = (function () {
     });
     // elenco "piatto": una voce per ogni componente
     const voci = items.flatMap((s) => s.parti.map((p, pi) => ({ s, p, pi, key: s.id + ':' + pi })));
+    // componente eliminato («\») in un controllo prima, nello stesso anno: resta «\» e non si cambia più
+    const giriAnnoPrima = giriDi(S, cliId, anno).filter((x) => x.id !== g.id && x.slot < slotN).sort((a, b) => a.slot - b.slot);
+    voci.forEach((v) => { const x = giriAnnoPrima.find((y) => y.righe[v.s.id]?.codici[v.pi] === '\\'); if (x) { v.elim = x; g.righe[v.s.id].codici[v.pi] = '\\'; } });
+    const msgElim = (v) => `<div class="sg2-elim">\\ eliminato il ${esc(dataBreve(v.elim.data))} (fascetta ${esc(SLOT[v.elim.slot - 1].nome)}) · non si può cambiare</div>`;
     const fatti = () => voci.filter((v) => g.righe[v.s.id].codici[v.pi]).length;
     const sub = (v) => [v.p.dimensioni, v.pi === 0 && v.s.portata, v.pi === 0 && v.s.ubicazione, v.s.parti.length > 1 && `componente ${v.pi + 1} di ${v.s.parti.length}`].filter(Boolean).map(esc).join(' · ');
     const prima = (v) => precedente?.righe[v.s.id]?.codici[v.pi] || '';
@@ -398,7 +410,7 @@ window.SG = (function () {
         <div class="sg2-barra">
           <input type="search" id="gCerca" class="cerca" placeholder="🔍 Cerca n° o nome" autocomplete="off">
           <button type="button" class="btn ghost small" id="btnModo">${modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco'}</button>
-          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. «💾 Salva» salva a metà: dopo riprendi da dove eri. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
+          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Un componente segnato «\\» (eliminato) resta così nei controlli dopo fino a fine anno; dall\'anno dopo sparisce dall\'elenco. «💾 Salva» salva a metà: dopo riprendi da dove eri. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
         </div>
 
         <div class="sg2-lista giro-lista">
@@ -407,7 +419,7 @@ window.SG = (function () {
               <div class="h"><b class="n ${v.pi ? 'comp' : ''}">${esc(v.s.numero)}</b>
                 <span class="d">${esc(v.p.denominazione)}<small>${sub(v)}${prima(v) ? ` · prima: <em class="${classeCod(prima(v))}">${esc(prima(v))}</em>` : ''}</small></span>
                 <button type="button" class="pen" data-pen aria-label="Note">✎</button></div>
-              ${bottoni('sg2-bt')}
+              ${v.elim ? msgElim(v) : bottoni('sg2-bt')}
               <div class="notina" data-vedi></div>
               <input class="gi-nota" data-nota placeholder="Note" value="${esc(g.righe[v.s.id].note[v.pi] || '')}" hidden>
             </div>`).join('')}
@@ -442,7 +454,7 @@ window.SG = (function () {
     };
     const segnaBottoni = (box, cod) => {
       box.querySelectorAll('.cod-btn[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c === cod));
-      const alt = box.querySelector('[data-altro]');
+      const alt = box.querySelector('[data-altro]'); if (!alt) return;
       const extra = cod && !PRINCIPALI.includes(cod);
       alt.classList.toggle('on', !!extra); alt.className = 'cod-btn altro ' + (extra ? 'on ' + classeCod(cod) : '');
       alt.textContent = extra ? cod + ' ▾' : 'altro ▾';
@@ -450,10 +462,11 @@ window.SG = (function () {
     const mostraNota = (box, testo) => { const vd = box.querySelector('[data-vedi]'); vd.textContent = testo ? '📝 ' + testo : ''; vd.hidden = !testo; };
     const evidenzia = () => el.querySelectorAll('.sg2-gi').forEach((b, i) => b.classList.toggle('ora', i === corrente));
     const setCod = (i, cod) => {
-      const v = voci[i]; g.righe[v.s.id].codici[v.pi] = cod;
+      const v = voci[i]; if (v.elim) cod = '\\';
+      g.righe[v.s.id].codici[v.pi] = cod;
       const box = riga(v.key); segnaBottoni(box, cod);
       box.classList.remove('manca'); box.classList.toggle('fatto', !!cod);
-      box.querySelector('.sg2-altri').hidden = true;
+      if (box.querySelector('.sg2-altri')) box.querySelector('.sg2-altri').hidden = true;
       aggiorna();
     };
     // il prossimo da fare (dopo i), tra quelli visibili con la ricerca
@@ -489,7 +502,7 @@ window.SG = (function () {
         const nuovo = g.righe[v.s.id].codici[v.pi] === b.dataset.c ? '' : b.dataset.c;
         setCod(i, nuovo); if (nuovo) dopoGiudizio(i);
       }));
-      box.querySelector('[data-altro]').onclick = () => { const a = box.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
+      const ba = box.querySelector('[data-altro]'); if (ba) ba.onclick = () => { const a = box.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
       const nota = box.querySelector('[data-nota]');
       box.querySelector('[data-pen]').onclick = () => { nota.hidden = !nota.hidden; if (!nota.hidden) nota.focus(); };
       nota.oninput = () => { g.righe[v.s.id].note[v.pi] = nota.value; mostraNota(box, nota.hidden ? nota.value : ''); };
@@ -512,7 +525,7 @@ window.SG = (function () {
         ${(() => { const st = storicoVoce(v); return st.length ? `<div class="u-storia"><small>controlli precedenti</small><div>${st.map((x) => `<span class="u-st" style="--c:${x.col}"><i>${esc(x.data)}</i><em class="${classeCod(x.cod)}">${esc(x.cod || '—')}</em></span>`).join('')}</div></div>` : '<div class="u-prima">nessun controllo precedente</div>'; })()}
         ${nota ? `<div class="notina">📝 ${esc(nota)}</div>` : ''}
         <span class="grow"></span>
-        <div class="u-bt">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('')}</div>
+        ${v.elim ? msgElim(v) : `<div class="u-bt">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('')}</div>`}
         <div class="u-sotto"><button type="button" class="link" data-ualtro>${cod && !PRINCIPALI.includes(cod) ? '<b>' + esc(cod) + '</b> ▾' : 'altro giudizio ▾'}</button><button type="button" class="link" data-unota>✎ nota</button></div>
         <div class="sg2-altri" hidden>${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>
         <input class="gi-nota" data-unotain placeholder="Note" value="${esc(nota)}" hidden>
@@ -523,6 +536,7 @@ window.SG = (function () {
         const nuovo = cod === b.dataset.c ? '' : b.dataset.c; setCod(corrente, nuovo);
         if (nuovo) dopoGiudizio(corrente); else disegnaUno();
       }));
+      if (v.elim) { uno.querySelector('[data-ualtro]').hidden = true; uno.querySelectorAll('.sg2-altri .cod-btn').forEach((b) => (b.disabled = true)); }
       uno.querySelector('[data-ualtro]').onclick = () => { const a = uno.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
       const ni = uno.querySelector('[data-unotain]');
       uno.querySelector('[data-unota]').onclick = () => { ni.hidden = !ni.hidden; if (!ni.hidden) ni.focus(); };
@@ -573,7 +587,7 @@ window.SG = (function () {
     el.querySelector('#btnSalvaG').onclick = () => salvaGiro(false);
     el.querySelector('#btnAzzera')?.addEventListener('click', async () => {
       if (!UI.conferma('Azzerare il controllo?\n\nTutti i giudizi dati verranno cancellati e si riparte da capo.')) return;
-      voci.forEach((v) => { g.righe[v.s.id].codici[v.pi] = ''; g.righe[v.s.id].note[v.pi] = precedente?.righe[v.s.id]?.note?.[v.pi] || ''; });
+      voci.forEach((v) => { g.righe[v.s.id].codici[v.pi] = v.elim ? '\\' : ''; g.righe[v.s.id].note[v.pi] = precedente?.righe[v.s.id]?.note?.[v.pi] || ''; });
       if (esistente) { g.chiuso = false; try { await UI.salva('giriSottoganci', g); } catch (er) { return; } }
       UI.toast('Controllo azzerato', 'ok'); App.ridisegna();
     });

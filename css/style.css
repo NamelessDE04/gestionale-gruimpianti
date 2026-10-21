@@ -1331,3 +1331,5 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .dv-leg { display: inline-block; width: 10px; height: 10px; border-radius: 2px; vertical-align: middle; } .dv-leg.l { background: #1f5fbf; } .dv-leg.s { background: #e09b00; margin-left: 8px; }
 .sg2-piede #btnSalvaG { background: #fff; color: var(--ok); border: 2px solid var(--ok); box-shadow: none; }
 .note-vecchie { white-space: pre-line; overflow-wrap: anywhere; margin: 0; font-size: 14px; }
+.sg2-elim { font-size: 13px; font-weight: 700; color: #555; background: var(--grigio-bg); border-radius: 8px; padding: 8px 10px; margin: 6px 0; overflow-wrap: anywhere; }
+.u-sg .sg2-elim, .sg2-uno .sg2-elim { font-size: 16px; padding: 16px; }
