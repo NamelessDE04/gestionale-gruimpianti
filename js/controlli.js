@@ -238,18 +238,26 @@ window.CTR = (function () {
         <div class="striscia">${[1, 2, 3, 4].map((n) => { const vis = sc?.visite?.[n], t = tipoVisita(p, n), nf = nonFatte(n);
           return `<a class="st-v t-${t} ${vis ? 'fatto' : ''}" href="#/controlli/i/${impId}/${anno}/${n}" title="${nomeTipo(t)}${vis?.tecnico ? ' · ' + esc(vis.tecnico) : ''}"><b>${n}° ${MESI[meseVisita(p, n) - 1].slice(0, 3)}</b><span>${vis ? '✓ ' + fmt(vis.dataScheda).slice(0, 5) : (t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN')}${nf ? ` · <b class="txt-ko">${nf}✗</b>` : ''}</span></a>`; }).join('')}</div>
         <div class="card">
-          <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con la data della sistemazione.')}</h2></div>
+          <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con [OK e la data].')}</h2></div>
           ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
-              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ` · <b class="txt-ok">sistemata il ${fmt(o.risoltaIl)}</b>` : ''}</div></div>
+              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}</div></div>
               <button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`).join('')
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
         ${!UT.solaLettura() || sc?.noteInterne ? `<div class="card"><div class="card-head"><h2>📝 Note Gru Impianti ${anno} ${info('Appunti nostri: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2></div>
           <textarea id="noteInt" rows="3" data-libero placeholder="appunti per noi…" ${UT.solaLettura() ? 'readonly' : ''}>${esc(sc?.noteInterne || '')}</textarea>
           ${UT.solaLettura() ? '' : '<div class="azioni-form"><span class="grow"></span><button type="button" class="btn ghost small" id="btnNoteInt">Salva note</button></div>'}</div>` : ''}
-        ${sc?.noteVecchie ? `<div class="card"><div class="card-head"><h2>Note dal programma vecchio ${info('Note interne scritte sul programma vecchio per questo impianto in quest\'anno. Non compaiono sulla scheda del cliente.')}</h2></div><p class="note-vecchie">${esc(sc.noteVecchie)}</p></div>` : ''}
+        ${sc?.noteVecchie ? `<div class="card"><div class="card-head"><h2>Note dal programma vecchio ${info('Note interne scritte sul programma vecchio per questo impianto in quest\'anno. Non compaiono sulla scheda del cliente. Se servono, spostale nelle note Gru Impianti; altrimenti eliminale.')}</h2></div><p class="note-vecchie">${esc(sc.noteVecchie)}</p>
+          ${UT.solaLettura() ? '' : '<div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnVecchieVia">🗑 Elimina</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnVecchieSposta">↧ Sposta nelle note Gru Impianti</button></div>'}</div>` : ''}
       </section>`;
     el.querySelector('#btnVoci')?.addEventListener('click', () => modaleVoci(S, i));
+    const togliVecchie = async (sposta) => {
+      const d = JSON.parse(JSON.stringify(sc));
+      if (sposta) { const ora = (el.querySelector('#noteInt')?.value || d.noteInterne || '').trim(); d.noteInterne = [ora, d.noteVecchie.trim()].filter(Boolean).join('\n'); }
+      delete d.noteVecchie; await UI.salva('schedeControllo', d); UI.toast(sposta ? 'Note spostate nelle note Gru Impianti' : 'Note del programma vecchio eliminate', 'ok');
+    };
+    el.querySelector('#btnVecchieVia')?.addEventListener('click', () => { if (UI.conferma('Eliminare definitivamente le note del programma vecchio di questo impianto (anno ' + anno + ')?')) togliVecchie(false); });
+    el.querySelector('#btnVecchieSposta')?.addEventListener('click', () => togliVecchie(true));
     el.querySelector('#btnNoteInt')?.addEventListener('click', async () => {
       const t = el.querySelector('#noteInt').value.trim();
       const d = sc ? JSON.parse(JSON.stringify(sc)) : { id: impId + '-' + anno, impiantoId: impId, sedeId: i.sedeId, clienteId: i.clienteId, anno, voci: vociPerImpianto(S, i).map((v) => ({ ...v })), visite: {}, osservazioni: [] };
@@ -411,7 +419,7 @@ window.CTR = (function () {
     const disegnaOss = () => {
       el.querySelector('#ossLista').innerHTML = osservazioni.length ? osservazioni.map((o) => `
         <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(o.testo)}
-          <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ' · sistemata il ' + fmt(o.risoltaIl) : ''}</div></div>
+          <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita}° controllo${o.risoltaIl ? ' · [OK ' + fmt(o.risoltaIl) + ']' : ''}</div></div>
           ${o.visita === n && !o.risoltaIl ? `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}">×</button>` : ''}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
       el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = () => {
         const o = osservazioni.find((x) => x.lettera === b.dataset.togli);
@@ -442,7 +450,7 @@ window.CTR = (function () {
         const o = osservazioni.find((y) => y.lettera === x.dataset.sistema);
         o.risoltaIl = f.dataScheda.value || oggi();
         if (vis.esiti[v.id][pi - 1] === o.lettera) vis.esiti[v.id][pi - 1] = 'R';
-        x.closest('.oss-aperta').innerHTML = `✓ <b>${esc(o.lettera)}</b> sistemata il ${fmt(o.risoltaIl)}`;
+        x.closest('.oss-aperta').innerHTML = `✓ <b>${esc(o.lettera)}</b> [OK ${fmt(o.risoltaIl)}]`;
         mostra(v, pi); disegnaOss();
       }));
       mostra(v, pi);
