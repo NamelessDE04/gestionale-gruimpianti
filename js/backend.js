@@ -242,7 +242,9 @@
       consumiDispositivo() { try { return JSON.parse(localStorage.getItem('gid_cons_' + giornoFb()) || '{"r":0,"w":0,"d":0}'); } catch (e) { return { r: 0, w: 0, d: 0 }; } },
       async consumiCloud(giorni = 30) {
         await versaConsumi();
-        const q = await db.collection('consumi').orderBy(firebase.firestore.FieldPath.documentId(), 'desc').limit(giorni).get();
+        // dal giorno di inizio in avanti (ordine crescente: non serve un indice apposta)
+        const da = new Date(giornoFb() + 'T12:00:00'); da.setDate(da.getDate() - giorni + 1);
+        const q = await db.collection('consumi').where(firebase.firestore.FieldPath.documentId(), '>=', da.toISOString().slice(0, 10)).get();
         conta('r', Math.max(1, q.size));
         return q.docs.map((d) => ({ giorno: d.id, ...d.data() }));
       },

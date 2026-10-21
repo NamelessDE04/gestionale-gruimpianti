@@ -28,10 +28,7 @@ window.DEV = (function () {
       <section class="cli dv">
         <div class="sez-head"><h1>Consumi e stato dell'app ${info('Pagina riservata al Developer. I consumi di Firebase li conta l\'app stessa (Firebase non li fornisce alle app): sono una stima molto vicina al vero, ma il dato ufficiale è nella console di Firebase. Il giorno di Firebase finisce a mezzanotte ora della California (le 9 del mattino in Italia).')}</h1></div>
 
-        ${cloud ? `<div class="card"><h2>✅ Consumi ufficiali Google · oggi ${info('Il totale vero di tutto il progetto Firebase, letto da Google (Cloud Monitoring): conta tutti i dispositivi, la Lavagna e anche la console. Si sceglie l\'account Google proprietario del progetto Firebase (può essere diverso da quello con cui usi l\'app, che non cambia): la prima volta Google chiede il permesso di leggere i dati di monitoraggio, poi se lo ricorda. Il dato arriva con qualche minuto di ritardo.')}</h2>
-          <div id="dvUff"><button type="button" class="btn" id="btnUff">Leggi da Google</button></div></div>` : ''}
-
-        <div class="card"><h2>☁️ Conteggio dell'app · oggi ${cloud ? `<small class="muted">(giorno ${esc(Backend.giornoFirebase())})</small>` : ''} ${info('Somma di quello che contano da soli tutti i dispositivi con l\'app aggiornata. Non conta la Lavagna, la console di Firebase e i dispositivi con versioni vecchie: per il totale vero usa «Consumi ufficiali Google».')}</h2>
+        <div class="card"><h2>☁️ Consumi di tutta l'app · oggi ${cloud ? `<small class="muted">(giorno ${esc(Backend.giornoFirebase())})</small>` : ''} ${info('Somma di quello che contano da soli tutti i dispositivi con l\'app aggiornata, Lavagna compresa. Non conta quello che si fa dalla console di Firebase e i dispositivi con versioni vecchie: il dato ufficiale è nella console (tasto «Consumi ufficiali Firebase» in fondo).')}</h2>
           <div id="dvOggi">${cloud ? '<p class="muted">Carico i consumi…</p>' : '<p class="muted">L\'app è in modalità «solo su questo dispositivo»: nessun consumo sul cloud.</p>'}</div></div>
 
         ${cloud ? `<div class="card"><h2>📈 Ultimi 30 giorni</h2><div id="dvStorico"><p class="muted">Carico…</p></div></div>` : ''}
@@ -57,83 +54,7 @@ window.DEV = (function () {
           <a class="btn ghost" target="_blank" rel="noopener" href="https://github.com/${REPO}/actions">Pubblicazioni (Actions)</a></div></div>
       </section>`;
     caricaCloud(el); caricaDisp(el); caricaGit(el);
-    el.querySelector('#btnUff')?.addEventListener('click', () => ufficiali(el));
     return { titolo: 'Consumi e stato', indietro: '#/profilo', live: false };
-  }
-
-  // ---------- consumi ufficiali (Cloud Monitoring di Google) ----------
-  let tokenMon = null, scadeMon = 0, accountMon = '';
-  async function permessoMonitoraggio() {
-    if (tokenMon && Date.now() < scadeMon) return tokenMon;
-    const app = firebase.apps.find((a) => a.name === 'monitor') || firebase.initializeApp(window.firebaseConfig, 'monitor');
-    if (!firebase.auth) throw new Error('auth');
-    const p = new firebase.auth.GoogleAuthProvider();
-    p.addScope('https://www.googleapis.com/auth/monitoring.read');
-    // l'account proprietario del progetto Firebase può essere diverso da quello dell'app: si sceglie qui e si ricorda
-    let ult = ''; try { ult = localStorage.getItem('gid_account_monitor') || ''; } catch (e) {}
-    p.setCustomParameters(ult ? { login_hint: ult } : { prompt: 'select_account' });
-    const r = await app.auth().signInWithPopup(p);
-    try { localStorage.setItem('gid_account_monitor', (r.user.email || '').toLowerCase()); } catch (e) {}
-    tokenMon = r.credential && r.credential.accessToken; scadeMon = Date.now() + 50 * 60 * 1000;
-    if (!tokenMon) throw new Error('token');
-    // con il consenso "a caselle" di Google il permesso extra va spuntato: controllo che ci sia davvero
-    try {
-      const ti = await (await fetch('https://oauth2.googleapis.com/tokeninfo?access_token=' + encodeURIComponent(tokenMon))).json();
-      if (ti.scope && !/monitoring/.test(ti.scope)) { tokenMon = null; const e = new Error('scope'); e.account = r.user.email; throw e; }
-    } catch (e) { if (e.message === 'scope') throw e; }
-    accountMon = r.user.email || '';
-    return tokenMon;
-  }
-  // inizio del giorno di Firebase (mezzanotte in California) in ora UTC
-  function inizioGiornoFb() {
-    const ora = new Date();
-    const pz = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit' }).formatToParts(ora).map((x) => [x.type, x.value]));
-    const sec = ((+pz.hour % 24) * 3600) + (+pz.minute * 60) + (+pz.second);
-    return new Date(ora.getTime() - sec * 1000);
-  }
-  async function serie(token, metrica, da, a) {
-    const per = Math.max(60, Math.ceil((a - da) / 1000)) + 's';
-    const q = new URLSearchParams({ filter: `metric.type="firestore.googleapis.com/document/${metrica}"`, 'interval.startTime': da.toISOString(), 'interval.endTime': a.toISOString(),
-      'aggregation.alignmentPeriod': per, 'aggregation.perSeriesAligner': 'ALIGN_SUM', 'aggregation.crossSeriesReducer': 'REDUCE_SUM' });
-    const r = await fetch(`https://monitoring.googleapis.com/v3/projects/${encodeURIComponent(Backend.progetto())}/timeSeries?${q}`, { headers: { Authorization: 'Bearer ' + token } });
-    if (r.status === 401) { tokenMon = null; throw new Error('scaduto'); }
-    if (!r.ok) {
-      const t = await r.text().catch(() => ''); let msg = ''; try { msg = JSON.parse(t).error.message || ''; } catch (e) { msg = t.slice(0, 200); }
-      const er = new Error(/has not been used|is disabled|SERVICE_DISABLED/i.test(t) ? 'api' : /SCOPE_INSUFFICIENT|insufficient authentication scopes/i.test(t) ? 'scope' : r.status === 403 ? 'permesso' : 'errore ' + r.status);
-      er.google = msg; throw er;
-    }
-    const j = await r.json();
-    return (j.timeSeries || []).reduce((t, s) => t + (s.points || []).reduce((u, p) => u + +(p.value.int64Value || p.value.doubleValue || 0), 0), 0);
-  }
-  async function ufficiali(el) {
-    const box = el.querySelector('#dvUff'), b = el.querySelector('#btnUff');
-    b.disabled = true; b.textContent = '🔐 Permesso di Google…';
-    try {
-      const t = await permessoMonitoraggio();
-      b.textContent = '⏳ Leggo i consumi…';
-      const da = inizioGiornoFb(), a = new Date();
-      const [rd, wr, dl] = await Promise.all(['read_count', 'write_count', 'delete_count'].map((m) => serie(t, m, da, a)));
-      box.innerHTML = `${barra('Letture', rd, QUOTE.letture)}${barra('Scritture', wr, QUOTE.scritture)}${barra('Cancellazioni', dl, QUOTE.cancellazioni)}
-        <p class="muted small">Restano oggi <b>${n(Math.max(0, QUOTE.letture - rd))}</b> letture e <b>${n(Math.max(0, QUOTE.scritture - wr))}</b> scritture del piano gratuito · letto alle ${esc(a.toTimeString().slice(0, 5))}.</p>
-        <div class="azioni-form"><button type="button" class="link" id="btnUffAcc">Usa un altro account Google</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnUff">↻ Aggiorna</button></div>`;
-      el.querySelector('#btnUffAcc').onclick = () => { try { localStorage.removeItem('gid_account_monitor'); } catch (e) {} tokenMon = null; ufficiali(el); };
-      el.querySelector('#btnUff').onclick = () => ufficiali(el);
-    } catch (e) {
-      console.error(e);
-      const m = String(e && (e.code || e.message) || '');
-      const spiega = /popup-closed|cancelled/.test(m) ? 'Accesso a Google annullato.'
-        : m === 'scope' ? 'Google non ha dato il permesso di leggere i consumi. Nella finestra di Google, dopo aver scelto l\'account, <b>spunta la casella</b> «Visualizzare i dati di monitoraggio…» prima di premere Continua.'
-        : m === 'api' ? 'Su Google va attivata la <b>Cloud Monitoring API</b> per questo progetto (una volta sola): apri il link qui sotto con l\'account proprietario e premi «Abilita».'
-        : m === 'permesso' ? `L'account <b>${esc(accountMon || '')}</b> non ha il permesso di leggere i consumi del progetto <b>${esc(Backend.progetto())}</b>.`
-        : 'Non riesco a leggere i consumi (' + esc(m) + ').';
-      box.innerHTML = `<p class="txt-ko">${spiega}</p>${e.google ? `<p class="muted small">Risposta di Google: ${esc(e.google)}</p>` : ''}
-        <p class="muted small">Progetto: ${esc(Backend.progetto())}${accountMon ? ' · account usato: ' + esc(accountMon) : ''}</p>
-        <div class="azioni-lista"><a class="btn ghost small" target="_blank" rel="noopener" href="https://console.cloud.google.com/apis/library/monitoring.googleapis.com?project=${esc(Backend.progetto())}">Cloud Monitoring API</a>
-          <a class="btn ghost small" target="_blank" rel="noopener" href="https://console.cloud.google.com/iam-admin/iam?project=${esc(Backend.progetto())}">Permessi del progetto (IAM)</a></div>
-        <div class="azioni-form"><button type="button" class="link" id="btnUffAcc">Usa un altro account Google</button><span class="grow"></span><button type="button" class="btn small" id="btnUff">Riprova</button></div>`;
-      el.querySelector('#btnUff').onclick = () => ufficiali(el);
-      el.querySelector('#btnUffAcc').onclick = () => { try { localStorage.removeItem('gid_account_monitor'); } catch (e) {} tokenMon = null; ufficiali(el); };
-    }
   }
 
   async function caricaCloud(el) {

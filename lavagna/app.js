@@ -216,7 +216,22 @@ async function firebaseBackend(cfg) {
     if (err.code === 'permission-denied') { deniedCb(); return; }
     toast('Errore di sincronizzazione: ' + (err.code || err.message));
   };
-  const toList = snap => snap.docs.map(d => ({ id: d.id, ...d.data() }));
+  // contatore dei consumi (come nel gestionale): finisce nello stesso documento "consumi" del giorno di Firebase
+  const giornoFb = () => { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()); } catch { return new Date().toISOString().slice(0, 10); } };
+  const sosp = { r: 0, w: 0, d: 0 };
+  const conta = (k, n = 1) => { sosp[k] += n; };
+  const contaSnap = snap => { if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites) conta('r', Math.max(1, snap.docChanges().length)); };
+  async function versa() {
+    const u = auth.currentUser; if (!u || !navigator.onLine) return;
+    const { r, w, d } = sosp; if (!r && !w && !d) return;
+    sosp.r = sosp.w = sosp.d = 0;
+    const inc = f.increment, k = (u.email || 'sconosciuto').toLowerCase().replace(/[^a-z0-9]+/g, '_') + '_lavagna';
+    try { await f.setDoc(f.doc(fdb, 'consumi', giornoFb()), { letture: inc(r), scritture: inc(w + 1), cancellazioni: inc(d), dispositivi: { [k]: { letture: inc(r), scritture: inc(w + 1), cancellazioni: inc(d), ultimo: new Date().toISOString() } } }, { merge: true }); }
+    catch { sosp.r += r; sosp.w += w; sosp.d += d; }
+  }
+  setInterval(versa, 5 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') versa(); });
+  const toList = snap => { contaSnap(snap); return snap.docs.map(d => ({ id: d.id, ...d.data() })); };
   const strip = o => { const { id, ...rest } = o; return rest; };
   // nel database del gestionale le raccolte della lavagna hanno un nome loro, per non mescolarsi
   const C = col => ({ events: 'lavagnaEventi', log: 'lavagnaLog' }[col] || col);
@@ -257,18 +272,18 @@ async function firebaseBackend(cfg) {
       const q = f.query(f.collection(fdb, C('events')), f.where('unsigned', '==', true));
       return f.onSnapshot(q, snap => cb(toList(snap)), err => console.error(err));
     },
-    save(col, obj) { return f.setDoc(f.doc(fdb, C(col), obj.id), strip(obj)); },
+    save(col, obj) { conta('w'); return f.setDoc(f.doc(fdb, C(col), obj.id), strip(obj)); },
     async remove(col, id) {
       if (col === 'clients') {
-        const snap = await f.getDocs(f.query(f.collection(fdb, C('events')), f.where('clientId', '==', id)));
+        const snap = await f.getDocs(f.query(f.collection(fdb, C('events')), f.where('clientId', '==', id))); conta('r', Math.max(1, snap.size)); conta('d', snap.size + 1);
         const b = f.writeBatch(fdb);
         snap.forEach(d => b.delete(d.ref));
         b.delete(f.doc(fdb, 'clients', id));
         return b.commit();
       }
-      return f.deleteDoc(f.doc(fdb, C(col), id));
+      conta('d'); return f.deleteDoc(f.doc(fdb, C(col), id));
     },
-    addLog(entry) { return f.setDoc(f.doc(fdb, C('log'), entry.id), strip(entry)); },
+    addLog(entry) { conta('w'); return f.setDoc(f.doc(fdb, C('log'), entry.id), strip(entry)); },
     subscribeLog(cb) {
       const q = f.query(f.collection(fdb, C('log')), f.orderBy('ts', 'desc'), f.limit(500));
       return f.onSnapshot(q, snap => cb(toList(snap)), err => { console.error(err); cb(null, err); });
@@ -283,7 +298,8 @@ const ADMIN_EMAILS = ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com'];
 // PDF del mese: come nel gestionale, solo Master e Risorse Umane (l'utente è quello entrato col PIN)
 const puoStampare = () => {
   let id = ''; try { id = sessionStorage.getItem('gid_sessione') || ''; } catch { }
-  const u = leggiG('utenti').find(x => x.id === id);
+  const u = leggiG('utenti').find(x => x.id === id.split('|')[0]);
+  if (u && id.endsWith('|dev') && u.accessoDev?.pinHash) return true;   // entrato col PIN Developer
   return !!u && ['admin', 'developer', 'master', 'ru'].includes(u.ruolo);
 };
 const isAdmin = () => db?.mode === 'local' || ADMIN_EMAILS.includes((currentEmail || '').toLowerCase());
