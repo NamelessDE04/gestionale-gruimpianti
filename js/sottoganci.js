@@ -21,6 +21,10 @@ window.SG = (function () {
   const ordinaNum = (a, b) => a.numero.localeCompare(b.numero, 'it', { numeric: true, sensitivity: 'base' });
 
   // testo su cui cercare: numero, componenti, portata, ubicazione, certificato
+  // ricerca: se scrivi solo un numero (es. 78, 078, 70a) trova SOLO quel sottogancio; altrimenti cerca nel testo
+  const normNum = (x) => String(x || '').toUpperCase().replace(/[^A-Z0-9]/g, '').replace(/^0+(?=\d)/, '');
+  const pareNumero = (t) => /^\s*\d+\s*[a-z]?\s*$/i.test(t);
+  const trovaSg = (s, t) => !t || (pareNumero(t) ? normNum(s.numero) === normNum(t) : testoSg(s).includes(t));
   const testoSg = (s) => (s.numero + ' ' + s.parti.map((p) => p.denominazione + ' ' + p.dimensioni).join(' ') + ' ' + s.ubicazione + ' ' + s.portata + ' ' + s.certificato).toLowerCase();
 
   // ---------- dati ----------
@@ -128,7 +132,7 @@ window.SG = (function () {
     const inCorso = prossimo && aperto(sl[prossimo.n - 1]) ? sl[prossimo.n - 1] : null;
     const tutti = elenco(S, cliId, anno);
     const t = (filtroTesto[cliId] || '').toLowerCase();
-    const items = tutti.filter((s) => !t || testoSg(s).includes(t));
+    const items = tutti.filter((s) => trovaSg(s, t));
     const st = statoCartella(S, cliId);
     const nAtt = S.sottoganci.filter((x) => x.sedeId === cliId && !x.dismesso).length;
     el.innerHTML = `
@@ -451,7 +455,7 @@ window.SG = (function () {
     const cerca = el.querySelector('#gCerca');
     const filtra = () => {
       const t = cerca.value.trim().toLowerCase(); let k = 0;
-      voci.forEach((v) => { const ok = !t || String(v.s.numero).toLowerCase() === t || testoSg(v.s).includes(t); riga(v.key).hidden = !ok; if (ok) k++; });
+      voci.forEach((v) => { const ok = trovaSg(v.s, t); riga(v.key).hidden = !ok; if (ok) k++; });
       el.querySelector('#gNessuno').hidden = !!k;
       if (modoGiro === 'uno') { const j = voci.findIndex((v, i) => visibile(i)); if (j >= 0) { corrente = j; disegnaUno(); } }
     };
