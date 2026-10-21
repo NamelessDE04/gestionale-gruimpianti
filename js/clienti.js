@@ -124,7 +124,8 @@ window.CLI = (function () {
           ${avatar(c, true)}
           <div class="grow">
             <h1>${esc(c.ragioneSociale)}</h1>
-            ${(c.nomiPrecedenti || []).length ? `<p class="muted small">${c.nomiPrecedenti.map((x) => `ex <b>${esc(x.nome)}</b> fino al ${UI.fmt(UI.addGiorni(x.fino, -1))}`).join(' · ')}</p>` : ''}
+            ${(c.nomiPrecedenti || []).length ? `<p class="muted small">${c.nomiPrecedenti.map((x, k) => `ex <b>${esc(x.nome)}</b> fino al ${UI.fmt(UI.addGiorni(x.fino, -1))}${UT.isMaster() ? ` <button type="button" class="link txt-ko" data-togliex="${k}" aria-label="Togli questo nome precedente">✕</button>` : ''}`).join(' · ')}</p>
+              ${UT.isMaster() && c.nomiPrecedenti.length > 1 ? '<button type="button" class="link txt-ko small" id="btnTogliTuttiEx">Togli tutti i nomi precedenti</button>' : ''}` : ''}
           </div>
         </div>
 
@@ -174,6 +175,16 @@ window.CLI = (function () {
         </div>
       </section>`;
 
+    // nomi precedenti (cambi di ragione sociale): il Master può toglierli, es. se erano prove
+    const togliEx = async (k) => {
+      const doc = JSON.parse(JSON.stringify(c));
+      doc.nomiPrecedenti = k == null ? [] : doc.nomiPrecedenti.filter((_, j) => j !== k);
+      if (!doc.nomiPrecedenti.length) delete doc.nomiPrecedenti;
+      await salva(doc); UI.toast('Nomi precedenti aggiornati', 'ok');
+    };
+    el.querySelectorAll('[data-togliex]').forEach((b) => (b.onclick = () => { const x = c.nomiPrecedenti[+b.dataset.togliex];
+      if (UI.conferma(`Togliere il nome precedente «${x.nome}»?\n\nI documenti fatti prima del cambio usciranno con il nome attuale.`)) togliEx(+b.dataset.togliex); }));
+    el.querySelector('#btnTogliTuttiEx')?.addEventListener('click', () => { if (UI.conferma(`Togliere tutti i ${c.nomiPrecedenti.length} nomi precedenti di ${c.ragioneSociale}?\n\nTutti i documenti usciranno con il nome attuale.`)) togliEx(null); });
     el.querySelector('#btnDati').onclick = () => modaleDati(S, c);
     el.querySelector('#btnSede').onclick = () => modaleSede(S, c, null);
     el.querySelector('#btnSposta')?.addEventListener('click', () => spostaSede(S, c));
