@@ -1361,3 +1361,14 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .lay-sim { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; } .lay-sim select { min-height: 36px; font-size: 14px; }
 .oss-bt { display: flex; gap: 6px; flex: none; }
 .frasi-rapide { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 8px; }
+
+/* filtro tocchi involontari */
+.tz-punto { position: fixed; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: rgba(226,35,26,.55); border: 2px solid #e2231a; z-index: 9999; pointer-events: none; animation: tzp .7s ease-out forwards; }
+@keyframes tzp { to { transform: scale(2.2); opacity: 0; } }
+.tz-mostra { position: fixed; z-index: 9998; background: repeating-linear-gradient(45deg, rgba(226,35,26,.28) 0 12px, rgba(226,35,26,.14) 12px 24px); border: 2px dashed #e2231a; color: #9b1510; font-weight: 700; display: flex; align-items: center; justify-content: center; text-align: center; font-size: 14px; pointer-events: none; animation: fade .2s; overflow: hidden; }
+body.tz-alza { padding-bottom: var(--tz-h); }
+body.tz-alza .azioni-form.sticky, body.tz-alza .barra-salva { bottom: var(--tz-h); }
+body.tz-alza .sg2-piede { bottom: var(--tz-h); }
+body.tz-alza .fab { bottom: calc(16px + var(--tz-h)); }
+#cardTocchi .check { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
+#cardTocchi input[type=range] { width: 100%; padding: 0; min-height: 34px; }
