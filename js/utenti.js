@@ -309,7 +309,7 @@ window.UT = (function () {
             <p class="muted small">L'accesso con Google si attiverà con il collegamento al cloud.</p>
           </form>
         </div>`}
-        ${Tocchi.card()}
+        ${r === 'developer' ? Tocchi.card() : ''}
         ${r === 'developer' ? `<div class="card">
           <h2>🔒 Accesso Developer separato ${info('Il tuo utente per tutti (e per il Master) resta di un livello normale, per esempio Tecnico, e si entra col PIN di sempre. Con un secondo PIN, diverso, entri come Developer: lo vedi solo tu e vale finché non esci.')}</h2>
           ${u.accessoDev?.pinHash ? `<p>Attivo: col PIN normale entri come <b>${esc(RUOLI[ruoloDi(u)])}</b>, col PIN Developer come <b>Developer</b>.</p>` : `<p class="muted">Ora il tuo utente è Developer per tutti. Puoi farlo diventare <b>Tecnico</b> (come lo vedrà il Master) e tenere il Developer con un secondo PIN.</p>`}

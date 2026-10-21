@@ -93,7 +93,7 @@ const Tocchi = (() => {
   // riquadro per il Profilo
   function card() {
     return `<div class="card" id="cardTocchi">
-      <h2>🖐 Tocchi involontari ${UI.info('Per i tablet che "toccano da soli" sempre nello stesso punto. Vale solo per questo dispositivo. Nella zona scelta i tocchi del dito non valgono (il mouse funziona sempre); i tasti fissi in basso, come Salva e Finisci, salgono sopra la zona. Se il punto rosso compare dove non stai toccando, il filtro sta lavorando. «Tocchi a raffica» ignora i tocchi velocissimi ripetuti nello stesso punto (la schermata del PIN non viene mai filtrata, così entri sempre). Attenzione: partendo dalla zona non si riesce nemmeno a scorrere la pagina.')}</h2>
+      <h2>🖐 Tocchi involontari ${UI.info('Per i tablet che "toccano da soli" sempre nello stesso punto. Vale solo per questo dispositivo e per tutti quelli che lo usano: lo imposta solo il Developer. Nella zona scelta i tocchi del dito non valgono (il mouse funziona sempre); i tasti fissi in basso, come Salva e Finisci, salgono sopra la zona. Se il punto rosso compare dove non stai toccando, il filtro sta lavorando. «Tocchi a raffica» ignora i tocchi velocissimi ripetuti nello stesso punto (la schermata del PIN non viene mai filtrata, così entri sempre). Attenzione: partendo dalla zona non si riesce nemmeno a scorrere la pagina.')}</h2>
       <div class="form">
         <div class="due">
           <label>Zona da bloccare<select data-tz="zona">
