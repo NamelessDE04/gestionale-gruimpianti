@@ -1304,7 +1304,8 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .gs-piede { position: absolute; left: 10mm; right: 10mm; bottom: 5mm; font-size: 6.6pt; color: #333; }
 .gs-misura { position: absolute; left: -30000px; top: 0; }
 .gs-misura .gs-foglio { height: auto; min-height: 210mm; }
-.tile-ill .tile-logo { width: 74%; max-width: 96px; aspect-ratio: 1; object-fit: contain; border-radius: 6px; display: block; margin: auto; }
+.tile-ill .tile-logo { width: 100%; max-width: 230px; aspect-ratio: 4/3; object-fit: contain; box-sizing: border-box; padding: 4% 16%; display: block; margin: auto; }
+@media (max-width: 760px) { .tile-ill .tile-logo { max-width: 84px; padding: 4% 10%; } }
 .tile-ill .tile-logo { opacity: .55; filter: saturate(.85); }
 .ruolo-developer { background: #6d2fd6; color: #fff; }
 
