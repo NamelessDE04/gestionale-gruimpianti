@@ -164,7 +164,6 @@ window.SG = (function () {
           <div class="anno anno-mini"><a href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
             UT.puoInviare() && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
-            UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=sottoganci&sede=${cliId}&anno=${anno}&da=${encodeURIComponent('#/sottoganci/c/' + cliId)}` },
             { t: '⚙ Titolo dell\'elenco', href: `#/sottoganci/cartella/${cliId}` },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` },
             UT.isMaster() && { t: '🗑 Elimina cartella', id: 'btnEliminaCart', cls: 'txt-ko' }

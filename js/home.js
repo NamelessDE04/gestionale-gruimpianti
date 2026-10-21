@@ -9,6 +9,7 @@ window.HOME = (function () {
     { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
     { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, giacenze e ordini', ill: 'magazzino' },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
+    { k: 'invio', titolo: 'Invia ai clienti', sotto: 'Schede, rapportini ed elenchi sottoganci nella stessa email', ill: 'invio', attiva: true, href: '#/invio', soloInvio: true },
     { k: 'gho', titolo: 'GHO ELIGIO', sotto: 'Registro ore e configuratore cablaggio', ill: 'gho', attiva: true, href: '#/gho' }
   ];
   // sotto-voci di "Schede di controllo"
@@ -57,7 +58,7 @@ window.HOME = (function () {
   const PRINCIPALI = ['schede', 'rapportini', 'lavagna', 'gho'];
   const ALTRO = { k: 'altro', titolo: 'Anagrafiche e altro', sotto: 'Clienti, impianti, layout, mezzi…', ill: 'altro', attiva: true, href: '#/altro' };
   const ridotta = () => UT.ruolo() === 'tecnico';
-  const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)), ALTRO] : caselle);
+  const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)), ALTRO] : caselle.filter((c) => !c.soloInvio || UT.puoInviare()));
   const nScad = (S) => MEZ.avvisi(S).length;
   const badge = (S, c) => c.k === 'rapportini' ? RAP.badge(S)
     : c.k === 'gho' ? GHO.badge(S)
@@ -66,7 +67,7 @@ window.HOME = (function () {
 
   // pagina «Anagrafiche e altro»: tutte le caselle che non stanno nella home del tecnico
   function renderAltro(el, S) {
-    const resto = caselle.filter((c) => !PRINCIPALI.includes(c.k));
+    const resto = caselle.filter((c) => !PRINCIPALI.includes(c.k) && !c.soloInvio);
     el.innerHTML = `<section class="home"><div class="tiles">${resto.map((c) => tile(c, badge(S, c))).join('')}</div></section>`;
     return { titolo: 'Anagrafiche e altro', indietro: '#/', live: true };
   }

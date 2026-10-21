@@ -118,6 +118,17 @@ window.ILL = (function () {
       <line x1="120" y1="88" x2="134" y2="102" stroke="${N}" stroke-width="8" stroke-linecap="round"/>
       <line x1="122" y1="90" x2="133" y2="101" stroke="${Y}" stroke-width="3.5" stroke-linecap="round"/>`),
 
+    invio: svg(`
+      <ellipse cx="80" cy="108" rx="60" ry="6" fill="${L}"/>
+      <rect x="40" y="14" width="44" height="56" rx="3" fill="${W}" stroke="${N}" stroke-width="3" transform="rotate(-10 62 42)"/>
+      <rect x="62" y="10" width="44" height="56" rx="3" fill="${W}" stroke="${N}" stroke-width="3" transform="rotate(8 84 38)"/>
+      <g stroke="${G}" stroke-width="3" stroke-linecap="round" transform="rotate(8 84 38)"><path d="M70 22h28M70 31h28M70 40h18"/></g>
+      <rect x="28" y="50" width="104" height="56" rx="6" fill="${Y}" stroke="${N}" stroke-width="3"/>
+      <path d="M30 54 L80 86 L130 54" fill="none" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M30 104 L66 77 M130 104 L94 77" stroke="${N}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="128" cy="52" r="13" fill="${V}" stroke="${N}" stroke-width="3"/>
+      <path d="M121 52 l5 5 9 -10" fill="none" stroke="${W}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`),
+
     clienti: svg(`
       <ellipse cx="80" cy="108" rx="60" ry="6" fill="${L}"/>
       <path d="M22 104 V58 l18 -12 v12 l18 -12 v12 l18 -12 v12 l18 -12 V104z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>

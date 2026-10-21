@@ -156,7 +156,6 @@ window.CTR = (function () {
           ${UI.menu([
             { t: '📅 Piano controlli', id: 'btnPiano' },
             imp.length && UT.puoInviare() && { t: `🖨️ Stampa tutte le schede ${anno}`, href: `#/controlli/s/${sedeId}/${anno}/stampa` },
-            imp.length && UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=controlli&sede=${sedeId}&anno=${anno}&da=${encodeURIComponent('#/controlli/s/' + sedeId)}` },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.id}` }
           ])}
         </div>
@@ -231,7 +230,6 @@ window.CTR = (function () {
           <div class="anno anno-mini"><a href="#/controlli/i/${impId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/i/${impId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
             UT.puoInviare() && { t: `🖨️ Stampa scheda ${anno}`, href: `#/controlli/i/${impId}/${anno}/stampa` },
-            UT.puoInviare() && { t: '📧 Invia al cliente', href: `#/invio?tipo=controlli&sede=${i.sedeId}&anno=${anno}&ids=${impId}&da=${encodeURIComponent('#/controlli/i/' + impId + '/' + anno)}` },
             !UT.solaLettura() && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
             { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
           ])}

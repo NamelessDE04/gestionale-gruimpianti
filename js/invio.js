@@ -1,5 +1,5 @@
 // ===== INVIO AI CLIENTI PER EMAIL (solo Master) =====
-// Si scelgono cliente e documenti (rapportini, schede di controllo o elenco sottoganci), l'app crea il PDF
+// Pagina unica: si sceglie il cliente e si spuntano schede di controllo, rapportini ed elenco sottoganci (anche insieme). L'app crea i PDF
 // e lo spedisce con il Gmail del Master: al cliente arriva una mail normale dal suo indirizzo,
 // e la mail resta anche nella sua cartella "Inviati".
 window.INVIO = (function () {
@@ -61,79 +61,107 @@ window.INVIO = (function () {
     (c.referenti || []).filter((r) => r.email).forEach((r) => out.push({ e: r.email, l: [r.nome, r.cognome].filter(Boolean).join(' ') }));
     return out.filter((x, i, a) => a.findIndex((y) => y.e.toLowerCase() === x.e.toLowerCase()) === i);
   };
-  const documenti = (S, tipo, sedeId, anno) => {
-    if (tipo === 'rapportini') return S.rapportini.filter((r) => r.sedeId === sedeId).sort((a, b) => (b.anno - a.anno) || (b.numero - a.numero))
-      .map((r) => ({ id: r.id, senza: !r.numero, t: r.numero ? `Rapportino N° ${r.numero}/${r.anno}` : 'Rapportino (numero in arrivo)', sub: `${fmt((r.giorni || [])[0]?.data || r.dataConsegna)} · ${r.firmaReferente ? 'firmato' : 'da firmare'}${r.inviatoIl ? ' · ✉️ inviato il ' + fmt(r.inviatoIl.slice(0, 10)) : ''}`, on: !r.inviatoIl && !!r.firmaReferente && !!r.numero }));
-    if (tipo === 'controlli') return S.impianti.filter((i) => i.sedeId === sedeId).sort((a, b) => String(a.numeroInterno).localeCompare(String(b.numeroInterno), 'it', { numeric: true }))
-      .map((i) => { const sc = CTR.schedaDi(S, i.id, anno); const n = sc ? Object.keys(sc.visite || {}).length : 0;
-        return { id: i.id, t: `${i.numeroInterno ? 'N° ' + i.numeroInterno + ' · ' : ''}${IMP.titolo(i)}`, sub: `${i.matricola ? 'matr. ' + i.matricola + ' · ' : ''}${n ? n + (n === 1 ? ' controllo' : ' controlli') + ' nel ' + anno : 'nessun controllo nel ' + anno}`, on: n > 0 }; });
-    if (tipo === 'sottoganci') { const c = SG.cliente(S, sedeId); const n = S.sottoganci.filter((x) => x.sedeId === sedeId).length;
-      return n ? [{ id: sedeId, t: `${c?.titoloElenco || 'ELENCO SOTTOGANCI'} ${anno}`, sub: `${n} sottoganci`, on: true }] : []; }
-    return [];
+  // data dell'ultimo controllo dell'anno di un impianto (serve per raggruppare le schede)
+  const ultimaData = (S, impId, anno) => {
+    const sc = CTR.schedaDi(S, impId, anno);
+    return Object.values(sc?.visite || {}).map((v) => v.dataScheda || '').sort().pop() || '';
   };
-  const testoBase = (S, tipo, c, docs, anno) => {
+  const rapportiniDi = (S, sedeId, anno) => S.rapportini.filter((r) => r.sedeId === sedeId && (r.anno === anno || !r.inviatoIl))
+    .sort((a, b) => (b.anno - a.anno) || (b.numero - a.numero))
+    .map((r) => ({ id: r.id, senza: !r.numero, t: r.numero ? `Rapportino N° ${r.numero}/${r.anno}` : 'Rapportino (numero in arrivo)',
+      sub: `${fmt((r.giorni || [])[0]?.data || r.dataConsegna)} · ${r.firmaReferente ? 'firmato' : 'da firmare'}${r.inviatoIl ? ' · ✉️ inviato il ' + fmt(r.inviatoIl.slice(0, 10)) : ''}`,
+      on: !r.inviatoIl && !!r.firmaReferente && !!r.numero }));
+  const schedeDi = (S, sedeId, anno) => S.impianti.filter((i) => i.sedeId === sedeId && CTR.schedaDi(S, i.id, anno))
+    .sort((a, b) => String(a.numeroInterno).localeCompare(String(b.numeroInterno), 'it', { numeric: true }))
+    .map((i) => { const n = Object.keys(CTR.schedaDi(S, i.id, anno).visite || {}).length, d = ultimaData(S, i.id, anno);
+      return { id: i.id, data: d, t: `${i.numeroInterno ? 'N° ' + i.numeroInterno + ' · ' : ''}${IMP.titolo(i)}`, sub: `${n} ${n === 1 ? 'controllo' : 'controlli'}${d ? ' · ultimo ' + fmt(d) : ''}` }; });
+  const haElenco = (S, sedeId) => S.sottoganci.some((x) => x.sedeId === sedeId);
+
+  // testo della mail in base a cosa c'è dentro
+  const testoBase = (S, p, anno) => {
     const io = UT.attuale(), firma = `\n\nCordiali saluti\n${io?.nome || ''}\nGru Impianti`;
-    if (tipo === 'rapportini') {
-      const rr = docs.map((id) => S.rapportini.find((r) => r.id === id)).filter(Boolean);
-      return { oggetto: rr.length === 1 ? `Rapportino di intervento N° ${rr[0].numero}/${rr[0].anno}` : `Rapportini di intervento (${rr.length})`,
-        testo: `Buongiorno,\nin allegato ${rr.length === 1 ? `il rapportino di intervento N° ${rr[0].numero}/${rr[0].anno}` : 'i rapportini di intervento ' + rr.map((r) => `N° ${r.numero}/${r.anno}`).join(', ')}.${firma}` };
-    }
-    if (tipo === 'controlli') return { oggetto: `Schede di controllo apparecchi di sollevamento ${anno}`, testo: `Buongiorno,\nin allegato le schede di controllo degli apparecchi di sollevamento (D.Lgs. 81/08) relative all'anno ${anno}.${firma}` };
-    return { oggetto: `Elenco accessori di sollevamento ${anno}`, testo: `Buongiorno,\nin allegato l'elenco aggiornato degli accessori di sollevamento (funi, catene, brache) relativo all'anno ${anno}.${firma}` };
+    const rr = p.rap.map((id) => S.rapportini.find((r) => r.id === id)).filter(Boolean);
+    const og = [], tx = [];
+    if (p.imp.length) { og.push(`Schede di controllo ${anno}${p.data ? ' (controllo del ' + fmt(p.data) + ')' : ''}`); tx.push(`le schede di controllo degli apparecchi di sollevamento (D.Lgs. 81/08) dell'anno ${anno}${p.data ? ', controllo del ' + fmt(p.data) : ''}`); }
+    if (rr.length) { og.push(rr.length === 1 ? `Rapportino N° ${rr[0].numero}/${rr[0].anno}` : `Rapportini di intervento (${rr.length})`); tx.push(rr.length === 1 ? `il rapportino di intervento N° ${rr[0].numero}/${rr[0].anno}` : 'i rapportini di intervento ' + rr.map((r) => `N° ${r.numero}/${r.anno}`).join(', ')); }
+    if (p.sg) { og.push(`Elenco accessori di sollevamento ${anno}`); tx.push(`l'elenco aggiornato degli accessori di sollevamento (funi, catene, brache) dell'anno ${anno}`); }
+    return { oggetto: og.join(' · '), testo: `Buongiorno,\nin allegato${tx.length > 1 ? ':\n' + tx.map((t) => '- ' + t).join(';\n') : ' ' + (tx[0] || '')}.${firma}` };
   };
 
   // ---------- PDF ----------
   const pulito = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
-  async function creaPdf(S, tipo, sedeId, anno, ids) {
+  async function creaPdf(S, sedeId, anno, p) {
     const { c, s } = CTR.trovaSede(S, sedeId), nome = pulito(c ? CLI.nome(c) : 'cliente') + (s?.sigla ? '_' + pulito(s.sigla) : '');
-    if (tipo === 'rapportini') {
-      const out = [];
-      for (const id of ids) {
-        const r = S.rapportini.find((x) => x.id === id);
-        out.push({ nome: `Rapportino_${r.numero}-${r.anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => RAP.route(el, S, ['rapportini', 'r', id], new URLSearchParams()), '.recap', true) });
-      }
-      return out;
+    const out = [];
+    if (p.imp.length) out.push({ nome: `Schede_controllo_${anno}_${nome}${p.data ? '_' + p.data.split('-').reverse().join('-') : ''}.pdf`, bytes: await PDFX.daStampa((el) => CTRS.render(el, S, p.imp, anno, '#/'), '.foglio-p', true) });
+    for (const id of p.rap) {
+      const r = S.rapportini.find((x) => x.id === id);
+      out.push({ nome: `Rapportino_${r.numero}-${r.anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => RAP.route(el, S, ['rapportini', 'r', id], new URLSearchParams()), '.recap', true) });
     }
-    if (tipo === 'controlli') return [{ nome: `Schede_controllo_${anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => CTRS.render(el, S, ids, anno, '#/'), '.foglio-p', true) }];
-    const cs = SG.cliente(S, sedeId);
-    return [{ nome: `${pulito(cs?.titoloElenco || 'ELENCO_SOTTOGANCI')}_${anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => SGStampa.render(el, S, sedeId, anno), '.foglio', false) }];
+    if (p.sg) { const cs = SG.cliente(S, sedeId); out.push({ nome: `${pulito(cs?.titoloElenco || 'ELENCO_SOTTOGANCI')}_${anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => SGStampa.render(el, S, sedeId, anno), '.foglio', false) }); }
+    return out;
   }
   const scarica = (x) => { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([x.bytes], { type: 'application/pdf' })); a.download = x.nome; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 5000); };
+  const MAX = 18 * 1024 * 1024;   // Gmail accetta 25 MB a email, contando la codifica: sto larghi
+  const peso = (al) => al.reduce((t, x) => t + x.bytes.length, 0);
+  const mb = (b) => (b / 1048576).toLocaleString('it-IT', { maximumFractionDigits: 1 }) + ' MB';
+
+  // le email da mandare: tutto insieme, oppure una per ogni data di controllo (rapportini ed elenco vanno nella prima)
+  function piano(S, st, sch) {
+    const imp = sch.filter((x) => st.imp.has(x.id));
+    const base = { rap: [...st.rap], sg: st.sg };
+    if (st.modo !== 'date' || !imp.length) return [{ ...base, imp: imp.map((x) => x.id), data: '' }];
+    const date = [...new Set(imp.map((x) => x.data))].sort();
+    return date.map((d, k) => ({ rap: k ? [] : base.rap, sg: k ? false : base.sg, imp: imp.filter((x) => x.data === d).map((x) => x.id), data: d }));
+  }
 
   // ---------- pagina ----------
-  const stato = {};
+  const stato = { rap: new Set(), imp: new Set(), sg: false, modo: 'una', chiave: '' };
   function pagina(el, S, query) {
     if (!UT.puoInviare()) { el.innerHTML = '<p class="nessuno">Solo il Master e Risorse Umane possono inviare i documenti ai clienti.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
-    const st = Object.assign(stato, {
-      tipo: query.get('tipo') || stato.tipo || 'rapportini', sede: query.get('sede') || stato.sede || '',
-      anno: +(query.get('anno') || stato.anno || new Date().getFullYear()), da: query.get('da') || (query.get('tipo') ? '#/' : stato.da || '#/')
-    });
-    if (query.get('tipo')) history.replaceState(null, '', '#/invio');   // i parametri servono solo all'apertura
+    const st = stato;
+    if (query.get('sede')) st.sede = query.get('sede');
+    if (query.get('anno')) st.anno = +query.get('anno');
+    st.anno = st.anno || new Date().getFullYear();
+    if (query.get('sede') || query.get('anno')) history.replaceState(null, '', '#/invio');
     const tutte = sedi(S);
     if (!tutte.some((x) => x.s.id === st.sede)) st.sede = tutte[0]?.s.id || '';
     const { c } = tutte.find((x) => x.s.id === st.sede) || {};
-    const docs = st.sede ? documenti(S, st.tipo, st.sede, st.anno) : [];
-    const pre = (query.get('ids') || '').split(',').filter(Boolean);
-    if (pre.length) docs.forEach((d) => (d.on = pre.includes(d.id)));
+    const rap = st.sede ? rapportiniDi(S, st.sede, st.anno) : [], sch = st.sede ? schedeDi(S, st.sede, st.anno) : [], elenco = st.sede && haElenco(S, st.sede);
+    // cambiando cliente o anno riparte la scelta proposta
+    if (st.chiave !== st.sede + '|' + st.anno) {
+      st.chiave = st.sede + '|' + st.anno; st.rap = new Set(rap.filter((d) => d.on).map((d) => d.id)); st.imp = new Set(); st.sg = false; st.modo = 'una'; st.testoMio = false;
+    }
+    const date = [...new Set(sch.map((x) => x.data))].filter(Boolean).sort();
     const ind = c ? indirizzi(c) : [];
     const io = UT.attuale(), da = io?.google || '';
     const storico = S.invii.filter((x) => x.sedeId === st.sede).sort((a, b) => b.data.localeCompare(a.data)).slice(0, 6);
     const anni = [...new Set([new Date().getFullYear(), new Date().getFullYear() - 1, st.anno])].sort().reverse();
+    const voce = (gr, d, on) => `<label class="spunta ${d.senza ? 'spenta' : ''}"><input type="checkbox" data-gr="${gr}" value="${d.id}" ${on ? 'checked' : ''} ${d.senza ? 'disabled' : ''}><span><b>${esc(d.t)}</b><small>${esc(d.sub)}</small></span></label>`;
     el.innerHTML = `
       <section class="cli invio">
-        <div class="sez-head"><h1>Invia ai clienti ${info('Scegli il cliente e i documenti: l\'app crea i PDF (gli stessi della stampa) e li spedisce dalla tua casella Gmail. Al cliente arriva una mail normale da te, e la trovi anche tra i tuoi «Inviati». La prima volta Google ti chiede il permesso di inviare email per conto tuo.')}</h1></div>
-        <div class="seg">${Object.entries(TIPI).map(([k, l]) => `<button type="button" class="${k === st.tipo ? 'on' : ''}" data-tipo="${k}">${l}</button>`).join('')}</div>
-        <div class="card form">
-          <div class="${st.tipo === 'rapportini' ? '' : 'due'}">
-            <label>Cliente<select id="selSede">${tutte.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}</select></label>
-            ${st.tipo === 'rapportini' ? '' : `<label>Anno<select id="selAnno">${anni.map((a) => `<option ${a === st.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>`}
-          </div>
-        </div>
+        <div class="sez-head"><h1>Invia ai clienti ${info('Scegli il cliente e spunta quello che vuoi mandare: schede di controllo, rapportini ed elenco sottoganci possono partire insieme nella stessa email. L\'app crea i PDF (gli stessi della stampa) e li spedisce dalla tua casella Gmail. Se le schede sono tante puoi mandare una email per ogni data di controllo; se una email supera il limite di Gmail l\'app la divide da sola in più parti.')}</h1></div>
+        <div class="card form"><div class="due">
+          <label>Cliente<select id="selSede">${tutte.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}</select></label>
+          <label>Anno<select id="selAnno">${anni.map((a) => `<option ${a === st.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
+        </div></div>
+
         <div class="card">
-          <div class="card-head"><h2>Documenti da inviare</h2>${docs.length > 1 ? '<button type="button" class="link" id="btnTutti">Tutti / nessuno</button>' : ''}</div>
-          <div class="spunte" id="docs">${docs.map((d) => `<label class="spunta ${d.senza ? 'spenta' : ''}"><input type="checkbox" value="${d.id}" ${d.on ? 'checked' : ''} ${d.senza ? 'disabled' : ''}><span><b>${esc(d.t)}</b><small>${esc(d.sub)}</small></span></label>`).join('') || '<p class="muted">Nessun documento per questo cliente.</p>'}</div>
-          ${docs.length ? '<button type="button" class="btn ghost small" id="btnAnteprima">👁 Scarica il PDF da controllare</button>' : ''}
+          <div class="card-head"><h2>📋 Schede di controllo ${st.anno}</h2>${sch.length > 1 ? '<button type="button" class="link" data-tutti="imp">Tutte / nessuna</button>' : ''}</div>
+          ${date.length > 1 ? `<div class="inv-date"><span class="muted small">Scegli per data di controllo:</span>${date.map((d) => { const n = sch.filter((x) => x.data === d).length, tutteOn = sch.filter((x) => x.data === d).every((x) => st.imp.has(x.id));
+            return `<button type="button" class="inv-chip ${tutteOn ? 'on' : ''}" data-data="${d}">${esc(fmt(d))} <small>${n}</small></button>`; }).join('')}</div>` : ''}
+          <div class="spunte inv-lista">${sch.map((d) => voce('imp', d, st.imp.has(d.id))).join('') || `<p class="muted">Nessuna scheda di controllo nel ${st.anno}.</p>`}</div>
         </div>
+
+        <div class="card">
+          <div class="card-head"><h2>🧾 Rapportini</h2>${rap.length > 1 ? '<button type="button" class="link" data-tutti="rap">Tutti / nessuno</button>' : ''}</div>
+          <div class="spunte inv-lista">${rap.map((d) => voce('rap', d, st.rap.has(d.id))).join('') || '<p class="muted">Nessun rapportino da inviare.</p>'}</div>
+        </div>
+
+        ${elenco ? `<div class="card"><h2>⛓️ Elenco sottoganci</h2><div class="spunte">${voce('sg', { id: 'sg', t: `${SG.cliente(S, st.sede)?.titoloElenco || 'ELENCO SOTTOGANCI'} ${st.anno}`, sub: `${S.sottoganci.filter((x) => x.sedeId === st.sede && !x.dismesso).length} sottoganci` }, st.sg)}</div></div>` : ''}
+
+        <div class="card" id="boxModo"></div>
+
         <div class="card">
           <h2>A chi inviarli</h2>
           <div class="spunte" id="dest">${ind.map((x, k) => `<label class="spunta"><input type="checkbox" value="${esc(x.e)}" ${k === 0 ? 'checked' : ''}><span><b>${esc(x.e)}</b><small>${esc(x.l)}</small></span></label>`).join('') || '<p class="muted small">Il cliente non ha indirizzi email in anagrafica: scrivine uno qui sotto.</p>'}</div>
@@ -142,63 +170,117 @@ window.INVIO = (function () {
         <div class="card form">
           <h2>Messaggio</h2>
           <label>Oggetto<input id="oggetto" data-libero></label>
-          <label>Testo<textarea id="testo" rows="7" data-libero></textarea></label>
-          <p class="muted small">Parte dalla tua casella Gmail${da ? ': <b>' + esc(da) + '</b>' : ''}.</p>
+          <label>Testo<textarea id="testo" rows="8" data-libero></textarea></label>
+          <p class="muted small">Parte dalla tua casella Gmail${da ? ': <b>' + esc(da) + '</b>' : ''}. Con più email, all'oggetto e al testo si aggiunge da solo cosa c'è in ognuna.</p>
         </div>
-        <div class="azioni-form barra-salva"><span class="grow"></span><button class="btn big" id="btnInvia">📧 Invia</button></div>
-        ${storico.length ? `<div class="card"><h2>Ultimi invii a questo cliente</h2>${storico.map((x) => `<p class="small">✉️ <b>${fmt(x.data.slice(0, 10))}</b> · ${esc(TIPI[x.tipo].replace(/^\S+\s/, ''))} · ${esc(x.oggetto)}<br><span class="muted">a ${esc(x.a.join(', '))} · da ${esc(x.da)}${x.simulato ? ' (dimostrazione)' : ''}</span></p>`).join('')}</div>` : ''}
+        <div class="azioni-form barra-salva"><button type="button" class="btn ghost" id="btnAnteprima">👁 Scarica i PDF</button><span class="grow"></span><button class="btn big" id="btnInvia">📧 Invia</button></div>
+        ${storico.length ? `<div class="card"><h2>Ultimi invii a questo cliente</h2>${storico.map((x) => `<p class="small">✉️ <b>${fmt(x.data.slice(0, 10))}</b> · ${esc(x.oggetto)}<br><span class="muted">a ${esc(x.a.join(', '))} · da ${esc(x.da)}</span></p>`).join('')}</div>` : ''}
       </section>`;
-    const scelti = () => [...el.querySelectorAll('#docs input:checked')].map((x) => x.value);
-    const testi = () => { const t = testoBase(S, st.tipo, c, scelti(), st.anno); el.querySelector('#oggetto').value = t.oggetto; el.querySelector('#testo').value = t.testo; };
-    testi();
-    el.querySelectorAll('#docs input').forEach((x) => (x.onchange = testi));
-    el.querySelector('#btnTutti')?.addEventListener('click', () => { const bs = [...el.querySelectorAll('#docs input')]; const tutti = bs.every((b) => b.checked); bs.forEach((b) => (b.checked = !tutti)); testi(); });
-    el.querySelectorAll('[data-tipo]').forEach((b) => (b.onclick = () => { st.tipo = b.dataset.tipo; App.ridisegna(); }));
+
+    const totale = () => ({ rap: [...st.rap], imp: [...st.imp], sg: st.sg });
+    const vuoto = () => !st.rap.size && !st.imp.size && !st.sg;
+    const disegnaModo = () => {
+      const scelte = sch.filter((x) => st.imp.has(x.id)), nd = new Set(scelte.map((x) => x.data)).size;
+      if (nd < 2 && st.modo === 'date') st.modo = 'una';
+      const pp = piano(S, st, sch);
+      el.querySelector('#boxModo').innerHTML = vuoto() ? '<h2>Come inviarli</h2><p class="muted">Spunta almeno un documento.</p>' : `
+        <h2>Come inviarli</h2>
+        <div class="seg"><button type="button" class="${st.modo === 'una' ? 'on' : ''}" data-modo="una">Tutto in una email</button>
+          <button type="button" class="${st.modo === 'date' ? 'on' : ''}" data-modo="date" ${nd < 2 ? 'disabled' : ''}>Una email per data di controllo</button></div>
+        <ol class="inv-piano">${pp.map((p) => `<li>${[p.imp.length && `${p.imp.length} ${p.imp.length === 1 ? 'scheda' : 'schede'}${p.data ? ' del ' + fmt(p.data) : ''}`, p.rap.length && `${p.rap.length} ${p.rap.length === 1 ? 'rapportino' : 'rapportini'}`, p.sg && 'elenco sottoganci'].filter(Boolean).join(' · ')}</li>`).join('')}</ol>
+        <p class="muted small">${pp.length === 1 ? 'Parte 1 email.' : `Partono ${pp.length} email.`} Se una supera il limite di Gmail (circa 18 MB di allegati) viene divisa da sola in più parti.</p>`;
+      el.querySelectorAll('[data-modo]').forEach((b) => (b.onclick = () => { st.modo = b.dataset.modo; disegnaModo(); testi(); }));
+    };
+    const testi = () => { if (st.testoMio) return; const t = testoBase(S, totale(), st.anno); el.querySelector('#oggetto').value = t.oggetto; el.querySelector('#testo').value = t.testo; };
+    const aggiorna = () => { disegnaModo(); testi();
+      el.querySelectorAll('[data-data]').forEach((b) => b.classList.toggle('on', sch.filter((x) => x.data === b.dataset.data).every((x) => st.imp.has(x.id)))); };
+    el.querySelectorAll('input[data-gr]').forEach((x) => (x.onchange = () => {
+      const g = x.dataset.gr; if (g === 'sg') st.sg = x.checked; else if (x.checked) st[g].add(x.value); else st[g].delete(x.value);
+      aggiorna();
+    }));
+    el.querySelectorAll('[data-tutti]').forEach((b) => (b.onclick = () => {
+      const g = b.dataset.tutti, bs = [...el.querySelectorAll(`input[data-gr="${g}"]:not(:disabled)`)], tutti = bs.every((x) => x.checked);
+      bs.forEach((x) => { x.checked = !tutti; if (x.checked) st[g].add(x.value); else st[g].delete(x.value); }); aggiorna();
+    }));
+    el.querySelectorAll('[data-data]').forEach((b) => (b.onclick = () => {
+      const ids = sch.filter((x) => x.data === b.dataset.data).map((x) => x.id), tutti = ids.every((id) => st.imp.has(id));
+      ids.forEach((id) => { if (tutti) st.imp.delete(id); else st.imp.add(id); const cb = el.querySelector(`input[data-gr="imp"][value="${id}"]`); if (cb) cb.checked = !tutti; });
+      aggiorna();
+    }));
+    ['#oggetto', '#testo'].forEach((q) => el.querySelector(q).addEventListener('input', () => (st.testoMio = true)));
+    aggiorna();
     el.querySelector('#selSede').onchange = (e) => { st.sede = e.target.value; App.ridisegna(); };
-    el.querySelector('#selAnno')?.addEventListener('change', (e) => { st.anno = +e.target.value; App.ridisegna(); });
+    el.querySelector('#selAnno').onchange = (e) => { st.anno = +e.target.value; App.ridisegna(); };
     const destinatari = () => [...el.querySelectorAll('#dest input:checked')].map((x) => x.value)
       .concat(el.querySelector('#altri').value.split(/[,;\s]+/).map((x) => x.trim().toLowerCase()).filter(Boolean));
+
+    // prepara le email con gli allegati; quelle troppo grandi si dividono (le schede a metà, poi i rapportini a parte)
+    async function prepara(fase) {
+      const coda = piano(S, st, sch), pronte = [];
+      while (coda.length) {
+        const p = coda.shift();
+        fase(`⏳ Preparo i PDF… (${pronte.length + 1})`);
+        const al = await creaPdf(S, st.sede, st.anno, p);
+        if (peso(al) <= MAX) { pronte.push({ p, al }); continue; }
+        if (p.imp.length > 1) { const m = Math.ceil(p.imp.length / 2); coda.unshift({ ...p, imp: p.imp.slice(0, m), diviso: true }, { ...p, imp: p.imp.slice(m), rap: [], sg: false, diviso: true }); continue; }
+        if (p.imp.length && (p.rap.length || p.sg)) { coda.unshift({ ...p, rap: [], sg: false }, { ...p, imp: [], data: '' }); continue; }
+        if (p.rap.length > 1) { const m = Math.ceil(p.rap.length / 2); coda.unshift({ ...p, rap: p.rap.slice(0, m) }, { ...p, imp: [], rap: p.rap.slice(m), sg: false }); continue; }
+        throw new Error('grande:' + al.map((x) => x.nome).join(', ') + ' (' + mb(peso(al)) + ')');
+      }
+      return pronte;
+    }
+
     const bAnte = el.querySelector('#btnAnteprima');
-    if (bAnte) bAnte.onclick = async () => {
-      const ids = scelti(); if (!ids.length) return UI.toast('Scegli almeno un documento', 'err');
-      bAnte.disabled = true; bAnte.textContent = '⏳ Preparo il PDF…';
-      try { (await creaPdf(S, st.tipo, st.sede, st.anno, ids)).forEach(scarica); } catch (e) { console.error(e); UI.toast('Non riesco a creare il PDF', 'err'); }
-      bAnte.disabled = false; bAnte.textContent = '👁 Scarica il PDF da controllare';
+    bAnte.onclick = async () => {
+      if (vuoto()) return UI.toast('Scegli almeno un documento', 'err');
+      bAnte.disabled = true;
+      try { (await prepara((t) => (bAnte.textContent = t))).forEach(({ al }) => al.forEach(scarica)); }
+      catch (e) { console.error(e); UI.toast(String(e.message).startsWith('grande:') ? 'Un documento da solo è troppo grande per Gmail: ' + e.message.slice(7) : 'Non riesco a creare i PDF', 'err'); }
+      bAnte.disabled = false; bAnte.textContent = '👁 Scarica i PDF';
     };
     const bInv = el.querySelector('#btnInvia');
     bInv.onclick = async () => {
-      const ids = scelti(), a = destinatari();
-      if (!ids.length) return UI.toast('Scegli almeno un documento', 'err');
+      const a = destinatari();
+      if (vuoto()) return UI.toast('Scegli almeno un documento', 'err');
       if (!a.length) return UI.toast('Scegli o scrivi almeno un indirizzo', 'err');
       const errato = a.find((x) => !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x)); if (errato) return UI.toast('Indirizzo non valido: ' + errato, 'err');
       const oggetto = el.querySelector('#oggetto').value.trim(), testo = el.querySelector('#testo').value;
       const fase = (t) => (bInv.textContent = t);
-      bInv.disabled = true;
+      bInv.disabled = true; let fatte = 0;
       try {
         // prima il permesso di Google (deve partire subito dal tocco, altrimenti il popup viene bloccato)
         fase('🔐 Accesso a Gmail…'); const acc = await MAIL.accedi(da);
-        fase('⏳ Preparo i PDF…');
-        const allegati = await creaPdf(S, st.tipo, st.sede, st.anno, ids);
-        fase('📤 Invio…'); await MAIL.invia({ da: acc.email, nome: `${io?.nome || ''} – Gru Impianti`, a, oggetto, testo, allegati });
-        const ora = new Date().toISOString();
-        await UI.salva('invii', { id: uid(), tipo: st.tipo, sedeId: st.sede, clienteId: c?.id || '', anno: st.anno, docIds: ids, a, da: acc.email, oggetto, data: ora, utente: io?.id || '', allegati: allegati.map((x) => x.nome) });
-        if (st.tipo === 'rapportini') for (const id of ids) { const r = S.rapportini.find((x) => x.id === id); if (r) await UI.salva('rapportini', { ...r, inviatoIl: ora, inviatoA: a }); }
-        UI.toast(`Email inviata a ${a.join(', ')}`, 'ok');
-        App.ridisegna();
+        const email = await prepara(fase), N = email.length;
+        for (const [k, { p, al }] of email.entries()) {
+          fase(N > 1 ? `📤 Invio ${k + 1} di ${N}…` : '📤 Invio…');
+          const cosa = testoBase(S, p, st.anno).oggetto;
+          const ogg = N > 1 ? `${oggetto} (${k + 1} di ${N} · ${cosa})` : oggetto;
+          const txt = N > 1 ? `${testo}\n\n— Email ${k + 1} di ${N}: ${cosa}. Allegati: ${al.map((x) => x.nome).join(', ')}` : testo;
+          await MAIL.invia({ da: acc.email, nome: `${io?.nome || ''} – Gru Impianti`, a, oggetto: ogg, testo: txt, allegati: al });
+          fatte++;
+          const ora = new Date().toISOString();
+          await UI.salva('invii', { id: uid(), tipo: 'misto', tipi: [p.imp.length && 'controlli', p.rap.length && 'rapportini', p.sg && 'sottoganci'].filter(Boolean), sedeId: st.sede, clienteId: c?.id || '', anno: st.anno,
+            docIds: [...p.imp, ...p.rap, ...(p.sg ? [st.sede] : [])], a, da: acc.email, oggetto: ogg, data: ora, utente: io?.id || '', allegati: al.map((x) => x.nome) });
+          for (const id of p.rap) { const r = S.rapportini.find((x) => x.id === id); if (r) await UI.salva('rapportini', { ...r, inviatoIl: ora, inviatoA: a }); }
+        }
+        UI.toast(N > 1 ? `${N} email inviate a ${a.join(', ')}` : `Email inviata a ${a.join(', ')}`, 'ok');
+        st.chiave = ''; App.ridisegna();
       } catch (e) {
         console.error(e);
         const m = String(e && (e.code || e.message) || '');
-        UI.toast(/popup-closed|cancelled/.test(m) ? 'Accesso a Gmail annullato'
+        const gia = fatte ? ` (${fatte} email erano già partite: controlla gli «Inviati» prima di rimandare)` : '';
+        UI.toast((/popup-closed|cancelled/.test(m) ? 'Accesso a Gmail annullato'
           : m === 'config' ? 'Per inviare email serve il collegamento al cloud'
           : m === 'api' ? 'Su Google va attivata la «Gmail API» per questo progetto (vedi istruzioni)'
           : m === 'permesso' || m === 'token' ? 'Google non ha dato il permesso di inviare: riprova e accetta'
           : m === 'incerto' ? 'Google non ha confermato l\'invio: controlla tra gli «Inviati» di Gmail prima di rimandarla'
           : m === 'rete' ? 'Serve la connessione a internet per inviare'
-          : /^invio 4(13|00)/.test(m) ? 'Allegati troppo grandi per una sola email: invia meno documenti alla volta' : 'Invio non riuscito (' + m + ')', 'err');
+          : m.startsWith('grande:') ? 'Un documento da solo è troppo grande per Gmail: ' + m.slice(7)
+          : /^invio 4(13|00)/.test(m) ? 'Allegati troppo grandi per una email: scegli «Una email per data di controllo» o meno documenti' : 'Invio non riuscito (' + m + ')') + gia, 'err');
       }
       bInv.disabled = false; fase('📧 Invia');
     };
-    return { titolo: 'Invia ai clienti', indietro: st.da, live: false };
+    return { titolo: 'Invia ai clienti', indietro: '#/', live: false };
   }
 
   return { route: (el, S, parti, query) => pagina(el, S, query) };

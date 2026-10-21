@@ -1333,3 +1333,16 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .note-vecchie { white-space: pre-line; overflow-wrap: anywhere; margin: 0; font-size: 14px; }
 .sg2-elim { font-size: 13px; font-weight: 700; color: #555; background: var(--grigio-bg); border-radius: 8px; padding: 8px 10px; margin: 6px 0; overflow-wrap: anywhere; }
 .u-sg .sg2-elim, .sg2-uno .sg2-elim { font-size: 16px; padding: 16px; }
+/* invio unico */
+.inv-date { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; }
+.inv-date > span { width: 100%; }
+.inv-chip { font: inherit; font-weight: 700; font-size: 14px; border: 2px solid var(--linea); background: #fff; color: var(--navy); border-radius: 20px; padding: 6px 12px; cursor: pointer; white-space: nowrap; }
+.inv-chip small { font-weight: 700; color: var(--muted); margin-left: 4px; }
+.inv-chip.on { background: var(--navy); border-color: var(--navy); color: #fff; }
+.inv-chip.on small { color: #cfd9e4; }
+.inv-lista { max-height: 420px; overflow-y: auto; }
+.inv-piano { margin: 10px 0 6px; padding-left: 22px; font-size: 14px; }
+.inv-piano li { margin: 3px 0; overflow-wrap: anywhere; }
+.seg button:disabled { opacity: .45; cursor: default; }
+.invio .seg button { white-space: normal; line-height: 1.2; }
+.inv-lista > * { flex-shrink: 0; }
