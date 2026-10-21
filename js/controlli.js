@@ -239,7 +239,7 @@ window.CTR = (function () {
     const oss = scV.osservazioni || [];
     // voci dovute e lasciate vuote (in app restano vuote; sulla scheda del cliente escono con X)
     const nonFatte = (n) => { const vis = sc?.visite?.[n]; if (!vis) return 0; const per = periodiDi(tipoVisita(p, n));
-      return voci.filter((v) => per.includes(v.per)).reduce((t, v) => t + Array.from({ length: np }, (_, k) => (vis.esiti?.[v.id] || [])[k]).filter((x) => !x).length, 0); };
+      return voci.filter((v) => per.includes(v.per) && !noteGen(v)).reduce((t, v) => t + Array.from({ length: np }, (_, k) => (vis.esiti?.[v.id] || [])[k]).filter((x) => !x).length, 0); };
     el.innerHTML = `
       <section class="sg ctr">
         <div class="card ctr-testa">
@@ -311,6 +311,7 @@ window.CTR = (function () {
     }));
     return { titolo: 'Scheda ' + anno + ' · ' + IMP.titolo(i), indietro: '#/controlli/s/' + i.sedeId + '?anno=' + anno, live: true };
   }
+  const noteGen = (v) => /^NOTE\s*GENERALI$/i.test(String(v?.testo || '').trim());   // voce per le annotazioni generali: vuota va bene
   const vocNome = (voci, id) => voci.find((v) => v.id === id)?.testo || '';
 
   function toggleOss(S, sc, lettera) {
@@ -439,7 +440,7 @@ window.CTR = (function () {
         </div>
         ${UT.solaLettura() ? '' : `<div class="card vis-fs">
           <button type="button" class="btn ghost" id="btnFsp">⛔ Impianto fuori servizio provvisorio</button>
-          <p class="muted small">Le voci non compilate si segnano «FS», le osservazioni aperte restano e sulla scheda si aggiunge l'osservazione «fuori servizio provvisorio».</p>
+          <p class="muted small">Salva il controllo con tutte le voci vuote e su «NOTE GENERALI» l'annotazione «FUORI SERVIZIO PROVVISORIO». Le osservazioni aperte restano nell'elenco dell'anno.</p>
         </div>`}
         <div class="azioni-form sticky vis-salva">
           <button class="btn ghost big" type="submit" data-dopo="sede">Salva</button>
@@ -499,19 +500,28 @@ window.CTR = (function () {
     } });
     disegnaOss();
     el.querySelector('#btnOssLibera').onclick = () => nuovaOss(null, null);
-    // fuori servizio provvisorio: le anomalie aperte restano (già riportate), il resto diventa FS
+    // fuori servizio provvisorio: tutte le caselle vuote; sulla voce NOTE GENERALI (la prima, aggiunta se manca)
+    // va l'annotazione FUORI SERVIZIO PROVVISORIO. Le osservazioni aperte restano nell'elenco dell'anno.
     el.querySelector('#btnFsp')?.addEventListener('click', async () => {
-      if (!UI.conferma(`Segnare ${i.numeroInterno ? 'N° ' + i.numeroInterno : IMP.titolo(i)} FUORI SERVIZIO PROVVISORIO in questo controllo?\n\nLe voci senza giudizio diventano «FS», le osservazioni aperte restano e sulla scheda si aggiunge l'osservazione del fuori servizio.`)) return;
-      voci.forEach((v) => { for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) { vis.esiti[v.id][pi - 1] = 'FS'; mostra(v, pi); } });
+      if (!UI.conferma(`Segnare ${i.numeroInterno ? 'N° ' + i.numeroInterno : IMP.titolo(i)} FUORI SERVIZIO PROVVISORIO in questo controllo?\n\nTutte le voci restano vuote e su «NOTE GENERALI» si aggiunge l'annotazione «FUORI SERVIZIO PROVVISORIO».`)) return;
+      const nvt = (t) => String(t || '').toUpperCase().replace(/[^A-Z]/g, '');
+      let ng = sc.voci[0] && nvt(sc.voci[0].testo) === 'NOTEGENERALI' ? sc.voci[0] : null;
+      if (!ng) { ng = { id: uid(), per: 'T', testo: 'NOTE GENERALI', tipo: 'codice' }; sc.voci.unshift(ng); }
+      voci.forEach((v) => (vis.esiti[v.id] = Array(np).fill('')));
+      Object.keys(vis.valori || {}).forEach((k) => (vis.valori[k] = Array(np).fill('')));
       const d = f.dataScheda.value || oggi();
-      if (!osservazioni.some((o) => !o.risoltaIl && /FUORI SERVIZIO PROVVISORIO/.test(o.testo))) {
-        osservazioni.push({ lettera: prossimaLettera(), testo: `IMPIANTO FUORI SERVIZIO PROVVISORIO DAL ${fmt(d)}`, vocId: '', p: null, visita: n, data: d });
-        disegnaOss();
-      }
+      let o = osservazioni.find((x) => !x.risoltaIl && x.vocId === ng.id && /FUORI SERVIZIO PROVVISORIO/.test(x.testo));
+      if (!o) { o = { lettera: prossimaLettera(), testo: 'FUORI SERVIZIO PROVVISORIO', vocId: ng.id, p: 1, visita: n, data: d }; osservazioni.push(o); }
+      vis.esiti[ng.id] = Array(np).fill(''); vis.esiti[ng.id][0] = o.lettera;
       vis.fs = true;
       if (i.stato !== 'fsp') { try { await UI.salva('impianti', { ...i, stato: 'fsp', fsDal: d, dismesso: false }); } catch (e) {} }
-      UI.toast('Segnato fuori servizio provvisorio: controlla e premi Salva', 'ok');
-      el.querySelector('.vis-salva').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      // salvo subito: la voce NOTE GENERALI nuova va disegnata nella pagina
+      Object.assign(vis, { dataScheda: d, dataEsecuzione: f.dataEsecuzione.value || oggi() });
+      const t = leggiTecnici(); if (t.tecnici.length) Object.assign(vis, { tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, firma: t.firmaDi === vis.firmaDi && vis.firma ? vis.firma : t.firma });
+      sc.visite[n] = vis; sc.osservazioni = osservazioni; sc.noteInterne = f.noteInterne.value.trim();
+      try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
+      UI.toast('Controllo salvato: impianto fuori servizio provvisorio', 'ok');
+      location.hash = torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
     });
     const leggiTecnici = UT.collegaTecnici(el, vis.firmaDi);
     // riga riassuntiva di data e tecnici, salti rapidi tra le sezioni
@@ -522,7 +532,7 @@ window.CTR = (function () {
     f.onsubmit = async (e) => {
       e.preventDefault();
       const manc = [];
-      voci.forEach((v) => { for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) manc.push(box(v.id, pi)); });
+      voci.forEach((v) => { if (!noteGen(v)) for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) manc.push(box(v.id, pi)); });
       if (manc.length) {
         manc.forEach((b) => b.classList.add('manca')); manc[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
         if (!UI.conferma(`${manc.length} voci non eseguite. Nell'app resteranno segnate come non eseguite; sulla scheda del cliente compariranno con la X. Salvare?`)) return;

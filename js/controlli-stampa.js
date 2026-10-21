@@ -102,7 +102,8 @@ window.CTRS = (function () {
         const vecchio = (x) => x && !CTR.CODICI.some(([c]) => c === x) && !/^[A-Z]{1,2}$/.test(x);   // vecchia "misura" nell'esito
         bl.p.forEach(([a, b], pi) => {
           const e = es[pi] || '', w = vl[pi] || (vecchio(e) ? e : '');
-          const txt = w && (!e || e === 'X' || vecchio(e)) ? w : (e || 'X');
+          // controllo con l'impianto fuori servizio provvisorio: le caselle vuote restano vuote
+          const txt = w && (!e || e === 'X' || vecchio(e)) ? w : (e || (vis.fs || /^NOTE\s*GENERALI$/i.test(String(v.testo).trim()) ? '' : 'X'));
           h += T(a, ty(k), val(txt), 'cs-c cs-fit', b - a);
         });
       });
