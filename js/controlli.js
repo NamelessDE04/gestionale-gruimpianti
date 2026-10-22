@@ -233,9 +233,9 @@ window.CTR = (function () {
         </div>
         ${p.impostato ? '' : `<div class="avviso avviso-mini">Piano dei controlli non impostato (ora: 1° a gennaio, annuale il 1°). <button class="link" id="btnPiano2">Imposta</button></div>`}
         <div class="striscia">${st.map((x) => { const t = tipoVisita(p, x.n);
-          return `<button type="button" class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''}" title="${nomeTipo(t)}" data-sceglin="${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></button>`; }).join('')}</div>
+          return `<button type="button" class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} title="${nomeTipo(t)}" data-sceglin="${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></button>`; }).join('')}</div>
         ${corr && imp.length && !UT.solaLettura() ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
-          return `<a class="ctr-inizia t-${t}" href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${x.completa ? 'Rivedi' : via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
+          return `<a class="ctr-inizia t-${t} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${x.completa ? 'Rivedi' : via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
         <div class="elenco">
           ${imp.map((i) => {
             const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).length;
@@ -416,23 +416,28 @@ window.CTR = (function () {
     };
   }
 
+  // colori delle fascette sui riquadri dei controlli gru (per i clienti che le usano, es. Arcelor Mittal):
+  // trimestrale verde, semestrale arancione, annuale blu
+  const COL_FASC = { T: '#92d050', S: '#f59a23', A: '#00b0f0' };
   const ORDINI = ['Per numero (50/1, 50/2, 51/1)', 'Per campata (1/1, 2/1, 1/2)'];
   function modalePiano(S, c, s) {
     const p = piano(s);
     UI.modal({
       titolo: 'Piano controlli · ' + (s.nome || ''),
       infoTxt: '«Ordine delle gru»: se il numero interno è gru/campata (es. Caselette: 3/11 = gru 3, campata 11) scegli «per campata»: si ordina per il secondo numero; se è già campata/gru (es. 50/1) lascia «per numero». I 4 controlli sono a 3 mesi di distanza. L\'annuale comprende tutte le voci; due controlli dopo c\'è il semestrale (voci TRIM + SEME); gli altri due sono solo trimestrali.',
-      valori: { mese1: MESI[p.mese1 - 1], annuale: p.annuale + '°', tutte: false, ordine: s.ordineGru === 'secondo' ? ORDINI[1] : ORDINI[0] },
+      valori: { mese1: MESI[p.mese1 - 1], annuale: p.annuale + '°', tutte: false, fascette: !!s.coloriFascette, ordine: s.ordineGru === 'secondo' ? ORDINI[1] : ORDINI[0] },
       campi: [
         { k: 'mese1', label: 'Mese del 1° controllo dell\'anno', tipo: 'select', opzioni: MESI.slice(0, 3), mezza: true },
         { k: 'annuale', label: 'Il controllo annuale è il', tipo: 'select', opzioni: ['1°', '2°', '3°', '4°'], mezza: true },
         { k: 'ordine', label: 'Ordine delle gru (numero interno)', tipo: 'select', opzioni: ORDINI },
+        { k: 'fascette', label: 'Colori delle fascette sui controlli (trim. verde, sem. arancione, annuale blu)', tipo: 'sino' },
         ...((c.sedi || []).length > 1 ? [{ k: 'tutte', label: `Applica lo stesso piano a tutte le sedi di ${CLI.nome(c)}`, tipo: 'sino' }] : [])
       ],
       onSalva: async (v) => {
         const pc = { mese1: Math.max(1, MESI.indexOf(v.mese1) + 1), annuale: parseInt(v.annuale, 10) || 1 };
         const d = JSON.parse(JSON.stringify(c));
         d.sedi.forEach((x) => { if (x.id === s.id || v.tutte) x.pianoControlli = pc; });
+        d.sedi.forEach((x) => { if (x.id === s.id || (v.tutte && v.fascette)) { if (v.fascette) x.coloriFascette = true; else if (x.id === s.id) delete x.coloriFascette; } });
         d.sedi.forEach((x) => { if (x.id === s.id) { if (v.ordine === ORDINI[1]) x.ordineGru = 'secondo'; else delete x.ordineGru; } });   // l'ordine vale solo per questa sede
         await UI.salva('clienti', d); UI.toast('Piano salvato', 'ok');
       }

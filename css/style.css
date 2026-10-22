@@ -1472,3 +1472,11 @@ button.st-v.t-A { border-top-color: var(--navy); } button.st-v.t-S { border-top-
 .oss-mod { width: min(640px, 100%); flex-shrink: 0; } .oss-mod .oss-via { box-sizing: border-box; max-width: 100%; }
 .voc-via { margin-left: auto; border: 1px solid var(--linea); background: #fff; border-radius: 8px; font-size: 15px; padding: 3px 8px; cursor: pointer; opacity: .75; }
 .gi-head:has(.voc-via) { flex-wrap: nowrap; align-items: flex-start; } .gi-head:has(.voc-via) > b { flex: 1; min-width: 0; overflow-wrap: anywhere; } .voc-via { flex-shrink: 0; }
+
+/* colori delle fascette sui controlli gru (opzione della sede) */
+.st-v.fasc-on, button.st-v.fasc-on { border-top: 0; background: var(--fc); color: #10243a; }
+.st-v.fasc-on span { color: #10243a; opacity: .8; }
+.st-v.fasc-on.fatto span { color: #10243a; font-weight: 800; }
+.st-v.fasc-on.corrente { outline: 3px solid #10243a; outline-offset: 1px; }
+.ctr-inizia.fasc-on, .ctr-inizia.fasc-on.t-A, .ctr-inizia.fasc-on.t-S, .ctr-inizia.fasc-on.t-T { background: var(--fc); color: #10243a; }
+html.tema-tenue .ctr-inizia.fasc-on { color: #10243a; }
