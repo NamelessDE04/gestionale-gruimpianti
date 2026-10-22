@@ -34,6 +34,7 @@ function anagraficaGestionale() {
   const clients = leggiG('clienti').flatMap(c => (c.sedi || []).map(s => ({
     id: s.id,
     name: (s.sigla || `${c.ragioneSociale || ''} ${s.nome || ''}`).trim().toUpperCase(),
+    full: [c.ragioneSociale, s.nome].filter(Boolean).join(' · ').toUpperCase(),   // nome completo, per i menu a tendina
     color: MESE_COLORE[s.pianoControlli?.mese1] || 'none',
     contacts: (c.referenti || []).filter(r => r.telefono).map(r => ({ id: r.id, name: [r.nome, r.cognome].filter(Boolean).join(' '), phone: r.telefono }))
   })));
@@ -142,7 +143,11 @@ const astHtml = e => e.unsigned && e.type !== 'pers' ? '<span class="ast" title=
 const noteTxt = t => String(t || '').replace(/^\s*\+\s*/, '');
 const isPast = e => spanDates(e).slice(-1)[0] < todayIso();
 const lineCls = e => e.type === 'check' ? (clientById(e.clientId)?.color || '') : e.type === 'extra' ? 'pen' : 'ink';
-const evLabel = e => e.type === 'check' ? (clientById(e.clientId)?.name || '') : e.text;
+// lavoro extra con un cliente: sulla lavagna la sigla del cliente in rosso davanti al testo (niente magnetino)
+const extraCli = e => (e.type === 'extra' && e.extraClientId ? clientById(e.extraClientId) : null);
+const notaTxt = e => { const c = extraCli(e); return (c ? c.name + ' · ' : '') + (e.text || ''); };
+const notaHtml = e => { const c = extraCli(e); return (c ? `<b class="x-cli">${esc(c.name)}</b> ` : '') + esc(e.text || ''); };
+const evLabel = e => e.type === 'check' ? (clientById(e.clientId)?.name || '') : notaTxt(e);
 function contHtml({ e, i, n }, cls = 'cont') {
   const last = i === n - 1;
   return `<div class="${cls} ${lineCls(e)} ${last ? 'last' : ''}" data-ev="${e.id}" title="${esc(evLabel(e))} · giorno ${i + 1} di ${n}">
@@ -573,7 +578,7 @@ function itemHtml(e) {
     if (multi) { head = `<div class="mag-line">${mag}</div>`; below = nota ? `<div class="mnote-below">${nota}</div>` : ''; }
     else head = `<div class="mag-line">${mag}${nota}</div>`;
   } else {
-    const nt = `<div class="note ${e.type}">${e.time ? `<b>${esc(e.time)}</b> ` : ''}${esc(e.text)}</div>`;
+    const nt = `<div class="note ${e.type}">${e.time ? `<b>${esc(e.time)}</b> ` : ''}${notaHtml(e)}</div>`;
     head = e.unsigned && e.type !== 'pers' ? `<div class="mag-line">${nt}${astHtml(e)}</div>` : nt;
   }
   // se dura più giorni, dal magnete parte la freccia verso il giorno dopo
@@ -667,7 +672,7 @@ function cardHtml(e, cont) {
   const st = staffOf(e), vhs = vehiclesOf(e);
   const head = e.type === 'check'
     ? `<span class="mag ${c.color}">${esc(c.name)}</span>${astHtml(e)}${e.time ? `<span class="time">${esc(e.time)}</span>` : ''}`
-    : `<span class="note ${e.type}">${e.time ? `<b>${esc(e.time)}</b> ` : ''}${esc(e.text)}${astHtml(e)}</span>`;
+    : `<span class="note ${e.type}">${e.time ? `<b>${esc(e.time)}</b> ` : ''}${notaHtml(e)}${astHtml(e)}</span>`;
   const who = (st.length || vhs.length)
     ? `<div class="who big">${st.map(s => `<span class="st">${esc(s.name)}</span>`).join('')}${vhs.map(v => `<span class="vh">${esc(v.name)}</span>`).join('')}</div>`
     : (e.type !== 'pers' ? `<div class="who-empty">Tecnico e mezzo da assegnare</div>` : '');
@@ -736,16 +741,18 @@ function openEditor(id, opts = {}) {
   if (id && !ev) return;
   state.edit = ev
     ? { ...ev, staffIds: [...(ev.staffIds || [])], vehicleIds: [...vehIdsOf(ev)], text: ev.text || '', time: ev.time || '' }
-    : { id: null, type: opts.type || 'extra', date: opts.date || state.selDate, clientId: '', text: '', time: '', staffIds: [], vehicleIds: [] };
+    : { id: null, type: opts.type || 'extra', date: opts.date || state.selDate, clientId: '', extraClientId: '', text: '', time: '', staffIds: [], vehicleIds: [] };
   state.modal = 'edit';
   buildEditor();
 }
 
 function clientOptions(sel) {
   const col = coloreDelMese(parseIso(state.edit.date).getMonth());
-  const due = byName(state.clients.filter(c => c.color === col));
-  const others = byName(state.clients.filter(c => c.color !== col));
-  const opt = c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.name)}</option>`;
+  const perNome = a => [...a].sort((x, y) => (x.full || x.name || '').localeCompare(y.full || y.name || '', 'it'));
+  const due = perNome(state.clients.filter(c => c.color === col));
+  const others = perNome(state.clients.filter(c => c.color !== col));
+  // nel menu il nome completo (ditta · sede) con la sigla; sulla lavagna resta solo la sigla
+  const opt = c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.full && c.full !== c.name ? `${c.full} (${c.name})` : c.name)}</option>`;
   return `<option value="">Scegli cliente…</option>`
     + (due.length ? `<optgroup label="Da controllare questo mese">${due.map(opt).join('')}</optgroup>` : '')
     + (others.length ? `<optgroup label="Altri clienti">${others.map(opt).join('')}</optgroup>` : '');
@@ -766,7 +773,9 @@ function buildEditor() {
   const typeSeg = (isNew && e.type !== 'check')
     ? `<div class="seg">${['extra', 'pers'].map(t => `<button type="button" class="seg-btn ${e.type === t ? 'on' : ''}" data-action="ed-type" data-type="${t}">${TIPI[t]}</button>`).join('')}</div>`
     : '';
-  const clientField = e.type !== 'check' ? '' : (isNew
+  const clientField = e.type === 'pers' ? '' : e.type === 'extra'
+    ? `<label class="fld"><span>Cliente (facoltativo)</span><select id="edXClient">${clientOptions(e.extraClientId).replace('Scegli cliente…', 'Nessun cliente')}</select></label>`
+    : (isNew
     ? `<label class="fld"><span>Cliente</span><select id="edClient">${clientOptions(e.clientId)}</select></label>`
     : `<div class="ed-client"><span class="mag ${c?.color || ''}">${esc(c?.name || '?')}</span>
          </div>`);
@@ -836,6 +845,7 @@ function syncEdit() {
   e.weekend = $('#edWeekend').checked;
   e.text = $('#edText').value;
   if ($('#edClient')) e.clientId = $('#edClient').value;
+  if ($('#edXClient')) e.extraClientId = $('#edXClient').value;
 }
 
 function saveEditor() {
@@ -853,6 +863,7 @@ function saveEditor() {
     updatedAt: Date.now()
   };
   if (e.type === 'check') obj.clientId = e.clientId;
+  if (e.type === 'extra' && clientById(e.extraClientId)) obj.extraClientId = e.extraClientId;
   if (e.unsigned && e.type !== 'pers') obj.unsigned = true;
   const old = e.id && eventById(e.id);
   run(db.save('events', obj));
@@ -1013,7 +1024,7 @@ function monthRows() {
         })(),
         giorno: GG_LUNGHI[dt.getDay()],
         tipo: e.type === 'check' ? `Controllo (${COLORI[c.color].nome.toLowerCase()})` : TIPI[e.type],
-        descr: (e.type === 'check' ? c.name + (e.text ? ' + ' + noteTxt(e.text) : '') : e.text) + (e.unsigned && e.type !== 'pers' ? ' ✱ (rapportino da firmare)' : ''),
+        descr: (e.type === 'check' ? c.name + (e.text ? ' + ' + noteTxt(e.text) : '') : notaTxt(e)) + (e.unsigned && e.type !== 'pers' ? ' ✱ (rapportino da firmare)' : ''),
         ora: e.time || '',
         tecnici: staffNames(e),
         mezzo: vehicleName(e)
@@ -1037,7 +1048,7 @@ function buildReport() {
       const who = [staffNames(e) && `<span class="st">${esc(staffNames(e))}</span>`, vehicleName(e) && `<span class="vh">${esc(vehicleName(e))}</span>`].filter(Boolean).join(' ');
       const head = e.type === 'check'
         ? `<div class="rp-magline"><div class="rp-mag ${clientById(e.clientId).color} done">${e.time ? esc(e.time) + ' ' : ''}${esc(clientById(e.clientId).name)}</div>${astHtml(e)}${e.text && !((+e.days || 1) > 1) ? `<span class="rp-mnote">${esc(noteTxt(e.text))}</span>` : ''}</div>`
-        : `<div class="rp-note ${e.type}">${e.time ? `<b>${esc(e.time)}</b> ` : ''}${esc(e.text)}${astHtml(e)}</div>`;
+        : `<div class="rp-note ${e.type}">${e.time ? `<b>${esc(e.time)}</b> ` : ''}${notaHtml(e)}${astHtml(e)}</div>`;
       const tail = (+e.days || 1) > 1 ? `<span class="tail ${lineCls(e)}"></span>` : '';
       const below = tail && e.type === 'check' && e.text ? `<div class="rp-mnote">${esc(noteTxt(e.text))}</div>` : '';
       return (tail ? `<div class="head-row" data-origin="${e.id}">${head}${tail}</div>${below}` : head) + (who ? `<div class="rp-who">${who}</div>` : '');
@@ -1328,7 +1339,7 @@ function renderUnsignedList() {
   const list = [...state.unsigned].filter(e => e.type !== 'check' || clientById(e.clientId)).sort((a, b) => a.date.localeCompare(b.date));
   el.innerHTML = list.length ? list.map(e => {
     const c = clientById(e.clientId);
-    const label = e.type === 'check' ? `<span class="mag ${c.color}">${esc(c.name)}</span>${e.text ? `<span class="mnote">${esc(noteTxt(e.text))}</span>` : ''}` : `<span class="note extra">${esc(e.text)}</span>`;
+    const label = e.type === 'check' ? `<span class="mag ${c.color}">${esc(c.name)}</span>${e.text ? `<span class="mnote">${esc(noteTxt(e.text))}</span>` : ''}` : `<span class="note extra">${notaHtml(e)}</span>`;
     return `<div class="uns-row">
       <button class="uns-main" data-action="uns-open" data-id="${e.id}" data-date="${e.date}"><small>${esc(dateLabel(e.date))}</small><span class="uns-lbl">${label}</span></button>
       <button class="btn sm" data-action="uns-sign" data-id="${e.id}">Firmato</button>
