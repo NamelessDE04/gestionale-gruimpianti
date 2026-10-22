@@ -118,16 +118,20 @@ window.ILL = (function () {
       <line x1="120" y1="88" x2="134" y2="102" stroke="${N}" stroke-width="8" stroke-linecap="round"/>
       <line x1="122" y1="90" x2="133" y2="101" stroke="${Y}" stroke-width="3.5" stroke-linecap="round"/>`),
 
+    // invia e archivia: busta che parte (a sinistra) e scatola d'archivio con i fogli (a destra)
     invio: svg(`
-      <ellipse cx="80" cy="108" rx="60" ry="6" fill="${L}"/>
-      <rect x="40" y="14" width="44" height="56" rx="3" fill="${W}" stroke="${N}" stroke-width="3" transform="rotate(-10 62 42)"/>
-      <rect x="62" y="10" width="44" height="56" rx="3" fill="${W}" stroke="${N}" stroke-width="3" transform="rotate(8 84 38)"/>
-      <g stroke="${G}" stroke-width="3" stroke-linecap="round" transform="rotate(8 84 38)"><path d="M70 22h28M70 31h28M70 40h18"/></g>
-      <rect x="28" y="50" width="104" height="56" rx="6" fill="${Y}" stroke="${N}" stroke-width="3"/>
-      <path d="M30 54 L80 86 L130 54" fill="none" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
-      <path d="M30 104 L66 77 M130 104 L94 77" stroke="${N}" stroke-width="3" stroke-linecap="round"/>
-      <circle cx="128" cy="52" r="13" fill="${V}" stroke="${N}" stroke-width="3"/>
-      <path d="M121 52 l5 5 9 -10" fill="none" stroke="${W}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>`),
+      <ellipse cx="80" cy="110" rx="64" ry="5" fill="${L}"/>
+      <rect x="64" y="8" width="36" height="46" rx="3" fill="${W}" stroke="${N}" stroke-width="3" transform="rotate(-6 82 31)"/>
+      <g stroke="${G}" stroke-width="2.5" stroke-linecap="round" transform="rotate(-6 82 31)"><path d="M71 19h22M71 27h22M71 35h14"/></g>
+      <rect x="10" y="58" width="62" height="40" rx="5" fill="${Y}" stroke="${N}" stroke-width="3"/>
+      <path d="M12 61 L41 81 L70 61" fill="none" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M38 50 c0 -14 8 -22 22 -24" fill="none" stroke="${O}" stroke-width="3.5" stroke-linecap="round"/>
+      <path d="M54 20 l8 6 -9 5" fill="none" stroke="${O}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <rect x="86" y="44" width="62" height="14" rx="3" fill="${L}" stroke="${N}" stroke-width="3"/>
+      <path d="M90 58 h54 v44 a4 4 0 0 1 -4 4 h-46 a4 4 0 0 1 -4 -4z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="104" y="68" width="26" height="14" rx="2" fill="${Y}" stroke="${N}" stroke-width="2.5"/>
+      <path d="M110 75 h14" stroke="${N}" stroke-width="2.5" stroke-linecap="round"/>
+      <path d="M100 94 h34" stroke="${G}" stroke-width="3" stroke-linecap="round"/>`),
 
     clienti: svg(`
       <ellipse cx="80" cy="108" rx="60" ry="6" fill="${L}"/>

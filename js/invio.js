@@ -162,7 +162,7 @@ window.INVIO = (function () {
     const nomeF = pulito(c ? CLI.nome(c) : 'cliente') + (s?.sigla ? '_' + pulito(s.sigla) : '');
     el.innerHTML = `
       <section class="cli invio">
-        <div class="sez-head"><h1>Invia ai clienti</h1></div>
+        <div class="sez-head"><h1>Invia e archivia</h1></div>
         ${segVista(st)}
         <div class="card form"><div class="due">
           <label>Cliente e stabilimento<select id="selSede">${tutte.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}</select></label>
@@ -229,7 +229,7 @@ window.INVIO = (function () {
       if (win) win.location = url; else scarica({ nome: `Stampa_${nomeF}_${st.anno}.pdf`, bytes: PDFX.pdf(pag, true) });
       UT.registra('stampa', `Stampa documenti · ${c ? CLI.nome(c) : ''} ${st.anno}`);
     });
-    return { titolo: 'Stampa e PDF', indietro: '#/', live: false };
+    return { titolo: 'Invia e archivia · PDF', indietro: '#/', live: false };
   }
   const segVista = (st) => `<div class="seg inv-vista"><button type="button" data-vista="invio" class="${st.vista !== 'pdf' ? 'on' : ''}">📧 Invia per email</button><button type="button" data-vista="pdf" class="${st.vista === 'pdf' ? 'on' : ''}">🖨️ Stampa e PDF</button></div>`;
 
@@ -260,7 +260,7 @@ window.INVIO = (function () {
     const voce = (gr, d, on) => `<label class="spunta ${d.senza ? 'spenta' : ''}"><input type="checkbox" data-gr="${gr}" value="${d.id}" ${on ? 'checked' : ''} ${d.senza ? 'disabled' : ''}><span><b>${esc(d.t)}</b><small>${esc(d.sub)}</small></span></label>`;
     el.innerHTML = `
       <section class="cli invio">
-        <div class="sez-head"><h1>Invia ai clienti ${info('Scegli il cliente e spunta quello che vuoi mandare: schede di controllo, rapportini ed elenco sottoganci possono partire insieme nella stessa email. L\'app crea i PDF (gli stessi della stampa) e li spedisce dalla tua casella Gmail. Se le schede sono tante puoi mandare una email per ogni data di controllo; se una email supera il limite di Gmail l\'app la divide da sola in più parti.')}</h1></div>
+        <div class="sez-head"><h1>Invia e archivia ${info('Con «📧 Invia per email» mandi i documenti ai clienti; con «🖨️ Stampa e PDF» li salvi in archivio o li stampi, mese per mese. Scegli il cliente e spunta quello che vuoi mandare: schede di controllo, rapportini ed elenco sottoganci possono partire insieme nella stessa email. L\'app crea i PDF (gli stessi della stampa) e li spedisce dalla tua casella Gmail. Se le schede sono tante puoi mandare una email per ogni data di controllo; se una email supera il limite di Gmail l\'app la divide da sola in più parti.')}</h1></div>
         ${segVista(st)}
         <div class="card form"><div class="due">
           <label>Cliente<select id="selSede">${tutte.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}</select></label>
@@ -407,7 +407,7 @@ window.INVIO = (function () {
       }
       bInv.disabled = false; fase('📧 Invia');
     };
-    return { titolo: 'Invia ai clienti', indietro: '#/', live: false };
+    return { titolo: 'Invia e archivia', indietro: '#/', live: false };
   }
 
   return { route: (el, S, parti, query) => pagina(el, S, query) };
