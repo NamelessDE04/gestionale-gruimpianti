@@ -52,3 +52,5 @@ html.tema-tenue .btn.danger { border-color: #e3b1ab; color: #a5473d; }
 html.tema-tenue #toast { background: #5d7186; color: #fff; }
 html.tema-tenue #toast.ok { background: #cfe8d8; color: #1f3a2b; } html.tema-tenue #toast.err { background: #f6dcd8; color: #7a2e26; }
 html.tema-tenue .st-ok { color: #3f7d5a; } html.tema-tenue .st-scadenza { color: #86692a; } html.tema-tenue .st-scaduto, html.tema-tenue .st-fuori { color: #9a4a42; }
+html.tema-tenue .ctr-inizia.t-S, html.tema-tenue .ctr-inizia.t-T { color: #3a3026; }
+html.tema-tenue .ctr-inizia.t-S small, html.tema-tenue .ctr-inizia.t-T small { color: #5a4c3d; opacity: 1; }
