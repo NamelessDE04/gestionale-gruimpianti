@@ -57,7 +57,8 @@ window.PDFX = (function () {
     const enc = new TextEncoder(), parti = [], offs = [];
     let len = 0;
     const push = (x) => { const b = typeof x === 'string' ? enc.encode(x) : x; parti.push(b); len += b.length; };
-    const W = verticale ? 595.28 : 841.89, H = verticale ? 841.89 : 595.28;
+    // ogni pagina può avere il suo verso (cv._vert): così si mettono nello stesso PDF schede, rapportini ed elenchi
+    const dim = (cv) => { const v = cv._vert ?? verticale; return v ? [595.28, 841.89] : [841.89, 595.28]; };
     const n = canvases.length, kids = [];
     push('%PDF-1.4\n%\xE2\xE3\xCF\xD3\n');
     const obj = (id, body) => { offs[id] = len; push(`${id} 0 obj\n`); body(); push('\nendobj\n'); };
@@ -65,7 +66,7 @@ window.PDFX = (function () {
     for (let i = 0; i < n; i++) kids.push(`${3 + i * 3} 0 R`);
     obj(2, () => push(`<< /Type /Pages /Kids [${kids.join(' ')}] /Count ${n} >>`));
     canvases.forEach((cv, i) => {
-      const pid = 3 + i * 3, iid = pid + 1, cid = pid + 2;
+      const pid = 3 + i * 3, iid = pid + 1, cid = pid + 2, [W, H] = dim(cv);
       const jpg = b64aByte(cv.toDataURL('image/jpeg', 0.88).split(',')[1]);
       // l'immagine riempie la pagina mantenendo le proporzioni
       const k = Math.min(W / cv.width, H / cv.height), iw = cv.width * k, ih = cv.height * k;
@@ -83,7 +84,9 @@ window.PDFX = (function () {
   }
 
   // prepara i fogli fuori dallo schermo con la funzione di stampa del modulo e li trasforma in PDF
-  async function daStampa(disegna, selettore, verticale) {
+  async function daStampa(disegna, selettore, verticale) { return pdf(await pagine(disegna, selettore, verticale), verticale); }
+  // come daStampa, ma restituisce le pagine (per unirle in un PDF solo)
+  async function pagine(disegna, selettore, verticale) {
     const box = document.createElement('div');
     box.className = 'pdf-fuori';
     box.style.cssText = 'position:fixed;left:-20000px;top:0;width:1400px;background:#fff;';
@@ -97,9 +100,10 @@ window.PDFX = (function () {
       if (!fogli.length) throw new Error('Niente da stampare');
       const canvases = [];
       for (const f of fogli) canvases.push(...aPagine(await foto(f), verticale));
-      return pdf(canvases, verticale);
+      canvases.forEach((cv) => (cv._vert = verticale));
+      return canvases;
     } finally { box.remove(); }
   }
 
-  return { daStampa, foto, pdf };
+  return { daStampa, pagine, foto, pdf };
 })();

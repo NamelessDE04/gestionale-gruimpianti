@@ -127,11 +127,118 @@ window.INVIO = (function () {
     return date.map((d, k) => ({ separati: st.separati, rap: k ? [] : base.rap, sg: k ? false : base.sg, imp: imp.filter((x) => x.data === d).map((x) => x.id), data: d }));
   }
 
+  // ---------- STAMPA E PDF: mese per mese, per cliente e stabilimento ----------
+  const MESI_N = ['Gennaio', 'Febbraio', 'Marzo', 'Aprile', 'Maggio', 'Giugno', 'Luglio', 'Agosto', 'Settembre', 'Ottobre', 'Novembre', 'Dicembre'];
+  const arch = { sel: new Set(), sg: false, modo: 'tutto', chiave: '' };
+  const schiacciaData = (d) => (d ? d.split('-').reverse().join('-') : '');
+  // documenti di una sede nell'anno: una riga per ogni controllo fatto (scheda + data) e per ogni rapportino
+  function docsArchivio(S, sedeId, anno) {
+    const out = [];
+    S.impianti.filter((i) => i.sedeId === sedeId).forEach((i) => {
+      const sc = CTR.schedaDi(S, i.id, anno); if (!sc) return;
+      Object.entries(sc.visite || {}).forEach(([n, v]) => { const d = v.dataScheda || ''; if (!d) return;
+        out.push({ k: `imp|${i.id}|${n}`, tipo: 'imp', id: i.id, data: d, ord: String(i.numeroInterno || '~'), t: `Scheda ${i.numeroInterno ? 'N° ' + i.numeroInterno + ' · ' : ''}${IMP.titolo(i)}`, sub: `${n}° controllo del ${fmt(d)}${v.inCorso ? ' · ⏸ in corso' : ''}` }); });
+    });
+    S.rapportini.filter((r) => r.sedeId === sedeId && r.anno === anno && r.numero).forEach((r) => {
+      const d = (r.giorni || [])[0]?.data || r.dataConsegna || '';
+      out.push({ k: `rap|${r.id}`, tipo: 'rap', id: r.id, data: d, ord: String(r.numero).padStart(6, '0'), t: `Rapportino N° ${r.numero}/${r.anno}`, sub: `${fmt(d)} · ${r.firmaReferente ? 'firmato' : 'da firmare'}` });
+    });
+    return out.sort((a, b) => a.data.localeCompare(b.data) || a.tipo.localeCompare(b.tipo) || a.ord.localeCompare(b.ord, 'it', { numeric: true }));
+  }
+  // pagine di un gruppo di documenti (schede di un gruppo unite nello stesso foglio annuale)
+  async function pagineDi(S, sedeId, anno, g) {
+    const pag = [];
+    if (g.imp.length) pag.push(...await PDFX.pagine((el) => CTRS.render(el, S, g.imp, anno, '#/'), '.foglio-p', true));
+    for (const id of g.rap) pag.push(...await PDFX.pagine((el) => RAP.route(el, S, ['rapportini', 'r', id], new URLSearchParams()), '.recap', true));
+    if (g.sg) pag.push(...await PDFX.pagine((el) => SGStampa.render(el, S, sedeId, anno), '.foglio', false));
+    return pag;
+  }
+  function paginaPdf(el, S, st, tutte, c) {
+    const a = arch, docs = st.sede ? docsArchivio(S, st.sede, st.anno) : [], elenco = st.sede && haElenco(S, st.sede);
+    if (a.chiave !== st.sede + '|' + st.anno) { a.chiave = st.sede + '|' + st.anno; a.sel = new Set(); a.sg = false; }
+    const anni = [...new Set([new Date().getFullYear(), new Date().getFullYear() - 1, st.anno])].sort().reverse();
+    const mesi = [...new Set(docs.map((d) => +d.data.slice(5, 7)))].filter(Boolean).sort((x, y) => y - x);
+    const { s } = tutte.find((x) => x.s.id === st.sede) || {};
+    const nomeF = pulito(c ? CLI.nome(c) : 'cliente') + (s?.sigla ? '_' + pulito(s.sigla) : '');
+    el.innerHTML = `
+      <section class="cli invio">
+        <div class="sez-head"><h1>Invia ai clienti</h1></div>
+        ${segVista(st)}
+        <div class="card form"><div class="due">
+          <label>Cliente e stabilimento<select id="selSede">${tutte.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}</select></label>
+          <label>Anno<select id="selAnno">${anni.map((x) => `<option ${x === st.anno ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+        </div></div>
+        ${mesi.map((m) => { const dm = docs.filter((d) => +d.data.slice(5, 7) === m), tutti = dm.every((d) => a.sel.has(d.k));
+          return `<div class="card arch-mese"><div class="card-head"><h2>${MESI_N[m - 1]} ${st.anno} <span class="muted small">· ${dm.length}</span></h2><button type="button" class="link" data-mese="${m}">${tutti ? 'Nessuno' : 'Tutto il mese'}</button></div>
+            <div class="spunte inv-lista">${dm.map((d) => `<label class="spunta"><input type="checkbox" data-k="${esc(d.k)}" ${a.sel.has(d.k) ? 'checked' : ''}><span><b>${d.tipo === 'rap' ? '🧾' : '📋'} ${esc(d.t)}</b><small>${esc(d.sub)}</small></span></label>`).join('')}</div></div>`; }).join('') || `<div class="card"><p class="muted">Nessuna scheda o rapportino nel ${st.anno} per questo stabilimento.</p></div>`}
+        ${elenco ? `<div class="card"><h2>⛓️ Elenco sottoganci</h2><div class="spunte"><label class="spunta"><input type="checkbox" id="chkSg" ${a.sg ? 'checked' : ''}><span><b>${esc(SG.cliente(S, st.sede)?.titoloElenco || 'ELENCO SOTTOGANCI')} ${st.anno}</b><small>${S.sottoganci.filter((x) => x.sedeId === st.sede && !x.dismesso).length} sottoganci</small></span></label></div></div>` : ''}
+        <div class="card"><h2>Come archiviarli</h2>
+          <div class="seg arch-modo"><button type="button" data-am="tutto" class="${a.modo === 'tutto' ? 'on' : ''}">Tutto in un PDF</button><button type="button" data-am="date" class="${a.modo === 'date' ? 'on' : ''}">Un PDF per data di controllo</button><button type="button" data-am="uno" class="${a.modo === 'uno' ? 'on' : ''}">Un PDF per documento</button></div>
+          <p class="muted small" id="archRiep"></p></div>
+        <div class="azioni-form barra-salva"><button type="button" class="btn ghost" id="btnStampaA">🖨️ Stampa</button><span class="grow"></span><button class="btn big" id="btnSalvaA">💾 Salva i PDF</button></div>
+      </section>`;
+    const scelti = () => docs.filter((d) => a.sel.has(d.k));
+    // gruppi = i PDF da creare
+    const gruppi = (modo) => {
+      const L = scelti(), out = [];
+      const gr = (lista) => ({ imp: [...new Set(lista.filter((d) => d.tipo === 'imp').map((d) => d.id))], rap: lista.filter((d) => d.tipo === 'rap').map((d) => d.id), sg: false });
+      if (modo === 'uno') {
+        [...new Set(L.filter((d) => d.tipo === 'imp').map((d) => d.id))].forEach((id) => { const i = S.impianti.find((x) => x.id === id) || {}; out.push({ imp: [id], rap: [], sg: false, nome: `Scheda_${pulito(i.numeroInterno || i.matricola || IMP.titolo(i))}_${st.anno}_${nomeF}.pdf` }); });
+        L.filter((d) => d.tipo === 'rap').forEach((d) => { const r = S.rapportini.find((x) => x.id === d.id); out.push({ imp: [], rap: [d.id], sg: false, nome: `Rapportino_${r.numero}-${r.anno}_${nomeF}.pdf` }); });
+      } else if (modo === 'date') {
+        [...new Set(L.map((d) => d.data))].sort().forEach((dt) => out.push({ ...gr(L.filter((d) => d.data === dt)), nome: `Documenti_${nomeF}_${schiacciaData(dt)}.pdf` }));
+      } else if (L.length) out.push({ ...gr(L), nome: `Documenti_${nomeF}_${st.anno}.pdf` });
+      if (a.sg) { if (modo === 'tutto' && out.length) out[0].sg = true; else out.push({ imp: [], rap: [], sg: true, nome: `${pulito(SG.cliente(S, st.sede)?.titoloElenco || 'ELENCO_SOTTOGANCI')}_${st.anno}_${nomeF}.pdf` }); }
+      return out;
+    };
+    const riep = () => { const g = gruppi(a.modo), n = scelti().length + (a.sg ? 1 : 0);
+      el.querySelector('#archRiep').textContent = n ? `${n} ${n === 1 ? 'documento scelto' : 'documenti scelti'} → ${g.length} PDF${a.modo === 'date' ? ' (uno per ogni data)' : ''}. «Stampa» li mette tutti in un unico PDF da stampare.` : 'Spunta almeno un documento.';
+      el.querySelectorAll('[data-mese]').forEach((b) => { const dm = docs.filter((d) => +d.data.slice(5, 7) === +b.dataset.mese); b.textContent = dm.every((d) => a.sel.has(d.k)) ? 'Nessuno' : 'Tutto il mese'; }); };
+    el.querySelectorAll('[data-k]').forEach((x) => (x.onchange = () => { if (x.checked) a.sel.add(x.dataset.k); else a.sel.delete(x.dataset.k); riep(); }));
+    el.querySelectorAll('[data-mese]').forEach((b) => (b.onclick = () => {
+      const dm = docs.filter((d) => +d.data.slice(5, 7) === +b.dataset.mese), tutti = dm.every((d) => a.sel.has(d.k));
+      dm.forEach((d) => { if (tutti) a.sel.delete(d.k); else a.sel.add(d.k); const cb = el.querySelector(`[data-k="${CSS.escape(d.k)}"]`); if (cb) cb.checked = !tutti; }); riep();
+    }));
+    el.querySelector('#chkSg')?.addEventListener('change', (e) => { a.sg = e.target.checked; riep(); });
+    el.querySelectorAll('[data-am]').forEach((b) => (b.onclick = () => { a.modo = b.dataset.am; el.querySelectorAll('[data-am]').forEach((x) => x.classList.toggle('on', x === b)); riep(); }));
+    el.querySelector('#selSede').onchange = (e) => { st.sede = e.target.value; App.ridisegna(); };
+    el.querySelector('#selAnno').onchange = (e) => { st.anno = +e.target.value; App.ridisegna(); };
+    el.querySelectorAll('[data-vista]').forEach((b) => (b.onclick = () => { st.vista = b.dataset.vista; App.ridisegna(); }));
+    riep();
+    const lavora = async (btn, testo, fn) => {
+      if (!scelti().length && !a.sg) return UI.toast('Spunta almeno un documento', 'err');
+      btn.disabled = true;
+      try { await fn((t) => (btn.textContent = t)); } catch (e) { console.error(e); UI.toast('Non riesco a creare i PDF', 'err'); }
+      btn.disabled = false; btn.textContent = testo;
+    };
+    const bS = el.querySelector('#btnSalvaA');
+    bS.onclick = () => lavora(bS, '💾 Salva i PDF', async (fase) => {
+      const g = gruppi(a.modo);
+      for (const [k, x] of g.entries()) { fase(`⏳ PDF ${k + 1} di ${g.length}…`); scarica({ nome: x.nome, bytes: PDFX.pdf(await pagineDi(S, st.sede, st.anno, x), true) }); }
+      UT.registra('stampa', `${g.length} PDF salvati · ${c ? CLI.nome(c) : ''} ${st.anno}`);
+      UI.toast(g.length === 1 ? 'PDF salvato' : `${g.length} PDF salvati`, 'ok');
+    });
+    const bP = el.querySelector('#btnStampaA');
+    bP.onclick = () => lavora(bP, '🖨️ Stampa', async (fase) => {
+      // per stampare: un PDF unico con tutto, aperto in una finestra nuova
+      const win = window.open('', '_blank');
+      fase('⏳ Preparo la stampa…');
+      const pag = [];
+      for (const x of gruppi('date')) pag.push(...await pagineDi(S, st.sede, st.anno, x));
+      const url = URL.createObjectURL(new Blob([PDFX.pdf(pag, true)], { type: 'application/pdf' }));
+      if (win) win.location = url; else scarica({ nome: `Stampa_${nomeF}_${st.anno}.pdf`, bytes: PDFX.pdf(pag, true) });
+      UT.registra('stampa', `Stampa documenti · ${c ? CLI.nome(c) : ''} ${st.anno}`);
+    });
+    return { titolo: 'Stampa e PDF', indietro: '#/', live: false };
+  }
+  const segVista = (st) => `<div class="seg inv-vista"><button type="button" data-vista="invio" class="${st.vista !== 'pdf' ? 'on' : ''}">📧 Invia per email</button><button type="button" data-vista="pdf" class="${st.vista === 'pdf' ? 'on' : ''}">🖨️ Stampa e PDF</button></div>`;
+
   // ---------- pagina ----------
-  const stato = { rap: new Set(), imp: new Set(), sg: false, modo: 'una', chiave: '', separati: false };
+  const stato = { rap: new Set(), imp: new Set(), sg: false, modo: 'una', chiave: '', separati: false, vista: 'invio' };
   function pagina(el, S, query) {
     if (!UT.puoInviare()) { el.innerHTML = '<p class="nessuno">Solo il Master e Risorse Umane possono inviare i documenti ai clienti.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
     const st = stato;
+    if (query.get('vista')) st.vista = query.get('vista');
     if (query.get('sede')) st.sede = query.get('sede');
     if (query.get('anno')) st.anno = +query.get('anno');
     st.anno = st.anno || new Date().getFullYear();
@@ -139,6 +246,7 @@ window.INVIO = (function () {
     const tutte = sedi(S);
     if (!tutte.some((x) => x.s.id === st.sede)) st.sede = tutte[0]?.s.id || '';
     const { c } = tutte.find((x) => x.s.id === st.sede) || {};
+    if (st.vista === 'pdf') return paginaPdf(el, S, st, tutte, c);
     const rap = st.sede ? rapportiniDi(S, st.sede, st.anno) : [], sch = st.sede ? schedeDi(S, st.sede, st.anno) : [], elenco = st.sede && haElenco(S, st.sede);
     // cambiando cliente o anno riparte la scelta proposta
     if (st.chiave !== st.sede + '|' + st.anno) {
@@ -153,6 +261,7 @@ window.INVIO = (function () {
     el.innerHTML = `
       <section class="cli invio">
         <div class="sez-head"><h1>Invia ai clienti ${info('Scegli il cliente e spunta quello che vuoi mandare: schede di controllo, rapportini ed elenco sottoganci possono partire insieme nella stessa email. L\'app crea i PDF (gli stessi della stampa) e li spedisce dalla tua casella Gmail. Se le schede sono tante puoi mandare una email per ogni data di controllo; se una email supera il limite di Gmail l\'app la divide da sola in più parti.')}</h1></div>
+        ${segVista(st)}
         <div class="card form"><div class="due">
           <label>Cliente<select id="selSede">${tutte.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}</select></label>
           <label>Anno<select id="selAnno">${anni.map((a) => `<option ${a === st.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
@@ -226,6 +335,7 @@ window.INVIO = (function () {
     }));
     ['#oggetto', '#testo'].forEach((q) => el.querySelector(q).addEventListener('input', () => (st.testoMio = true)));
     aggiorna();
+    el.querySelectorAll('[data-vista]').forEach((b) => (b.onclick = () => { st.vista = b.dataset.vista; App.ridisegna(); }));
     el.querySelector('#selSede').onchange = (e) => { st.sede = e.target.value; App.ridisegna(); };
     el.querySelector('#selAnno').onchange = (e) => { st.anno = +e.target.value; App.ridisegna(); };
     const destinatari = () => [...el.querySelectorAll('#dest input:checked')].map((x) => x.value)

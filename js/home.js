@@ -9,7 +9,7 @@ window.HOME = (function () {
     { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
     { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, giacenze e ordini', ill: 'magazzino' },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
-    { k: 'invio', titolo: 'Invia ai clienti', sotto: 'Schede, rapportini ed elenchi sottoganci nella stessa email', ill: 'invio', attiva: true, href: '#/invio', soloInvio: true },
+    { k: 'invio', titolo: 'Invia ai clienti', sotto: 'Schede, rapportini ed elenchi: invio per email, stampa e PDF', ill: 'invio', attiva: true, href: '#/invio', soloInvio: true },
     { k: 'gho', titolo: 'GHO ELIGIO', sotto: 'Registro ore e configuratore cablaggio', ill: 'gho', attiva: true, href: '#/gho' }
   ];
   // sotto-voci di "Schede di controllo"
