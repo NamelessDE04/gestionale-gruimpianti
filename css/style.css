@@ -1435,3 +1435,9 @@ a.st-v { cursor: pointer; }
 .ctr-giro .sg2-azz { margin-bottom: 96px; }
 button.st-v { font: inherit; text-align: left; border: 0; border-top: 4px solid #9fb0c3; cursor: pointer; }
 button.st-v.t-A { border-top-color: var(--navy); } button.st-v.t-S { border-top-color: var(--arancio); } button.st-v.t-T { border-top-color: var(--giallo); }
+
+.el-oss .modal-body { display: block; }
+.el-oss .el-testo { font-weight: 700; margin: 4px 0; overflow-wrap: anywhere; }
+.el-scelta { display: block; width: 100%; text-align: left; margin: 10px 0 0; padding: 12px 14px; white-space: normal; height: auto; }
+.el-scelta b { display: block; font-size: 15px; }
+.el-scelta small { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.35; }

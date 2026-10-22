@@ -95,10 +95,30 @@ window.CTR = (function () {
       if (nv(pv.testo) === 'NOTEGENERALI') voci.unshift({ ...pv }); else voci.push({ ...pv });
       return pv.id;
     };
-    const osservazioni = prima ? (prima.osservazioni || []).filter((o) => !o.risoltaIl).map((o) => ({ ...o, vocId: vocDi(o.vocId), visita: 0, daAnno: o.daAnno || anno - 1 })) : [];
+    const osservazioni = prima ? (prima.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).map((o) => ({ ...o, vocId: vocDi(o.vocId), visita: 0, daAnno: o.daAnno || anno - 1 })) : [];
     return { id: i.id + '-' + anno, impiantoId: i.id, sedeId: i.sedeId, clienteId: i.clienteId, anno, voci, visite: {}, osservazioni, ...(prima?.noteInterne ? { noteInterne: prima.noteInterne } : {}) };
   }
 
+  // osservazione tolta «da un controllo in poi»: nei controlli prima resta com'era
+  const tolta = (o, n) => !!o.tolta && (n === undefined || n >= o.tolta);
+  // scelta per eliminare un'osservazione nata in un controllo precedente: 'tutto' | 'dopo' | null
+  function sceltaElimina(o) {
+    return new Promise((ok) => {
+      const ov = document.createElement('div'); ov.className = 'modal-ov';
+      ov.innerHTML = `<div class="modal el-oss"><div class="modal-head"><h2>Eliminare l'osservazione ${esc(o.lettera)}?</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+        <div class="modal-body"><p class="el-testo">«${esc(o.testo)}»</p>
+          <p class="muted small">Nata ${o.visita ? 'al ' + o.visita + '° controllo' : 'nell\'anno ' + (o.daAnno || '')}. Vale quando salvi il controllo.</p>
+          <button type="button" class="btn ghost el-scelta" data-m="dopo"><b>Togli solo da questo controllo in poi</b><small>Nei controlli già fatti resta com'era (le schede già mandate non cambiano). Da qui in avanti non compare più, senza [OK].</small></button>
+          <button type="button" class="btn ghost danger el-scelta" data-m="tutto"><b>Elimina da tutto l'anno</b><small>Sparisce del tutto dalla scheda, anche dalle caselle dei controlli già fatti quest'anno.</small></button>
+        </div>
+        <div class="modal-foot"><span class="grow"></span><button type="button" class="btn ghost" data-m="">Annulla</button></div></div>`;
+      const fine = (m) => { ov.remove(); document.body.classList.remove('modal-aperto'); ok(m || null); };
+      ov.onclick = (e) => { if (e.target === ov) fine(null); };
+      ov.querySelector('.modal-x').onclick = () => fine(null);
+      ov.querySelectorAll('[data-m]').forEach((b) => (b.onclick = () => fine(b.dataset.m)));
+      document.body.appendChild(ov); document.body.classList.add('modal-aperto');
+    });
+  }
   // un controllo salvato da solo (uscendo a metà) resta «in corso» finché non lo salvi tu
   const fatta = (v) => !!v && !v.inCorso;
   // stato di una visita per la sede: fatta se tutti gli impianti l'hanno
@@ -197,7 +217,7 @@ window.CTR = (function () {
           return `<a class="ctr-inizia t-${t}" href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${x.completa ? 'Rivedi' : via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
         <div class="elenco">
           ${imp.map((i) => {
-            const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl).length;
+            const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).length;
             return `<div class="riga imp-riga ${i.dismesso ? 'dismesso' : ''}">
               <a class="imp-link" href="#/controlli/i/${i.id}?anno=${anno}">
                 <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
@@ -232,7 +252,7 @@ window.CTR = (function () {
     const qui = `#/controlli/s/${sedeId}/giro/${anno}/${n}`;
     const testo = (i) => [i.numeroInterno, IMP.titolo(i), i.tipologia, i.matricola, i.ubicazione, i.reparto, i.costruttore].filter(Boolean).join(' ').toLowerCase();
     const riga = (i) => {
-      const sc = schedaDi(S, i.id, anno), v = vis(i), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl).length;
+      const sc = schedaDi(S, i.id, anno), v = vis(i), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).length;
       return `<a class="riga imp-riga giro-gru ${fatta(v) ? 'fatta' : ''}" href="#/controlli/i/${i.id}/${anno}/${n}?torna=${encodeURIComponent(qui)}" data-t="${esc(testo(i))}">
         <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
         <div class="riga-main">
@@ -329,7 +349,7 @@ window.CTR = (function () {
         <div class="card">
           <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con [OK e la data].')}</h2></div>
           ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
-              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}</div></div>
+              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}${o.tolta ? ` · <b class="muted">tolta dal ${o.tolta}° controllo</b>` : ''}</div></div>
               ${UT.solaLettura() ? '' : `<div class="oss-bt"><button class="btn ghost small" data-modoss="${o.lettera}" aria-label="Modifica il testo">✏️</button><button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`}</div>`).join('')
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
@@ -431,7 +451,7 @@ window.CTR = (function () {
     };
     const voci = sc.voci.filter((v) => periodi.includes(v.per));
     const osservazioni = sc.osservazioni;
-    const aperte = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && o.visita < n);
+    const aperte = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && !tolta(o, n) && o.visita < n);
     // valori iniziali: per le anomalie ancora aperte riporto la lettera
     leggiVisita(vis, voci);
     voci.forEach((v) => {
@@ -455,7 +475,7 @@ window.CTR = (function () {
     const fila = impiantiSede(S, i.sedeId), pos = fila.findIndex((x) => x.id === i.id);
     const prossimoImp = [...fila.slice(pos + 1), ...fila.slice(0, pos)].find((x) => !x.dismesso && !fatta(schedaDi(S, x.id, anno)?.visite?.[n])) || null;
     // annotazione di fuori servizio provvisorio ancora aperta (nata in un controllo prima di questo)
-    const fsAperta = osservazioni.find((o) => !o.risoltaIl && /FUORI SERVIZIO PROVVISORIO/.test(o.testo) && o.visita < n) || null;
+    const fsAperta = osservazioni.find((o) => !o.risoltaIl && !tolta(o, n) && /FUORI SERVIZIO PROVVISORIO/.test(o.testo) && o.visita < n) || null;
     const prossimaLettera = () => { const usate = osservazioni.map((o) => o.lettera); let k = 0; let l; do { l = k < 26 ? String.fromCharCode(65 + k) : 'A' + String.fromCharCode(65 + k - 26); k++; } while (usate.includes(l)); return l; };
 
     el.innerHTML = `
@@ -505,7 +525,7 @@ window.CTR = (function () {
               </div>`).join('')}
           </div>`).join('')}
         <div class="card">
-          <h2>Osservazioni dell'anno ${info('Con 🗑 togli un\'osservazione del tutto, senza scrivere [OK]: sparisce dalla scheda e la sua lettera viene tolta dalle caselle, anche dei controlli già fatti quest\'anno. Vale quando salvi il controllo. Se invece il problema è stato risolto, scrivi [OK e la data] dalla pagina dell\'impianto con ✏️.')}</h2>
+          <h2>Osservazioni dell'anno ${info('Con 🗑 togli un\'osservazione senza scrivere [OK]. Se è nata in un controllo prima puoi scegliere: «solo da questo controllo in poi» (nei controlli già fatti resta com\'era) oppure «da tutto l\'anno» (sparisce anche dalle caselle dei controlli già fatti). Vale quando salvi il controllo. Se invece il problema è stato risolto, scrivi [OK e la data] dalla pagina dell\'impianto con ✏️.')}</h2>
           <div id="ossLista"></div>
           <button type="button" class="btn ghost small" id="btnOssLibera">+ Osservazione non legata a una voce</button>
         </div>
@@ -535,22 +555,27 @@ window.CTR = (function () {
       el.querySelector('#nFatti').textContent = voci.reduce((t, x) => t + vis.esiti[x.id].filter(Boolean).length, 0);
     };
     const disegnaOss = () => {
-      el.querySelector('#ossLista').innerHTML = osservazioni.length ? osservazioni.map((o) => `
+      const visibili = osservazioni.filter((o) => !tolta(o, n));
+      el.querySelector('#ossLista').innerHTML = visibili.length ? visibili.map((o) => `
         <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(o.testo)}
           <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ' · [OK ' + fmt(o.risoltaIl) + ']' : ''}</div></div>
           ${UT.solaLettura() ? '' : `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}" aria-label="Elimina l'osservazione" title="Elimina l'osservazione">🗑</button>`}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
-      el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = () => {
+      el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = async () => {
         const o = osservazioni.find((x) => x.lettera === b.dataset.togli);
-        // quelle nate adesso si tolgono e basta; le altre (controlli prima o anno prima) chiedono conferma
-        if (o.visita !== n && !UI.conferma(`Eliminare l'osservazione ${o.lettera}?\n\n«${o.testo}»\n\nSparisce del tutto dalla scheda (anche dai controlli già fatti quest'anno), senza [OK]. Diventa definitivo quando salvi il controllo.`)) return;
-        osservazioni.splice(osservazioni.indexOf(o), 1);
-        // la lettera sparisce dalle caselle: in questo controllo e in quelli già fatti
+        // quelle nate in questo controllo si tolgono e basta; per le altre scegli tu come
+        const modo = o.visita === n ? 'tutto' : await sceltaElimina(o);
+        if (!modo) return;
+        const visita = (x) => (x === vis ? n : +Object.keys(sc.visite || {}).find((k) => sc.visite[k] === x));
+        if (modo === 'tutto') osservazioni.splice(osservazioni.indexOf(o), 1);
+        else o.tolta = n;   // resta nei controlli prima, da questo in poi non compare più
+        // la lettera sparisce dalle caselle: di tutti i controlli dell'anno, oppure solo da questo in poi
         for (const x of [vis, ...Object.values(sc.visite || {})]) {
+          if (modo === 'dopo' && visita(x) < n) continue;
           const es = x?.esiti?.[o.vocId]; if (es && es[(o.p || 1) - 1] === o.lettera) es[(o.p || 1) - 1] = '';
         }
         el.querySelectorAll('.oss-aperta').forEach((d) => { if (d.dataset.l === o.lettera) d.remove(); });
         const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
-        disegnaOss(); UI.toast(`Osservazione ${o.lettera} tolta${o.visita !== n ? ': salva il controllo per confermare' : ''}`, 'ok');
+        disegnaOss(); UI.toast(`Osservazione ${o.lettera} tolta${modo === 'dopo' ? ` dal ${n}° controllo in poi` : ''}${o.visita !== n ? ': salva il controllo per confermare' : ''}`, 'ok');
       }));
     };
     const nuovaOss = (v, pi) => UI.modal({
