@@ -461,7 +461,7 @@ window.UT = (function () {
         </div>
       </section>`;
     el.querySelector('#btnNuovo').onclick = () => modaleUtente(null);
-    el.querySelector('#btnAccessi')?.addEventListener('click', accessi);
+    el.querySelector('#btnAccessi')?.addEventListener('click', () => accessi());
     el.querySelectorAll('[data-u]').forEach((r) => (r.onclick = () => {
       const u = S.utenti.find((x) => x.id === r.dataset.u);
       if (ruoloDi(u) === 'developer' && !isDev() && u.id !== attuale()?.id) return UI.toast('Il Developer lo può modificare solo un Developer', 'err');
@@ -550,10 +550,13 @@ window.UT = (function () {
   }
 
   // ---------- Developer: da quali dispositivi entrano le persone ----------
-  async function accessi() {
-    let log = [];
-    try { log = await Backend.leggiTutti('log'); } catch (e) { return UI.toast('Per leggere gli accessi serve l\'account Google del Master su questo dispositivo', 'err'); }
-    const acc = log.filter((x) => x.azione === 'accesso'), neg = log.filter((x) => x.azione === 'accesso negato');
+  // «Azzera»: non cancella niente dal registro attività, segna solo da quando ricominciare a contare
+  const azzerati = () => (S.impostazioni.find((x) => x.id === 'accessiAzzerati') || {}).da || {};
+  async function accessi(logGia, ovGia) {
+    let log = logGia || [];
+    if (!logGia) try { log = await Backend.leggiTutti('log'); } catch (e) { return UI.toast('Per leggere gli accessi serve l\'account Google del Master su questo dispositivo', 'err'); }
+    const da = azzerati();
+    const acc = log.filter((x) => x.azione === 'accesso' && (!da[x.uid] || x.t > da[x.uid])), neg = log.filter((x) => x.azione === 'accesso negato' && (!da._neg || x.t > da._neg));
     const recente = (t) => t && (Date.now() - new Date(t).getTime()) < 7 * 864e5;
     const quando = (t) => { if (!t) return '—'; const d = new Date(t); return `${d.toLocaleDateString('it-IT')} ${d.toTimeString().slice(0, 5)}`; };
     const gruppi = (lista) => {
@@ -571,14 +574,24 @@ window.UT = (function () {
     ov.innerHTML = `<div class="modal largo acc-mod"><div class="modal-head"><h2>📱 Accessi e dispositivi</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
       <div class="modal-body">
         <p class="muted small">Il codice è fisso per ogni dispositivo (cambia solo se si cancellano i dati del browser). Se vedi un dispositivo che non conosci, cambia il PIN di quella persona.</p>
-        ${persone.map((p) => `<h3 class="acc-chi">${esc(p.nome)} <span class="muted small">· ${p.g.length} ${p.g.length === 1 ? 'dispositivo' : 'dispositivi'}</span></h3>${p.g.map(rigaDisp).join('')}`).join('') || '<p class="muted">Nessun accesso registrato.</p>'}
-        ${neg.length ? `<h3 class="acc-chi txt-ko">PIN sbagliati</h3>${gruppi(neg).map(rigaDisp).join('')}` : ''}
+        ${persone.map((p) => `<h3 class="acc-chi">${esc(p.nome)} <span class="muted small">· ${p.g.length} ${p.g.length === 1 ? 'dispositivo' : 'dispositivi'}</span><button type="button" class="btn ghost small acc-az" data-az="${esc(p.id)}" data-nome="${esc(p.nome)}">Azzera</button></h3>${p.g.map(rigaDisp).join('')}`).join('') || '<p class="muted">Nessun accesso da contare.</p>'}
+        ${neg.length ? `<h3 class="acc-chi txt-ko">PIN sbagliati<button type="button" class="btn ghost small acc-az" data-az="_neg" data-nome="PIN sbagliati">Azzera</button></h3>${gruppi(neg).map(rigaDisp).join('')}` : ''}
       </div>
       <div class="modal-foot"><span class="grow"></span><button type="button" class="btn" data-x>Chiudi</button></div></div>`;
     const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
     ov.onclick = (e) => { if (e.target === ov) chiudi(); };
     ov.querySelector('.modal-x').onclick = chiudi; ov.querySelector('[data-x]').onclick = chiudi;
-    document.body.appendChild(ov); document.body.classList.add('modal-aperto');
+    ov.querySelectorAll('[data-az]').forEach((b) => (b.onclick = async () => {
+      if (!UI.conferma(`Azzerare il conteggio di ${b.dataset.nome}?\n\nSi riparte da zero da adesso. Il registro attività resta com'è.`)) return;
+      const doc = { id: 'accessiAzzerati', da: { ...azzerati(), [b.dataset.az]: new Date().toISOString() } };
+      await UI.salva('impostazioni', doc);
+      S.impostazioni = [...S.impostazioni.filter((x) => x.id !== doc.id), doc];
+      registra('modifica', `Conteggio accessi azzerato: ${b.dataset.nome}`);
+      const y = ov.querySelector('.modal-body').scrollTop; accessi(log, ov); UI.toast('Conteggio azzerato', 'ok');
+      requestAnimationFrame(() => { const nb = document.querySelector('.acc-mod .modal-body'); if (nb) nb.scrollTop = y; });
+    }));
+    if (ovGia) ovGia.replaceWith(ov); else document.body.appendChild(ov);
+    document.body.classList.add('modal-aperto');
   }
 
   // ---------- REGISTRO ATTIVITÀ (solo Master, si consulta in PDF) ----------

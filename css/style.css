@@ -1493,3 +1493,4 @@ html.tema-tenue .ctr-inizia.fasc-on { color: #10243a; }
 /* tasto ⇄ Developer accanto al tondo con l'iniziale */
 .dev-switch { width: 42px; height: 42px; border-radius: 50%; flex: none; border: 2px solid rgba(255,255,255,.55); background: transparent; color: #fff; font-size: 20px; font-weight: 900; cursor: pointer; display: grid; place-items: center; padding: 0; }
 .dev-switch.on { background: #7c3aed; border-color: #7c3aed; }
+.acc-chi { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .acc-az { margin-left: auto; min-height: 32px; }
