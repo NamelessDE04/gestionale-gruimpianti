@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.45';
+  const VERSIONE = '0.42.46';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -42,6 +42,9 @@ window.App = (function () {
     }
     document.body.classList.remove('fuori');
     chip.hidden = false; chip.textContent = UT.iniziali(io.nome); chip.title = io.nome + ' – profilo';
+    // tasto ⇄: solo per chi ha l'accesso Developer separato (passa da Developer al suo livello senza PIN)
+    const sw = document.getElementById('btnSwitch');
+    sw.hidden = !io.accessoDev; sw.classList.toggle('on', UT.isDev()); sw.title = UT.isDev() ? 'Sei Developer: tocca per tornare normale' : 'Tocca per passare a Developer'; sw.onclick = UT.cambiaModo;
     if (!parti.length) HOME.render(el, S);
     else if (parti[0] === 'profilo') info = UT.profilo(el, S) || info;
     else if (UT.vietato(parti)) { el.innerHTML = `<section class="vuoto"><h1>🔒 Accesso limitato</h1><p>${UT.vietato(parti)}</p><button class="btn" onclick="history.back()">Indietro</button></section>`; info = { titolo: '', indietro: '#/' }; }

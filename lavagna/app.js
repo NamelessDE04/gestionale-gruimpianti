@@ -304,7 +304,7 @@ const ADMIN_EMAILS = ['vaisittiluca@gmail.com', 'cau.gruimpianti@gmail.com'];
 const puoStampare = () => {
   let id = ''; try { id = sessionStorage.getItem('gid_sessione') || ''; } catch { }
   const u = leggiG('utenti').find(x => x.id === id.split('|')[0]);
-  if (u && id.endsWith('|dev') && u.accessoDev?.pinHash) return true;   // entrato col PIN Developer
+  if (u && id.endsWith('|dev') && u.accessoDev) return true;   // in modalità Developer (tasto ⇄)
   return !!u && ['admin', 'developer', 'master', 'ru'].includes(u.ruolo);
 };
 const isAdmin = () => db?.mode === 'local' || ADMIN_EMAILS.includes((currentEmail || '').toLowerCase());

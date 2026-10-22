@@ -43,7 +43,18 @@ window.UT = (function () {
   const sessId = () => String(SESS.get() || '').split('|')[0];
   const elevato = () => String(SESS.get() || '').endsWith('|dev');
   const attuale = () => { const id = sessId(); return attivi().find((u) => u.id === id) || null; };
-  const ruoloSess = () => { const u = attuale(); return u && elevato() && u.accessoDev?.pinHash ? 'developer' : ruoloDi(u); };
+  const ruoloSess = () => { const u = attuale(); return u && elevato() && u.accessoDev ? 'developer' : ruoloDi(u); };
+  // tasto ⇄ in alto: chi ha l'accesso Developer separato passa da Developer al suo livello normale e viceversa, senza PIN
+  async function cambiaModo() {
+    const u = attuale(); if (!u?.accessoDev) return;
+    const dev = !elevato();
+    SESS.set(u.id + (dev ? '|dev' : ''));
+    registra('cambio modo', dev ? 'Passato a Developer' : 'Tornato a ' + RUOLI[ruoloDi(u)]);
+    if (u.accessoDev.pinHash) { try { await UI.salva('utenti', { ...u, accessoDev: { tasto: true } }); } catch (e) {} }   // il vecchio PIN Developer non serve più
+    UI.toast(dev ? '⇄ Modalità Developer' : '⇄ Modalità ' + RUOLI[ruoloDi(u)], 'ok');
+    if (!dev && vietato((location.hash.replace(/^#\/?/, '') || '').split('?')[0].split('/').filter(Boolean))) location.hash = '#/';
+    App.ridisegna();
+  }
   const isMaster = () => ALTI.includes(ruoloSess());
   const isDev = () => ruoloSess() === 'developer';
   const solaLettura = () => ruoloSess() === 'ru';
@@ -349,14 +360,13 @@ window.UT = (function () {
           </form>
         </div>`}
         ${r === 'developer' ? Tocchi.card() : ''}
-        ${r === 'developer' ? `<div class="card">
-          <h2>🔒 Accesso Developer separato ${info('Il tuo utente per tutti (e per il Master) resta di un livello normale, per esempio Tecnico, e si entra col PIN di sempre. Con un secondo PIN, diverso, entri come Developer: lo vedi solo tu e vale finché non esci.')}</h2>
-          ${u.accessoDev?.pinHash ? `<p>Attivo: col PIN normale entri come <b>${esc(RUOLI[ruoloDi(u)])}</b>, col PIN Developer come <b>Developer</b>.</p>` : `<p class="muted">Ora il tuo utente è Developer per tutti. Puoi farlo diventare <b>Tecnico</b> (come lo vedrà il Master) e tenere il Developer con un secondo PIN.</p>`}
-          <form id="fDev" class="form" novalidate>
-            <div class="due"><label>${u.accessoDev?.pinHash ? 'Nuovo PIN Developer' : 'PIN Developer'} <span class="unita">(4-10 cifre)</span><input name="p1" type="password" inputmode="numeric" maxlength="10" autocomplete="new-password"></label>
-              <label>Ripeti PIN Developer<input name="p2" type="password" inputmode="numeric" maxlength="10" autocomplete="new-password"></label></div>
-            <div class="azioni-form">${u.accessoDev?.pinHash ? '<button type="button" class="btn ghost small" id="btnDevVia">Togli (torno Developer per tutti)</button>' : ''}<span class="grow"></span><button class="btn ${u.accessoDev?.pinHash ? 'ghost' : ''}" type="submit">${u.accessoDev?.pinHash ? 'Cambia PIN Developer' : 'Attiva: divento Tecnico + PIN Developer'}</button></div>
-          </form></div>` : ''}
+        ${r === 'developer' || u.accessoDev ? `<div class="card">
+          <h2>⇄ Accesso Developer separato ${info('Il tuo utente per tutti (e per il Master) resta di un livello normale, per esempio Tecnico. Col tasto ⇄ in alto, accanto al tuo nome, passi a Developer e torni indietro quando vuoi, senza PIN: il tasto lo vedi solo tu.')}</h2>
+          ${u.accessoDev ? `<p>Attivo: per tutti sei <b>${esc(RUOLI[ruoloDi(u)])}</b>. Tocca <b>⇄</b> in alto per passare a Developer e tornare indietro.</p>
+            <div class="azioni-form"><span class="grow"></span><button type="button" class="btn ghost small" id="btnDevVia">Togli (torno Developer per tutti)</button></div>`
+          : `<p class="muted">Ora il tuo utente è Developer per tutti. Puoi farlo diventare <b>Tecnico</b> (come lo vedrà il Master) e passare a Developer col tasto ⇄ in alto.</p>
+            <div class="azioni-form"><span class="grow"></span><button type="button" class="btn" id="btnDevSi">Attiva: divento Tecnico + tasto ⇄</button></div>`}
+        </div>` : ''}
         ${ALTI.includes(r) ? `<div class="card">
           <h2>Strumenti del ${r === 'developer' ? 'Developer' : 'Master'}</h2>
           <div class="azioni-lista">
@@ -399,29 +409,18 @@ window.UT = (function () {
       const pinSalt = uid(); await UI.salva('utenti', { ...io, pinSalt, pinHash: await hash(pinSalt, f.nuovo.value), pinLen: f.nuovo.value.length });
       f.reset(); UI.toast('PIN salvato', 'ok'); App.ridisegna();
     };
-    const fd = el.querySelector('#fDev');
-    if (fd) fd.onsubmit = async (e) => {
-      e.preventDefault(); const io = attuale();
-      if (!pinDevValido(fd.p1.value)) return UI.toast('Il PIN Developer deve avere da 4 a 10 cifre', 'err');
-      // nessun PIN di un collega può essere l'inizio del PIN Developer (entrerebbe lui prima di finire di scriverlo)
-      for (const x of S.utenti) for (let L = 4; L < fd.p1.value.length; L++) if (x.pinHash && (x.pinLen || 4) === L && (await hash(x.pinSalt, fd.p1.value.slice(0, L))) === x.pinHash) return UI.toast('Le prime cifre sono il PIN di qualcuno: scegline un altro', 'err');
-      if (fd.p1.value !== fd.p2.value) return UI.toast('I due PIN non coincidono', 'err');
-      if (io.pinHash && (await hash(io.pinSalt, fd.p1.value)) === io.pinHash) return UI.toast('Deve essere diverso dal tuo PIN normale', 'err');
-      if (await pinGiaUsato(fd.p1.value, io.id)) return UI.toast('PIN già usato da un collega: scegline un altro', 'err');
-      const d = { ...io, accessoDev: { pinSalt: uid(), pinLen: fd.p1.value.length } };
-      d.accessoDev.pinHash = await hash(d.accessoDev.pinSalt, fd.p1.value);
-      if (!io.accessoDev?.pinHash) {
-        if (!S.utenti.some((x) => x.id !== io.id && x.attivo !== false && ALTI.includes(ruoloDi(x)))) return UI.toast('Prima serve un altro Master attivo (es. il titolare)', 'err');
-        if (!UI.conferma('Da ora il tuo utente sarà TECNICO per tutti (anche per il Master).\n\nCol PIN di sempre entri come Tecnico; con questo PIN nuovo entri come Developer.\n\nContinuare?')) return;
-        d.ruolo = 'tecnico';
-      }
+    el.querySelector('#btnDevSi')?.addEventListener('click', async () => {
+      const io = attuale();
+      if (!S.utenti.some((x) => x.id !== io.id && x.attivo !== false && ALTI.includes(ruoloDi(x)))) return UI.toast('Prima serve un altro Master attivo (es. il titolare)', 'err');
+      if (!UI.conferma('Da ora il tuo utente sarà TECNICO per tutti (anche per il Master).\n\nCol tasto ⇄ in alto passi a Developer quando vuoi (lo vedi solo tu).\n\nContinuare?')) return;
+      const d = { ...io, ruolo: 'tecnico', accessoDev: { tasto: true } };
       await UI.salva('utenti', d); SESS.set(io.id + '|dev');
-      registra('modifica', 'Accesso Developer separato ' + (io.accessoDev?.pinHash ? 'aggiornato' : 'attivato'));
+      registra('modifica', 'Accesso Developer separato attivato (tasto ⇄)');
       sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d));
-      fd.reset(); UI.toast(io.accessoDev?.pinHash ? 'PIN Developer cambiato' : 'Fatto: ora sei Tecnico per tutti, Developer col PIN nuovo', 'ok'); App.ridisegna();
-    };
+      UI.toast('Fatto: ora sei Tecnico per tutti, Developer col tasto ⇄', 'ok'); App.ridisegna();
+    });
     el.querySelector('#btnDevVia')?.addEventListener('click', async () => {
-      if (!UI.conferma('Togliere l\'accesso separato? Il tuo utente torna Developer per tutti e il PIN Developer non vale più.')) return;
+      if (!UI.conferma('Togliere l\'accesso separato? Il tuo utente torna Developer per tutti e il tasto ⇄ sparisce.')) return;
       const d = { ...attuale(), ruolo: 'developer' }; delete d.accessoDev;
       await UI.salva('utenti', d); SESS.set(d.id); registra('modifica', 'Accesso Developer separato tolto');
       sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d)); UI.toast('Sei di nuovo Developer per tutti', 'ok'); App.ridisegna();
@@ -775,7 +774,7 @@ window.UT = (function () {
       if (ruoloIniziale(email) === 'developer') {
         try {
           const u = (await Backend.leggiTutti('utenti')).find((x) => (x.google || '').toLowerCase() === email);
-          if (u && ruoloDi(u) !== 'developer' && !u.accessoDev?.pinHash) { await Backend.save('utenti', { ...u, ruolo: 'developer' }); await Backend.impostaRuolo(email, 'developer', u.nome); }
+          if (u && ruoloDi(u) !== 'developer' && !u.accessoDev) { await Backend.save('utenti', { ...u, ruolo: 'developer' }); await Backend.impostaRuolo(email, 'developer', u.nome); }
         } catch (e) { console.error(e); }
       }
       // primo accesso con Google su questo dispositivo: entro subito come la persona di quell'account
@@ -848,7 +847,7 @@ window.UT = (function () {
     };
   }
 
-  return {
+  return { cambiaModo,
     descrivi, attuale, isMaster, isDev, puoInviare, solaLettura, ruolo: () => ruoloSess(), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
     campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, sigla, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
