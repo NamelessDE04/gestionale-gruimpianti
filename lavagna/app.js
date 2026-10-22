@@ -158,6 +158,26 @@ function contHtml({ e, i, n }, cls = 'cont') {
 /* ============================================================
    BACKEND LOCALE (nessuna sincronizzazione)
    ============================================================ */
+function lavagnaTest(B) {
+  const K = 'gid_test_lav';
+  let ov = {}; try { ov = JSON.parse(localStorage.getItem(K) || '{}'); } catch {}
+  const salva = () => { try { localStorage.setItem(K, JSON.stringify(ov)); } catch {} };
+  const regs = [];
+  const unisci = (col, l) => { const o = ov[col]; if (!o) return l; const m = new Map((l || []).map(d => [d.id, d])); Object.entries(o).forEach(([id, d]) => { if (d === null) m.delete(id); else m.set(id, d); }); return [...m.values()]; };
+  const emit = () => regs.forEach(r => r.last && r.cb(unisci(r.col, r.last).filter(r.filtro)));
+  const reg = (col, filtro, cb, sub) => { const r = { col, filtro, cb, last: null }; regs.push(r); const un = sub(l => { r.last = l; cb(unisci(col, l).filter(filtro)); }); return () => { regs.splice(regs.indexOf(r), 1); if (typeof un === 'function') un(); }; };
+  const W = Object.create(B);
+  return Object.assign(W, {
+    test: true,
+    subscribe(col, cb) { return reg(col, () => true, cb, f => B.subscribe(col, f)); },
+    subscribeEvents(s, e, cb) { return reg('events', x => x.date >= s && x.date <= e, cb, f => B.subscribeEvents(s, e, f)); },
+    subscribeUnsigned(cb) { return reg('events', x => x.unsigned, cb, f => B.subscribeUnsigned(f)); },
+    async save(col, obj) { (ov[col] = ov[col] || {})[obj.id] = JSON.parse(JSON.stringify(obj)); salva(); emit(); },
+    async remove(col, id) { (ov[col] = ov[col] || {})[id] = null; salva(); emit(); },
+    async addLog() {}
+  });
+}
+
 function localBackend() {
   const key = c => 'lavagna_' + c;
   const read = c => { try { return JSON.parse(localStorage.getItem(key(c))) || []; } catch { return []; } };
@@ -1767,6 +1787,9 @@ async function init() {
     toast('Impossibile collegarsi al cloud: uso la modalità locale');
     db = localBackend();
   }
+  // modalità test del gestionale (tasto 🧪): si vedono i dati veri ma le modifiche restano su questo dispositivo
+  let inTest = false; try { inTest = localStorage.getItem('gid_test') === '1'; } catch {}
+  if (inTest) { db = lavagnaTest(db); const tb = $('#testBanner'); if (tb) tb.hidden = false; }
   attachLog(db);
   db.onStatus(setStatus);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});

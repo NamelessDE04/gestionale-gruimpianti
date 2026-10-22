@@ -266,5 +266,52 @@
       localStorage.removeItem('gid_modo_prova');
     }
   } catch (e) {}
-  window.Backend = window.firebaseConfig ? FirebaseBackend(window.firebaseConfig) : LocalBackend(PREFIX, 'locale');
+  const base = window.firebaseConfig ? FirebaseBackend(window.firebaseConfig) : LocalBackend(PREFIX, 'locale');
+  window.Backend = inTest() ? ModoTest(base) : base;
+
+  // ===== MODALITÀ TEST (tasto 🧪 del Developer) =====
+  // Si vedono i dati veri, ma tutto quello che si salva o si cancella resta solo su questo dispositivo
+  // (in un «foglio trasparente» sopra i dati veri): il cloud non viene mai toccato.
+  function inTest() { try { return localStorage.getItem('gid_test') === '1'; } catch (e) { return false; } }
+  function ModoTest(B) {
+    const K = 'gid_test_dati';
+    let ov = {}; try { ov = JSON.parse(localStorage.getItem(K) || '{}'); } catch (e) {}
+    const ultimi = {}, cbs = {};
+    const copia = (d) => JSON.parse(JSON.stringify(d));
+    const salvaOv = () => { try { localStorage.setItem(K, JSON.stringify(ov)); } catch (e) { try { UI.toast('Modalità test: memoria del dispositivo piena', 'err'); } catch (x) {} } };
+    const unisci = (col, lista) => {
+      const o = ov[col]; if (!o) return lista;
+      const m = new Map((lista || []).map((d) => [d.id, d]));
+      for (const [id, d] of Object.entries(o)) { if (d === null) m.delete(id); else m.set(id, copia(d)); }
+      return [...m.values()];
+    };
+    const avvisa = (col) => (cbs[col] || []).forEach((cb) => cb(unisci(col, ultimi[col] || [])));
+    const metti = (col, doc) => { (ov[col] = ov[col] || {})[doc.id] = copia(doc); };
+    const W = Object.create(B);
+    return Object.assign(W, {
+      test: true,
+      subscribe(col, cb, errore) {
+        (cbs[col] = cbs[col] || []).push(cb);
+        return B.subscribe(col, (lista) => { ultimi[col] = lista; cb(unisci(col, lista)); }, errore);
+      },
+      async save(col, doc) { doc.aggiornato = new Date().toISOString(); metti(col, doc); salvaOv(); avvisa(col); return doc; },
+      async saveMany(col, docs) { docs.forEach((d) => { d.aggiornato = d.aggiornato || new Date().toISOString(); metti(col, d); }); salvaOv(); avvisa(col); },
+      async caricaMolti(col, docs) { docs.forEach((d) => metti(col, d)); salvaOv(); avvisa(col); },
+      async remove(col, id) { (ov[col] = ov[col] || {})[id] = null; salvaOv(); avvisa(col); },
+      async removeMany(col, ids) { ids.forEach((id) => ((ov[col] = ov[col] || {})[id] = null)); salvaOv(); avvisa(col); },
+      append() { /* registro attività: in test non si scrive */ },
+      async leggiTutti(col) { let l = []; try { l = await B.leggiTutti(col); } catch (e) { l = ultimi[col] || []; } return unisci(col, l); },
+      async svuota(col) { (await this.leggiTutti(col)).forEach((d) => ((ov[col] = ov[col] || {})[d.id] = null)); salvaOv(); avvisa(col); },
+      async assegnaNumero(anno, id, maxNoto) {
+        const r = unisci('rapportini', ultimi.rapportini || []).find((x) => x.id === id); if (!r) return null;
+        if (r.numero) return r.numero;
+        const n = (+maxNoto || 0) + 1; metti('rapportini', { ...r, numero: n, numeroInAttesa: false }); salvaOv(); avvisa('rapportini'); return n;
+      },
+      async impostaRuolo() {}, async togliRuolo() {},
+      async creaDispositivo() { throw new Error('In modalità test non si attivano tablet'); },
+      // quante modifiche di prova ci sono
+      modificheTest() { return Object.values(ov).reduce((t, o) => t + Object.keys(o).length, 0); },
+      svuotaTest() { ov = {}; try { localStorage.removeItem(K); } catch (e) {} }
+    });
+  }
 })();

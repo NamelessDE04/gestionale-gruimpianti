@@ -31,6 +31,7 @@ window.INVIO = (function () {
     const righe = (s) => s.replace(/.{1,76}/g, '$&\r\n');
     const intest = (t) => (/^[\x20-\x7e]*$/.test(t) ? t : `=?UTF-8?B?${b64t(t)}?=`);
     async function invia({ da, nome, a, oggetto, testo, allegati }) {
+      if (Backend.test) { await new Promise((ok) => setTimeout(ok, 400)); UI.toast('🧪 Modalità test: email NON inviata davvero', 'ok'); return { id: 'test' }; }
       const conf = '----gruimpianti' + Date.now();
       let m = `From: ${intest(nome)} <${da}>\r\nTo: ${a.join(', ')}\r\nSubject: ${intest(oggetto)}\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary="${conf}"\r\n\r\n` +
         `--${conf}\r\nContent-Type: text/plain; charset="UTF-8"\r\nContent-Transfer-Encoding: base64\r\n\r\n${righe(b64t(testo))}`;

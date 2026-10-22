@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.47';
+  const VERSIONE = '0.42.48';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -44,6 +44,8 @@ window.App = (function () {
     chip.hidden = false; chip.textContent = UT.iniziali(io.nome); chip.title = io.nome + ' – profilo';
     // tasto ⇄: solo per chi ha l'accesso Developer separato (passa da Developer al suo livello senza PIN)
     const sw = document.getElementById('btnSwitch');
+    const tb = document.getElementById('btnTest');
+    tb.hidden = !(io.accessoDev || UT.ruolo() === 'developer' || Backend.test); tb.classList.toggle('on', !!Backend.test); tb.title = Backend.test ? 'Sei in modalità test: tocca per uscire' : 'Entra in modalità test'; tb.onclick = UT.cambiaTest;
     sw.hidden = !io.accessoDev; sw.classList.toggle('on', UT.isDev()); sw.title = UT.isDev() ? 'Sei Developer: tocca per tornare normale' : 'Tocca per passare a Developer'; sw.onclick = UT.cambiaModo;
     if (!parti.length) HOME.render(el, S);
     else if (parti[0] === 'profilo') info = UT.profilo(el, S) || info;
@@ -146,6 +148,7 @@ window.App = (function () {
     UI.toast('Backup scaricato', 'ok');
   }
 
+  document.addEventListener('DOMContentLoaded', () => { if (Backend.test) { document.body.classList.add('in-test'); document.getElementById('testBar').hidden = false; } });
   document.addEventListener('DOMContentLoaded', avvio);
   const api = { proteggi, allUscita, ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
   Object.defineProperty(api, 'tecnici', { get: () => UT.nomi() });

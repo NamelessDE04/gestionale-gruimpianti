@@ -9,8 +9,8 @@
 <link rel="manifest" href="manifest.json">
 <link rel="icon" type="image/png" href="img/favicon-64.png">
 <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-<link rel="stylesheet" href="css/style.css?v=0.42.47">
-<link rel="stylesheet" href="css/tema-tenue.css?v=0.42.47">
+<link rel="stylesheet" href="css/style.css?v=0.42.48">
+<link rel="stylesheet" href="css/tema-tenue.css?v=0.42.48">
 </head>
 <body>
 <header class="topbar">
@@ -22,10 +22,12 @@
   </a>
   <div class="title" id="pageTitle"></div>
   <span class="rete-off" id="reteOff" hidden title="Senza rete: i dati si sincronizzano al ritorno della connessione">📴</span>
+  <button type="button" class="dev-switch test-switch" id="btnTest" hidden aria-label="Modalità test">🧪</button>
   <button type="button" class="dev-switch" id="btnSwitch" hidden aria-label="Passa da Developer al tuo livello e viceversa">⇄</button>
   <a href="#/profilo" class="utente-chip" id="btnUtente" hidden></a>
 </header>
 <div class="tape" aria-hidden="true"></div>
+<div class="test-bar" id="testBar" hidden>🧪 <b>MODALITÀ TEST</b> · quello che fai qui non tocca i dati veri</div>
 
 <main id="app"></main>
 
@@ -37,36 +39,36 @@
 
 <div id="toast" role="status"></div>
 
-<script src="js/config.js?v=0.42.47"></script>
-<script src="js/backend.js?v=0.42.47"></script>
-<script src="js/ui.js?v=0.42.47"></script>
-<script src="js/tocchi.js?v=0.42.47"></script>
-<script src="js/qrcode.js?v=0.42.47"></script>
-<script src="js/illustrazioni.js?v=0.42.47"></script>
-<script src="js/utenti.js?v=0.42.47"></script>
-<script src="js/home.js?v=0.42.47"></script>
-<script src="js/clienti.js?v=0.42.47"></script>
-<script src="js/allegati.js?v=0.42.47"></script>
-<script src="js/mezzi.js?v=0.42.47"></script>
-<script src="js/impianti.js?v=0.42.47"></script>
-<script src="js/impianti-scheda.js?v=0.42.47"></script>
-<script src="js/controlli.js?v=0.42.47"></script>
-<script src="js/controlli-stampa.js?v=0.42.47"></script>
-<script src="js/rapportini.js?v=0.42.47"></script>
-<script src="js/cablaggio.js?v=0.42.47"></script>
-<script src="js/sottoganci.js?v=0.42.47"></script>
-<script src="js/sottoganci-stampa.js?v=0.42.47"></script>
-<script src="js/approfonditi-modelli.js?v=0.42.47"></script>
-<script src="js/approfonditi-stampa.js?v=0.42.47"></script>
-<script src="js/approfonditi.js?v=0.42.47"></script>
-<script src="js/gho.js?v=0.42.47"></script>
-<script src="js/sviluppo.js?v=0.42.47"></script>
-<script src="js/pdf.js?v=0.42.47"></script>
-<script src="js/conflitti.js?v=0.42.47"></script>
-<script src="js/azzera.js?v=0.42.47"></script>
-<script src="js/importa.js?v=0.42.47"></script>
-<script src="js/layout.js?v=0.42.47"></script>
-<script src="js/invio.js?v=0.42.47"></script>
-<script src="js/app.js?v=0.42.47"></script>
+<script src="js/config.js?v=0.42.48"></script>
+<script src="js/backend.js?v=0.42.48"></script>
+<script src="js/ui.js?v=0.42.48"></script>
+<script src="js/tocchi.js?v=0.42.48"></script>
+<script src="js/qrcode.js?v=0.42.48"></script>
+<script src="js/illustrazioni.js?v=0.42.48"></script>
+<script src="js/utenti.js?v=0.42.48"></script>
+<script src="js/home.js?v=0.42.48"></script>
+<script src="js/clienti.js?v=0.42.48"></script>
+<script src="js/allegati.js?v=0.42.48"></script>
+<script src="js/mezzi.js?v=0.42.48"></script>
+<script src="js/impianti.js?v=0.42.48"></script>
+<script src="js/impianti-scheda.js?v=0.42.48"></script>
+<script src="js/controlli.js?v=0.42.48"></script>
+<script src="js/controlli-stampa.js?v=0.42.48"></script>
+<script src="js/rapportini.js?v=0.42.48"></script>
+<script src="js/cablaggio.js?v=0.42.48"></script>
+<script src="js/sottoganci.js?v=0.42.48"></script>
+<script src="js/sottoganci-stampa.js?v=0.42.48"></script>
+<script src="js/approfonditi-modelli.js?v=0.42.48"></script>
+<script src="js/approfonditi-stampa.js?v=0.42.48"></script>
+<script src="js/approfonditi.js?v=0.42.48"></script>
+<script src="js/gho.js?v=0.42.48"></script>
+<script src="js/sviluppo.js?v=0.42.48"></script>
+<script src="js/pdf.js?v=0.42.48"></script>
+<script src="js/conflitti.js?v=0.42.48"></script>
+<script src="js/azzera.js?v=0.42.48"></script>
+<script src="js/importa.js?v=0.42.48"></script>
+<script src="js/layout.js?v=0.42.48"></script>
+<script src="js/invio.js?v=0.42.48"></script>
+<script src="js/app.js?v=0.42.48"></script>
 </body>
 </html>

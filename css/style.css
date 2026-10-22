@@ -1494,3 +1494,8 @@ html.tema-tenue .ctr-inizia.fasc-on { color: #10243a; }
 .dev-switch { width: 42px; height: 42px; border-radius: 50%; flex: none; border: 2px solid rgba(255,255,255,.55); background: transparent; color: #fff; font-size: 20px; font-weight: 900; cursor: pointer; display: grid; place-items: center; padding: 0; }
 .dev-switch.on { background: #7c3aed; border-color: #7c3aed; }
 .acc-chi { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; } .acc-az { margin-left: auto; min-height: 32px; }
+
+/* modalità test */
+.test-switch.on { background: #f2b705; border-color: #f2b705; color: #1d2733; }
+.test-bar { position: sticky; top: 62px; z-index: 19; background: #ede4ff; color: #4b2a8f; text-align: center; font-size: 13px; padding: 5px 12px; border-bottom: 1px solid #d6c6ff; }
+body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14px, #ede4ff 14px 28px); }

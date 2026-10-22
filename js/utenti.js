@@ -44,6 +44,21 @@ window.UT = (function () {
   const elevato = () => String(SESS.get() || '').endsWith('|dev');
   const attuale = () => { const id = sessId(); return attivi().find((u) => u.id === id) || null; };
   const ruoloSess = () => { const u = attuale(); return u && elevato() && u.accessoDev ? 'developer' : ruoloDi(u); };
+  // tasto 🧪: modalità test (i dati veri non vengono toccati, le prove restano su questo dispositivo)
+  function cambiaTest() {
+    let on = false; try { on = localStorage.getItem('gid_test') === '1'; } catch (e) {}
+    if (!on) {
+      if (!UI.conferma('Entrare in MODALITÀ TEST?\n\nVedi i dati veri, ma tutto quello che salvi, modifichi o cancelli resta solo su questo dispositivo: il cloud e gli altri non vedono niente. Le email ai clienti non partono davvero.')) return;
+      try { localStorage.setItem('gid_test', '1'); } catch (e) { return UI.toast('Non riesco su questo dispositivo', 'err'); }
+    } else {
+      const n = Backend.modificheTest ? Backend.modificheTest() : 0;
+      if (!UI.conferma('Uscire dalla modalità test e tornare ai dati veri?')) return;
+      if (n && UI.conferma(`Cancellare le ${n} modifiche di prova?\n\nOK = le cancello · Annulla = le tengo per la prossima volta che entri in test.`)) Backend.svuotaTest?.();
+      try { localStorage.removeItem('gid_test'); } catch (e) {}
+      try { localStorage.removeItem('gid_test_lav'); } catch (e) {}
+    }
+    location.reload();
+  }
   // tasto ⇄ in alto: chi ha l'accesso Developer separato passa da Developer al suo livello normale e viceversa, senza PIN
   async function cambiaModo() {
     const u = attuale(); if (!u?.accessoDev) return;
@@ -860,7 +875,7 @@ window.UT = (function () {
     };
   }
 
-  return { cambiaModo,
+  return { cambiaModo, cambiaTest,
     descrivi, attuale, isMaster, isDev, puoInviare, solaLettura, ruolo: () => ruoloSess(), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
     campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, sigla, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
