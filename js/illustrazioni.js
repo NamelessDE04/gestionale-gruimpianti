@@ -118,20 +118,20 @@ window.ILL = (function () {
       <line x1="120" y1="88" x2="134" y2="102" stroke="${N}" stroke-width="8" stroke-linecap="round"/>
       <line x1="122" y1="90" x2="133" y2="101" stroke="${Y}" stroke-width="3.5" stroke-linecap="round"/>`),
 
-    // invia e archivia: busta che parte (a sinistra) e scatola d'archivio con i fogli (a destra)
+    // invia e archivia: diviso a metà — a sinistra l'invio al cliente (busta), a destra il salvataggio in PDF
     invio: svg(`
-      <ellipse cx="80" cy="110" rx="64" ry="5" fill="${L}"/>
-      <rect x="64" y="8" width="36" height="46" rx="3" fill="${W}" stroke="${N}" stroke-width="3" transform="rotate(-6 82 31)"/>
-      <g stroke="${G}" stroke-width="2.5" stroke-linecap="round" transform="rotate(-6 82 31)"><path d="M71 19h22M71 27h22M71 35h14"/></g>
-      <rect x="10" y="58" width="62" height="40" rx="5" fill="${Y}" stroke="${N}" stroke-width="3"/>
-      <path d="M12 61 L41 81 L70 61" fill="none" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
-      <path d="M38 50 c0 -14 8 -22 22 -24" fill="none" stroke="${O}" stroke-width="3.5" stroke-linecap="round"/>
-      <path d="M54 20 l8 6 -9 5" fill="none" stroke="${O}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
-      <rect x="86" y="44" width="62" height="14" rx="3" fill="${L}" stroke="${N}" stroke-width="3"/>
-      <path d="M90 58 h54 v44 a4 4 0 0 1 -4 4 h-46 a4 4 0 0 1 -4 -4z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
-      <rect x="104" y="68" width="26" height="14" rx="2" fill="${Y}" stroke="${N}" stroke-width="2.5"/>
-      <path d="M110 75 h14" stroke="${N}" stroke-width="2.5" stroke-linecap="round"/>
-      <path d="M100 94 h34" stroke="${G}" stroke-width="3" stroke-linecap="round"/>`),
+      <ellipse cx="80" cy="110" rx="66" ry="5" fill="${L}"/>
+      <line x1="80" y1="10" x2="80" y2="104" stroke="${G}" stroke-width="2.5" stroke-dasharray="5 5" stroke-linecap="round"/>
+      <rect x="8" y="42" width="62" height="42" rx="5" fill="${Y}" stroke="${N}" stroke-width="3"/>
+      <path d="M10 45 L39 66 L68 45" fill="none" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M10 82 L32 62 M68 82 L46 62" stroke="${N}" stroke-width="3" stroke-linecap="round"/>
+      <path d="M22 30 h26 m-8 -7 l8 7 -8 7" fill="none" stroke="${O}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M98 14 h30 l14 14 v62 a4 4 0 0 1 -4 4 h-40 a4 4 0 0 1 -4 -4 v-72 a4 4 0 0 1 4 -4z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <path d="M128 14 v14 h14" fill="${L}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="92" y="40" width="40" height="18" rx="3" fill="${R}"/>
+      <text x="112" y="53.5" text-anchor="middle" font-family="system-ui,Segoe UI,Roboto,sans-serif" font-size="13" font-weight="800" fill="${W}">PDF</text>
+      <path d="M118 64 v18 m-8 -8 l8 8 8 -8" fill="none" stroke="${N}" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M104 92 h28" stroke="${N}" stroke-width="3" stroke-linecap="round"/>`),
 
     clienti: svg(`
       <ellipse cx="80" cy="108" rx="60" ry="6" fill="${L}"/>
