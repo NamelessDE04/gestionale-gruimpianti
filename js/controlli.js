@@ -132,7 +132,14 @@ window.CTR = (function () {
   function prossima(S, sedeId, anno) {
     const { s } = trovaSede(S, sedeId); const p = piano(s);
     const st = statoVisite(S, sedeId, anno);
-    const v = st.find((x) => !x.completa);
+    let v = st.find((x) => !x.completa);
+    // anno in corso: conta il controllo del periodo di oggi. Quelli prima rimasti non fatti
+    // (es. a ottobre il 1°, 2° e 3°) non vengono più segnalati in ritardo
+    if (anno === annoOggi()) {
+      const mOggi = +oggi().slice(5, 7), perMese = [...st].sort((a, b) => meseVisita(p, a.n) - meseVisita(p, b.n));
+      const ora = perMese.filter((x) => meseVisita(p, x.n) <= mOggi).pop();
+      v = ora && !ora.completa ? ora : perMese.find((x) => meseVisita(p, x.n) > mOggi && !x.completa);
+    }
     if (!v) return null;
     const m = meseVisita(p, v.n), fine = fineMese(anno, m), oggiS = oggi();
     const k = oggiS > fine ? 'scaduto' : oggiS.slice(0, 7) === fine.slice(0, 7) ? 'scadenza' : 'ok';
