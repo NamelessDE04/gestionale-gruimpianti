@@ -691,7 +691,11 @@ window.CTR = (function () {
         const o = osservazioni.find((x) => x.lettera === b.dataset.togli);
         // quelle nate in questo controllo si tolgono e basta; per le altre scegli tu come
         const modo = o.visita === n ? 'tutto' : await sceltaElimina(o);
-        if (!modo) return;
+        if (modo) togliOss(o, modo);
+      }));
+    };
+    // toglie un'osservazione: 'tutto' = da tutto l'anno, 'dopo' = da questo controllo in poi
+    function togliOss(o, modo) {
         const visita = (x) => (x === vis ? n : +Object.keys(sc.visite || {}).find((k) => sc.visite[k] === x));
         if (modo === 'tutto') osservazioni.splice(osservazioni.indexOf(o), 1);
         else o.tolta = n;   // resta nei controlli prima, da questo in poi non compare più
@@ -702,9 +706,9 @@ window.CTR = (function () {
         }
         el.querySelectorAll('.oss-aperta').forEach((d) => { if (d.dataset.l === o.lettera) d.remove(); });
         const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
-        disegnaOss(); UI.toast(`Osservazione ${o.lettera} tolta${modo === 'dopo' ? ` dal ${n}° controllo in poi` : ''}${o.visita !== n ? ': salva il controllo per confermare' : ''}`, 'ok');
-      }));
-    };
+        disegnaOss(); sporco = true;
+        UI.toast(`Osservazione ${o.lettera} tolta${modo === 'dopo' ? ` dal ${n}° controllo in poi` : ''}${o.visita !== n ? ': salva il controllo per confermare' : ''}`, 'ok');
+    }
     // ---- tocco su un'annotazione (riquadro sulla voce, lettera nella casella o riga dell'elenco): si apre la modifica.
     // «OK» salva e torni dove eri; «Indietro» (anche il gesto indietro del telefono) chiude senza salvare.
     const apriOss = (lettera) => {
@@ -718,6 +722,7 @@ window.CTR = (function () {
           ${o.versioni ? `<p class="muted small">Testi precedenti: ${o.versioni.filter((x) => x.dal < n).map((x) => `${x.dal ? 'dal ' + x.dal + '°' : 'all\'inizio'}: «${esc(x.testo)}»`).join(' · ')}</p>` : ''}
           <label class="check oss-ok"><input type="checkbox" data-ok ${o.risoltaIl ? 'checked' : ''}> Sistemata: scrivi [OK e la data]</label>
           <label data-dbox ${o.risoltaIl ? '' : 'hidden'}>Data dell'OK<input type="date" data-d value="${dataOk}"></label>
+          ${UT.solaLettura() ? '' : `<button type="button" class="btn ghost danger oss-via" data-via>🗑 ${o.visita === n && !o.daAnno ? 'Elimina questa annotazione' : 'Togli da questo controllo in poi'}<small>${o.visita === n && !o.daAnno ? 'È nata in questo controllo: sparisce del tutto.' : 'Nei controlli già fatti resta com\'era; da qui in avanti non compare più, senza [OK].'}</small></button>`}
         </div>
         <div class="modal-foot"><button type="button" class="btn ghost" data-no>‹ Indietro</button><span class="grow"></span><button type="button" class="btn big oss-si" data-si>OK</button></div></div>`;
       const ok = ov.querySelector('[data-ok]'), dbox = ov.querySelector('[data-dbox]');
@@ -743,6 +748,7 @@ window.CTR = (function () {
       };
       const indietro = () => { if (aperta) { history.replaceState(null, ''); chiudi(false); } };
       ov.querySelector('[data-no]').onclick = () => chiudi(false);
+      ov.querySelector('[data-via]')?.addEventListener('click', () => { chiudi(false); togliOss(o, o.visita === n && !o.daAnno ? 'tutto' : 'dopo'); });
       ov.querySelector('[data-si]').onclick = () => chiudi(true);
       document.body.appendChild(ov); document.body.classList.add('modal-aperto');
       // il gesto indietro del telefono chiude la finestra senza salvare (e non esce dal controllo)
