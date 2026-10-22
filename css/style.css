@@ -1372,3 +1372,21 @@ body.tz-alza .sg2-piede { bottom: var(--tz-h); }
 body.tz-alza .fab { bottom: calc(16px + var(--tz-h)); }
 #cardTocchi .check { display: flex; align-items: center; gap: 10px; margin: 6px 0; }
 #cardTocchi input[type=range] { width: 100%; padding: 0; min-height: 34px; }
+
+/* controllo sottoganci: gruppi per numero */
+.sg2-grp { border-bottom: 1px solid var(--linea); }
+.sg2-grp:last-of-type { border-bottom: 0; }
+.sg2-grp .sg2-gi:last-of-type { border-bottom: 0; }
+.sg2-grp-h { display: flex; align-items: center; gap: 10px; width: 100%; padding: 11px 12px; background: none; border: 0; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.sg2-grp-h .n { font-size: 20px; font-weight: 800; min-width: 38px; text-align: center; }
+.sg2-grp-h .d { flex: 1; min-width: 0; font-weight: 700; font-size: 14px; overflow-wrap: anywhere; }
+.sg2-grp-h .d small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
+.sg2-grp-st { flex-shrink: 0; font-weight: 800; font-size: 13px; padding: 3px 9px; border-radius: 20px; background: #eef1f5; color: var(--muted); }
+.sg2-grp-st.ok { background: var(--ok); color: #fff; }
+.sg2-grp-fr { flex-shrink: 0; font-size: 18px; color: var(--muted); width: 18px; text-align: center; }
+.sg2-grp.multi > .sg2-grp-b { display: none; border-top: 1px dashed var(--linea); background: #fafbfc; }
+.sg2-grp.multi.aperto > .sg2-grp-b { display: block; }
+.sg2-grp.multi.aperto > .sg2-grp-h { background: #eef3f9; }
+.sg2-grp.completo > .sg2-grp-h, .sg2-grp.completo:not(.multi) .sg2-gi { background: #f5fbf6; }
+.sg2-grp[hidden] { display: none; }
+.sg2-fatti { opacity: .92; }

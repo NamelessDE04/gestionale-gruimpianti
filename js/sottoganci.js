@@ -386,7 +386,9 @@ window.SG = (function () {
     const giriAnnoPrima = giriDi(S, cliId, anno).filter((x) => x.id !== g.id && x.slot < slotN).sort((a, b) => a.slot - b.slot);
     voci.forEach((v) => { const x = giriAnnoPrima.find((y) => y.righe[v.s.id]?.codici[v.pi] === '\\'); if (x) { v.elim = x; g.righe[v.s.id].codici[v.pi] = '\\'; } });
     const msgElim = (v) => `<div class="sg2-elim">\\ eliminato il ${esc(dataBreve(v.elim.data))} (fascetta ${esc(SLOT[v.elim.slot - 1].nome)}) · non si può cambiare</div>`;
-    const fatti = () => voci.filter((v) => g.righe[v.s.id].codici[v.pi]).length;
+    // un sottogancio è "fatto" quando tutti i suoi componenti hanno il giudizio
+    const completo = (s) => s.parti.every((_, i) => g.righe[s.id].codici[i]);
+    const fatti = () => items.filter(completo).length;
     const sub = (v) => [v.p.dimensioni, v.pi === 0 && v.s.portata, v.pi === 0 && v.s.ubicazione, v.s.parti.length > 1 && `componente ${v.pi + 1} di ${v.s.parti.length}`].filter(Boolean).map(esc).join(' · ');
     const prima = (v) => precedente?.righe[v.s.id]?.codici[v.pi] || '';
     // ultimi controlli fatti prima di questo (al massimo 3), per la vista "una alla volta"
@@ -409,11 +411,17 @@ window.SG = (function () {
         <div class="sg2-barra">
           <input type="search" id="gCerca" class="cerca" placeholder="🔍 Cerca n° o nome" autocomplete="off">
           <button type="button" class="btn ghost small" id="btnModo">${modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco'}</button>
-          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Un componente segnato «\\» (eliminato) resta così nei controlli dopo fino a fine anno; dall\'anno dopo sparisce dall\'elenco. «💾 Salva» salva a metà: dopo riprendi da dove eri. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
+          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Un componente segnato «\\» (eliminato) resta così nei controlli dopo fino a fine anno; dall\'anno dopo sparisce dall\'elenco. I sottoganci con più componenti sono raggruppati: tocca il numero per aprirli. Quando un sottogancio ha tutti i giudizi va in fondo, sotto «Già controllati»; il contatore in basso conta i sottoganci finiti, non i componenti. «💾 Salva» salva a metà e resti dove sei: dopo puoi anche uscire e riprendere da dove eri. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
         </div>
 
-        <div class="sg2-lista giro-lista">
-          ${voci.map((v) => `
+        <div class="sg2-lista giro-lista" id="gDaFare">
+          ${items.map((s) => `<div class="sg2-grp ${s.parti.length > 1 ? 'multi' : ''}" data-g="${s.id}">
+            ${s.parti.length > 1 ? `<button type="button" class="sg2-grp-h" data-gh>
+              <b class="n">${esc(s.numero)}</b>
+              <span class="d">${esc(s.parti[0].denominazione)}<small>${[s.parti.length + ' componenti', s.portata, s.ubicazione].filter(Boolean).map(esc).join(' · ')}</small></span>
+              <span class="sg2-grp-st" data-gst></span><span class="sg2-grp-fr">▸</span></button>` : ''}
+            <div class="sg2-grp-b">
+          ${voci.filter((v) => v.s === s).map((v) => `
             <div class="sg2-gi gi-parte" data-k="${v.key}">
               <div class="h"><b class="n ${v.pi ? 'comp' : ''}">${esc(v.s.numero)}</b>
                 <span class="d">${esc(v.p.denominazione)}<small>${sub(v)}${prima(v) ? ` · prima: <em class="${classeCod(prima(v))}">${esc(prima(v))}</em>` : ''}</small></span>
@@ -422,8 +430,11 @@ window.SG = (function () {
               <div class="notina" data-vedi></div>
               <input class="gi-nota" data-nota placeholder="Note" value="${esc(g.righe[v.s.id].note[v.pi] || '')}" hidden>
             </div>`).join('')}
+            </div></div>`).join('')}
           <p class="nessuno" id="gNessuno" hidden>Nessun sottogancio trovato.</p>
         </div>
+        <div class="sg2-tit" id="gTitFatti" hidden>✓ Già controllati</div>
+        <div class="sg2-lista giro-lista sg2-fatti" id="gFatti" hidden></div>
 
         <div class="sg2-uno card" id="uno"></div>
 
@@ -438,7 +449,7 @@ window.SG = (function () {
         </div>
 
         <div class="sg2-piede">
-          <b><span id="nFatti">0</span>/${voci.length}</b><div class="bar"><i id="gBar"></i></div>
+          <b><span id="nFatti">0</span>/${items.length}</b><div class="bar"><i id="gBar"></i></div>
           <button class="btn ghost big" type="button" id="btnSalvaG">💾 Salva</button>
           <button class="btn big" type="submit">✓ Finisci</button>
         </div>
@@ -447,9 +458,23 @@ window.SG = (function () {
     const f = el.querySelector('#fGiro');
     const riga = (k) => el.querySelector(`.sg2-gi[data-k="${CSS.escape(k)}"]`);
     let corrente = 0;   // indice della voce "a cui sei arrivato" (anche per la scheda singola)
+    const gruppo = (sid) => el.querySelector(`.sg2-grp[data-g="${CSS.escape(sid)}"]`);
+    const apri = (sid, si) => { const gr = gruppo(sid); if (!gr?.classList.contains('multi')) return; gr.classList.toggle('aperto', si); gr.querySelector('.sg2-grp-fr').textContent = si ? '▾' : '▸'; };
+    // i sottoganci finiti vanno in fondo, sotto «Già controllati»; gli altri restano in ordine sopra
+    const daFare = el.querySelector('#gDaFare'), listaFatti = el.querySelector('#gFatti'), nessuno = el.querySelector('#gNessuno');
+    const ordina = () => {
+      items.forEach((s) => { const gr = gruppo(s.id), ok = completo(s); (ok ? listaFatti : daFare).insertBefore(gr, ok ? null : nessuno); gr.classList.toggle('completo', ok); });
+      const n = listaFatti.children.length; listaFatti.hidden = !n; el.querySelector('#gTitFatti').hidden = !n;
+      el.querySelector('#gTitFatti').textContent = `✓ Già controllati (${n})`;
+    };
+    const statoGruppo = (s) => {
+      const gr = gruppo(s.id), st = gr.querySelector('[data-gst]'); if (!st) return;
+      const n = s.parti.filter((_, i) => g.righe[s.id].codici[i]).length;
+      st.textContent = n === s.parti.length ? '✓' : `${n}/${s.parti.length}`; st.classList.toggle('ok', n === s.parti.length);
+    };
     const aggiorna = () => {
       const n = fatti(); el.querySelector('#nFatti').textContent = n;
-      el.querySelector('#gBar').style.width = (voci.length ? n / voci.length * 100 : 0) + '%';
+      el.querySelector('#gBar').style.width = (items.length ? n / items.length * 100 : 0) + '%';
     };
     const segnaBottoni = (box, cod) => {
       box.querySelectorAll('.cod-btn[data-c]').forEach((b) => b.classList.toggle('on', b.dataset.c === cod));
@@ -459,15 +484,17 @@ window.SG = (function () {
       alt.textContent = extra ? cod + ' ▾' : 'altro ▾';
     };
     const mostraNota = (box, testo) => { const vd = box.querySelector('[data-vedi]'); vd.textContent = testo ? '📝 ' + testo : ''; vd.hidden = !testo; };
-    const evidenzia = () => el.querySelectorAll('.sg2-gi').forEach((b, i) => b.classList.toggle('ora', i === corrente));
+    const evidenzia = () => { el.querySelectorAll('.sg2-gi').forEach((b) => b.classList.toggle('ora', b.dataset.k === voci[corrente]?.key)); if (voci[corrente]) apri(voci[corrente].s.id, true); };
     const setCod = (i, cod) => {
       const v = voci[i]; if (v.elim) cod = '\\';
       g.righe[v.s.id].codici[v.pi] = cod;
       const box = riga(v.key); segnaBottoni(box, cod);
       box.classList.remove('manca'); box.classList.toggle('fatto', !!cod);
       if (box.querySelector('.sg2-altri')) box.querySelector('.sg2-altri').hidden = true;
-      aggiorna();
+      statoGruppo(v.s); aggiorna();
     };
+    // dopo il giudizio: se il sottogancio è finito lo chiudo e lo sposto in fondo
+    const riordina = (v) => { if (completo(v.s)) { apri(v.s.id, false); } ordina(); };
     // il prossimo da fare (dopo i), tra quelli visibili con la ricerca
     const visibile = (i) => !riga(voci[i].key).hidden;
     const prossimo = (i) => { for (let j = i + 1; j < voci.length; j++) if (!g.righe[voci[j].s.id].codici[voci[j].pi] && visibile(j)) return j;
@@ -478,7 +505,10 @@ window.SG = (function () {
     const filtra = () => {
       const t = cerca.value.trim().toLowerCase(); let k = 0;
       voci.forEach((v) => { const ok = trovaSg(v.s, t); riga(v.key).hidden = !ok; if (ok) k++; });
+      items.forEach((s) => { const ok = !t || trovaSg(s, t); gruppo(s.id).hidden = !ok; if (t && ok) apri(s.id, true); });
+      if (!t) items.forEach((s) => apri(s.id, voci[corrente]?.s === s));
       el.querySelector('#gNessuno').hidden = !!k;
+      el.querySelector('#gTitFatti').hidden = !listaFatti.querySelector('.sg2-grp:not([hidden])');
       if (modoGiro === 'uno') { const j = voci.findIndex((v, i) => visibile(i)); if (j >= 0) { corrente = j; disegnaUno(); } }
     };
     cerca.oninput = filtra;
@@ -499,7 +529,7 @@ window.SG = (function () {
       const box = riga(v.key);
       box.querySelectorAll('.cod-btn[data-c]').forEach((b) => (b.onclick = () => {
         const nuovo = g.righe[v.s.id].codici[v.pi] === b.dataset.c ? '' : b.dataset.c;
-        setCod(i, nuovo); if (nuovo) dopoGiudizio(i);
+        setCod(i, nuovo); riordina(v); if (nuovo) dopoGiudizio(i);
       }));
       const ba = box.querySelector('[data-altro]'); if (ba) ba.onclick = () => { const a = box.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
       const nota = box.querySelector('[data-nota]');
@@ -509,7 +539,8 @@ window.SG = (function () {
       mostraNota(box, g.righe[v.s.id].note[v.pi]);
       if (g.righe[v.s.id].codici[v.pi]) setCod(i, g.righe[v.s.id].codici[v.pi]); else segnaBottoni(box, '');
     });
-    corrente = Math.max(0, prossimo(-1)); evidenzia(); aggiorna();
+    items.forEach((s) => gruppo(s.id).querySelector('[data-gh]')?.addEventListener('click', () => apri(s.id, !gruppo(s.id).classList.contains('aperto'))));
+    items.forEach(statoGruppo); ordina(); corrente = Math.max(0, prossimo(-1)); evidenzia(); aggiorna();
 
     // --- una scheda alla volta ---
     const uno = el.querySelector('#uno');
@@ -532,7 +563,7 @@ window.SG = (function () {
       const y = el.querySelector('.sg2-barra').getBoundingClientRect().top + window.scrollY - 70;
       if (window.scrollY > y + 5) window.scrollTo({ top: Math.max(0, y) });
       uno.querySelectorAll('.cod-btn[data-c]').forEach((b) => (b.onclick = () => {
-        const nuovo = cod === b.dataset.c ? '' : b.dataset.c; setCod(corrente, nuovo);
+        const nuovo = cod === b.dataset.c ? '' : b.dataset.c; setCod(corrente, nuovo); riordina(v);
         if (nuovo) dopoGiudizio(corrente); else disegnaUno();
       }));
       if (v.elim) { uno.querySelector('[data-ualtro]').hidden = true; uno.querySelectorAll('.sg2-altri .cod-btn').forEach((b) => (b.disabled = true)); }
@@ -579,7 +610,8 @@ window.SG = (function () {
       });
       try { await UI.salva('giriSottoganci', g); } catch (er) { return; }
       App.ricordaTecnico(g.tecnico);
-      UI.toast(finisci ? 'Controllo finito e salvato' : `Salvato · ${voci.length - mancanti.length}/${voci.length} fatti: puoi riprendere quando vuoi`, 'ok');
+      if (!finisci) return UI.toast(`✓ Salvato correttamente · ${fatti()}/${items.length} sottoganci fatti`, 'ok');   // resto qui, dove ero
+      UI.toast('Controllo finito e salvato', 'ok');
       location.hash = '#/sottoganci/c/' + cliId + '?anno=' + anno;
     }
     f.onsubmit = (e) => { e.preventDefault(); salvaGiro(true); };
