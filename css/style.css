@@ -1402,3 +1402,18 @@ body.tz-alza .fab { bottom: calc(16px + var(--tz-h)); }
 .qr-link { text-align: center; font-weight: 700; overflow-wrap: anywhere; margin: 0 0 6px; }
 .qr-modal .muted { text-align: center; }
 @media (max-width: 420px) { .qr-card .btn { padding-left: 12px; padding-right: 12px; } }
+
+/* confronto affiancato dei conflitti */
+.conf-modal { width: min(980px, 100%); }
+.conf-tab { width: 100%; border-collapse: collapse; table-layout: fixed; font-size: 13px; }
+.conf-tab th, .conf-tab td { border-bottom: 1px solid var(--linea); padding: 7px 8px; text-align: left; vertical-align: top; overflow-wrap: anywhere; }
+.conf-tab th { font-weight: 700; background: #eef3f9; position: sticky; top: 0; }
+.conf-tab th span { display: block; font-size: 11px; text-transform: uppercase; color: var(--muted); letter-spacing: .03em; }
+.conf-tab th small { display: block; font-weight: 400; color: var(--muted); font-size: 11px; }
+.conf-tab th:first-child { width: 34%; }
+.conf-tab th.alt { background: #fff4e0; }
+.conf-tab td.alt { background: #fffaf0; }
+.conf-tab td.nome { font-weight: 700; color: #34465b; }
+@media (max-width: 640px) { .conf-tab { font-size: 12px; } .conf-tab th:first-child { width: 30%; } .conf-tab th, .conf-tab td { padding: 6px 5px; } }
+.conf-modal .modal-body { display: block; }
+.qr-modal .modal-body { display: block; }

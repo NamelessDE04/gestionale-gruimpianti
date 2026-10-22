@@ -118,6 +118,69 @@ window.CONF = (function () {
     const campi = [...new Set([...Object.keys(a), ...Object.keys(p)])].filter((k) => !META.includes(k) && k !== 'id' && JSON.stringify(a[k]) !== JSON.stringify(p[k]));
     return campi.length ? 'Cambiano: ' + campi.slice(0, 8).join(', ') : 'Stesso contenuto';
   }
+  // ---------- confronto affiancato delle due versioni ----------
+  // appiattisce un documento in righe "percorso -> valore leggibile"
+  function piatto(o, pre = '', out = {}) {
+    if (o === null || o === undefined || o === '') return out;
+    if (typeof o === 'string' && o.startsWith('data:')) { out[pre] = '🖼 immagine/firma'; return out; }
+    if (Array.isArray(o) && o.every((x) => x === null || typeof x !== 'object')) { out[pre] = o.map((x) => x || '·').join('  '); return out; }
+    if (typeof o === 'object') { for (const [k, v] of Object.entries(o)) if (!META.includes(k) && k !== 'id') piatto(v, pre ? pre + '.' + k : k, out); return out; }
+    out[pre] = typeof o === 'boolean' ? (o ? 'sì' : 'no') : String(o);
+    return out;
+  }
+  // nome comprensibile di un percorso
+  function nomeCampo(col, path, d, S) {
+    const p = path.split('.');
+    if (col === 'schedeControllo') {
+      const voc = (id) => (d.voci || []).find((v) => v.id === id)?.testo || 'voce';
+      if (p[0] === 'visite') {
+        const n = p[1] + '° controllo';
+        if (p[2] === 'esiti') return `${n} · ${voc(p[3])}`;
+        if (p[2] === 'valori') return `${n} · valore ${voc(p[3])}`;
+        return `${n} · ${p.slice(2).map((x) => /^\d+$/.test(x) ? +x + 1 : NOMI_CAMPI[x] || x).join(' · ')}`;
+      }
+      if (p[0] === 'osservazioni') { const o = d.osservazioni?.[+p[1]]; return `Osservazione ${o?.lettera || +p[1] + 1} · ${p.slice(2).map((x) => NOMI_CAMPI[x] || x).join(' · ')}`; }
+      if (p[0] === 'voci') return null;   // l'elenco delle voci non interessa
+    }
+    if (col === 'giriSottoganci' && p[0] === 'righe') {
+      const sg = S.sottoganci.find((x) => x.id === p[1]);
+      return `Sottogancio ${sg ? sg.numero : '?'} · ${p[2] === 'codici' ? 'giudizi' : 'note'}`;
+    }
+    return p.map((x) => /^\d+$/.test(x) ? String(+x + 1) : NOMI_CAMPI[x] || x).join(' · ');
+  }
+  const NOMI_CAMPI = { noteInterne: 'Note Gru Impianti', noteVecchie: 'Note vecchio programma', tecnico: 'tecnico', tecnici: 'tecnici', firmaDi: 'firma di', firma: 'firma',
+    dataScheda: 'data scheda', dataEsecuzione: 'data esecuzione', fs: 'fuori servizio', testo: 'testo', risoltaIl: 'OK il', lettera: 'lettera', data: 'data',
+    ragioneSociale: 'Ragione sociale', anagrafica: 'Anagrafica', telefono: 'telefono', email: 'email', altreEmail: 'altre email', sedi: 'Sede', nome: 'nome', sigla: 'sigla',
+    indirizzo: 'indirizzo', note: 'note', noteGenerali: 'Note generali', numero: 'numero', parti: 'componente', denominazione: 'denominazione', dimensioni: 'dimensioni',
+    portata: 'portata', ubicazione: 'ubicazione', certificato: 'certificato', chiuso: 'chiuso', righe: 'righe', voci: 'voce', descrizione: 'descrizione', ore: 'ore' };
+  function _vecchio(path) {
+    return path.replace(/\.(\d+)\./g, (m, n) => ` ${+n + 1} · `).replace(/\./g, ' · ');
+  }
+  function confronta(c, cor, S) {
+    const A = piatto(cor), P = piatto(c.perso);
+    const righe = [...new Set([...Object.keys(A), ...Object.keys(P)])].filter((k) => A[k] !== P[k])
+      .map((k) => ({ nome: nomeCampo(c.col, k, A[k] !== undefined ? cor : c.perso, S) ?? nomeCampo(c.col, k, c.perso, S), a: A[k], p: P[k] }))
+      .filter((r) => r.nome).sort((x, y) => x.nome.localeCompare(y.nome, 'it', { numeric: true }));
+    const cella = (v) => v === undefined ? '<em class="muted">— vuoto —</em>' : esc(v);
+    const ov = document.createElement('div'); ov.className = 'modal-ov';
+    ov.innerHTML = `<div class="modal largo conf-modal"><div class="modal-head"><h2>Confronto delle due versioni</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+      <div class="modal-body">
+        <p class="muted small">${esc(UT.descrivi(c.col, cor))} · solo quello che cambia (${righe.length})</p>
+        <table class="conf-tab"><thead><tr><th></th>
+          <th><span>Versione attuale</span>${esc(c.attuale.da || '—')}<small>${esc(c.attuale.disp || '')} · ${quando(c.attuale.quando)}</small></th>
+          <th class="alt"><span>Versione non tenuta</span>${esc(c.perso._da || '—')}<small>${esc(c.perso._disp || '')} · ${quando(c.perso._quando || c.perso.aggiornato)}</small></th></tr></thead>
+        <tbody>${righe.map((r) => `<tr><td class="nome">${esc(r.nome)}</td><td>${cella(r.a)}</td><td class="alt">${cella(r.p)}</td></tr>`).join('') || '<tr><td colspan="3" class="muted">Nessuna differenza nei contenuti.</td></tr>'}</tbody></table>
+      </div>
+      <div class="modal-foot"><button type="button" class="btn ghost" data-x>Chiudi</button><span class="grow"></span>
+        <button type="button" class="btn ghost" data-ct>✓ Tieni l'attuale</button><button type="button" class="btn" data-ca>↺ Usa l'altra</button></div></div>`;
+    const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
+    ov.onclick = (e) => { if (e.target === ov) chiudi(); };
+    ov.querySelector('.modal-x').onclick = chiudi; ov.querySelector('[data-x]').onclick = chiudi;
+    ov.querySelector('[data-ct]').onclick = () => { chiudi(); document.querySelector(`[data-tieni="${CSS.escape(c.id)}"]`)?.click(); };
+    ov.querySelector('[data-ca]').onclick = () => { chiudi(); document.querySelector(`[data-altra="${CSS.escape(c.id)}"]`)?.click(); };
+    document.body.appendChild(ov); document.body.classList.add('modal-aperto');
+  }
+
   const apri = (col, d) => ({ schedeControllo: `#/controlli/i/${d.impiantoId}/${d.anno}`, rapportini: `#/rapportini/r/${d.id}`, giriSottoganci: `#/sottoganci/c/${d.sedeId}`, sottoganci: `#/sottoganci/c/${d.sedeId}`, clienti: `#/clienti/${d.id}`, impianti: `#/impianti/i/${d.id}`, mezzi: `#/mezzi/${d.id}` }[col] || '#/');
 
   function pagina(el, S) {
@@ -126,7 +189,7 @@ window.CONF = (function () {
     const doppi = doppioniSottoganci(S);
     el.innerHTML = `
       <section class="cli">
-        <div class="sez-head"><h1>Conflitti tra dispositivi ${info('Succede quando due dispositivi senza rete modificano lo stesso documento: quando tornano online le versioni non coincidono. L\'app non butta via niente: qui scegli quale versione tenere. Le schede di controllo con controlli diversi si uniscono da sole e non compaiono qui.')}</h1></div>
+        <div class="sez-head"><h1>Conflitti tra dispositivi ${info('Succede quando due dispositivi senza rete modificano lo stesso documento: quando tornano online le versioni non coincidono. L\'app non butta via niente: qui scegli quale versione tenere. Con «⇆ Confronta le due versioni» le vedi affiancate, solo con quello che cambia. Le schede di controllo con controlli diversi si uniscono da sole e non compaiono qui.')}</h1></div>
         ${!lista.length && !doppi.length ? '<p class="nessuno">✅ Nessun conflitto. Tutti i dispositivi sono d\'accordo.</p>' : ''}
         ${lista.map((c) => {
           const cor = (S[c.col] || []).find((x) => x.id === c.docId);
@@ -139,10 +202,10 @@ window.CONF = (function () {
             </div>
             <p class="muted small">${esc(cor ? differenze(c.col, cor, c.perso) : 'Il documento è stato eliminato da un altro dispositivo.')}</p>
             <div class="azioni-lista">
-              ${cor ? `<a class="btn ghost small" href="${apri(c.col, cor)}">👁 Vedi l'attuale</a>` : ''}
+              ${cor ? `<button class="btn small" data-confronta="${esc(c.id)}">⇆ Confronta le due versioni</button><a class="btn ghost small" href="${apri(c.col, cor)}">👁 Apri l'attuale</a>` : ''}
               <button class="btn ghost small" data-tieni="${esc(c.id)}">✓ Tieni l'attuale</button>
               ${c.col === 'schedeControllo' && cor ? `<button class="btn ghost small" data-unisci="${esc(c.id)}">⇄ Unisci (i controlli dell'altra si aggiungono)</button>` : ''}
-              <button class="btn small" data-altra="${esc(c.id)}">↺ Usa l'altra versione</button>
+              <button class="btn ghost small" data-altra="${esc(c.id)}">↺ Usa l'altra versione</button>
             </div>
           </div>`;
         }).join('')}
@@ -158,6 +221,7 @@ window.CONF = (function () {
       </section>`;
     const trova = (id) => S.conflitti.find((x) => x.id === id);
     const chiudi = async (c, testo) => { await Backend.remove('conflitti', c.id); UT.registra('modifica', `Conflitto risolto (${testo}): ${UT.descrivi(c.col, c.perso)}`); };
+    el.querySelectorAll('[data-confronta]').forEach((b) => (b.onclick = () => { const c = trova(b.dataset.confronta); confronta(c, (S[c.col] || []).find((x) => x.id === c.docId), S); }));
     el.querySelectorAll('[data-tieni]').forEach((b) => (b.onclick = async () => { await chiudi(trova(b.dataset.tieni), 'tenuta la versione attuale'); UI.toast('Tenuta la versione attuale', 'ok'); }));
     el.querySelectorAll('[data-altra]').forEach((b) => (b.onclick = async () => {
       const c = trova(b.dataset.altra), cor = (S[c.col] || []).find((x) => x.id === c.docId);
