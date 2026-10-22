@@ -263,6 +263,28 @@ window.UT = (function () {
   function esci() { registra('uscita', 'Uscita dall\'app'); SESS.del(); location.hash = '#/'; App.ridisegna(); }
 
   // ---------- profilo personale: firma, PIN, account Google ----------
+  // indirizzo dell'app (senza #pagina), per il codice QR
+  const linkApp = () => location.origin + location.pathname.replace(/index\.html$/, '');
+  function mostraQr() {
+    const ov = document.createElement('div'); ov.className = 'modal-ov';
+    const link = linkApp(), puoCondividere = !!navigator.share;
+    ov.innerHTML = `<div class="modal qr-modal"><div class="modal-head"><h2>📱 Condividi l'app</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+      <div class="modal-body"><div class="qr-grande">${QRGen.svg(link)}</div>
+        <p class="qr-link">${esc(link)}</p>
+        <p class="muted small">Inquadra con la fotocamera del telefono e tocca il link che compare.</p></div>
+      <div class="modal-foot"><span class="grow"></span><button type="button" class="btn" id="btnQrInvia">${puoCondividere ? '📤 Invia il link' : '📋 Copia il link'}</button></div></div>`;
+    const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
+    ov.onclick = (e) => { if (e.target === ov) chiudi(); };
+    ov.querySelector('.modal-x').onclick = chiudi;
+    ov.querySelector('#btnQrInvia').onclick = async () => {
+      try {
+        if (puoCondividere) await navigator.share({ title: 'Gestionale Gru Impianti', url: link });
+        else { await navigator.clipboard.writeText(link); UI.toast('Link copiato', 'ok'); }
+      } catch (e) { if (e?.name !== 'AbortError') UI.toast('Non riesco: scrivi a mano ' + link, 'err'); }
+    };
+    document.body.appendChild(ov); document.body.classList.add('modal-aperto');
+  }
+
   function profilo(el, dati) {
     S = dati; const u = attuale(), r = ruoloSess();
     el.innerHTML = `
@@ -271,6 +293,12 @@ window.UT = (function () {
           <span class="avatar big">${esc(iniziali(u.nome))}</span>
           <div class="grow"><h1>${esc(u.nome)}</h1><p class="muted">${RUOLI[r]}</p></div>
           <button class="btn ghost" id="btnEsci">Esci</button>
+        </div>
+        <div class="card qr-card">
+          <span class="qr-mini" aria-hidden="true">${QRGen.svg(linkApp())}</span>
+          <div class="grow"><h2>📱 Condividi l'app ${info('Fai inquadrare questo codice con la fotocamera del telefono di un collega: si apre subito il link dell\'app. Poi ognuno entra con il suo PIN (o con l\'account Google, se gliel\'ha associato il Master). Il codice contiene solo l\'indirizzo dell\'app, nessun dato.')}</h2>
+            <p class="muted small">Fallo inquadrare con la fotocamera</p></div>
+          <button type="button" class="btn ghost" id="btnQr">Ingrandisci</button>
         </div>
         ${r !== 'ru' ? `
         <div class="card">
@@ -330,6 +358,7 @@ window.UT = (function () {
           </div></div>` : ''}
       </section>`;
     el.querySelector('#btnEsci').onclick = esci;
+    el.querySelector('#btnQr').onclick = mostraQr;
     Tocchi.collega(el);
     el.querySelector('#btnExport')?.addEventListener('click', () => App.esporta());
     if (r !== 'ru') {

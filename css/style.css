@@ -1390,3 +1390,15 @@ body.tz-alza .fab { bottom: calc(16px + var(--tz-h)); }
 .sg2-grp.completo > .sg2-grp-h, .sg2-grp.completo:not(.multi) .sg2-gi { background: #f5fbf6; }
 .sg2-grp[hidden] { display: none; }
 .sg2-fatti { opacity: .92; }
+
+/* codice QR per condividere l'app */
+.qr-card { display: flex; align-items: center; gap: 14px; }
+.qr-card h2 { margin-bottom: 2px; }
+.qr-card p { margin: 0; }
+.qr-mini { flex-shrink: 0; width: 64px; height: 64px; border: 1px solid var(--linea); border-radius: 8px; overflow: hidden; display: block; }
+.qr-mini svg, .qr-grande svg { display: block; width: 100%; height: 100%; }
+.qr-modal { max-width: 420px; }
+.qr-grande { width: min(300px, 72vw); aspect-ratio: 1; margin: 0 auto 10px; }
+.qr-link { text-align: center; font-weight: 700; overflow-wrap: anywhere; margin: 0 0 6px; }
+.qr-modal .muted { text-align: center; }
+@media (max-width: 420px) { .qr-card .btn { padding-left: 12px; padding-right: 12px; } }
