@@ -78,8 +78,7 @@ window.CTR = (function () {
   const fineMese = (anno, m) => iso(new Date(anno, m, 0));
 
   // gli impianti fuori servizio definitivo (dismesso) non si controllano più: restano solo negli anni in cui hanno una scheda
-  const impiantiSede = (S, sedeId, anno) => S.impianti.filter((i) => i.sedeId === sedeId && (!i.dismesso || (anno && schedaDi(S, i.id, anno))))
-    .sort((a, b) => (a.numeroInterno || '~').localeCompare(b.numeroInterno || '~', 'it', { numeric: true }));
+  const impiantiSede = (S, sedeId, anno) => IMP.ordinaSede(S, sedeId, S.impianti.filter((i) => i.sedeId === sedeId && (!i.dismesso || (anno && schedaDi(S, i.id, anno)))));
   const schedaDi = (S, impId, anno) => S.schedeControllo.find((x) => x.impiantoId === impId && x.anno === anno);
   const nParanchi = (imp) => Math.max(1, (imp.paranchi || []).length);
   // scheda nuova di un anno: dall'anno prima si portano le osservazioni NON chiuse (stessa lettera) e le note Gru Impianti
@@ -212,7 +211,7 @@ window.CTR = (function () {
           </div>
           <div class="anno anno-mini"><a href="#/controlli/s/${sedeId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/s/${sedeId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
-            { t: '📅 Piano controlli', id: 'btnPiano' },
+            { t: '📅 Piano controlli e ordine gru', id: 'btnPiano' },
             UT.isMaster() && imp.length && { t: '📋 Cambia modello scheda', id: 'btnModSede' },
             UT.isMaster() && imp.length && { t: '🧹 Azzera controlli', id: 'btnAzzCtr' },
             imp.length && UT.puoInviare() && { t: `🖨️ Stampa tutte le schede ${anno}`, href: `#/controlli/s/${sedeId}/${anno}/stampa` },
@@ -404,21 +403,24 @@ window.CTR = (function () {
     };
   }
 
+  const ORDINI = ['Per numero (50/1, 50/2, 51/1)', 'Per campata (1/1, 2/1, 1/2)'];
   function modalePiano(S, c, s) {
     const p = piano(s);
     UI.modal({
       titolo: 'Piano controlli · ' + (s.nome || ''),
-      infoTxt: 'I 4 controlli sono a 3 mesi di distanza. L\'annuale comprende tutte le voci; due controlli dopo c\'è il semestrale (voci TRIM + SEME); gli altri due sono solo trimestrali.',
-      valori: { mese1: MESI[p.mese1 - 1], annuale: p.annuale + '°', tutte: false },
+      infoTxt: '«Ordine delle gru»: se il numero interno è gru/campata (es. Caselette: 3/11 = gru 3, campata 11) scegli «per campata»: si ordina per il secondo numero; se è già campata/gru (es. 50/1) lascia «per numero». I 4 controlli sono a 3 mesi di distanza. L\'annuale comprende tutte le voci; due controlli dopo c\'è il semestrale (voci TRIM + SEME); gli altri due sono solo trimestrali.',
+      valori: { mese1: MESI[p.mese1 - 1], annuale: p.annuale + '°', tutte: false, ordine: s.ordineGru === 'secondo' ? ORDINI[1] : ORDINI[0] },
       campi: [
         { k: 'mese1', label: 'Mese del 1° controllo dell\'anno', tipo: 'select', opzioni: MESI.slice(0, 3), mezza: true },
         { k: 'annuale', label: 'Il controllo annuale è il', tipo: 'select', opzioni: ['1°', '2°', '3°', '4°'], mezza: true },
+        { k: 'ordine', label: 'Ordine delle gru (numero interno)', tipo: 'select', opzioni: ORDINI },
         ...((c.sedi || []).length > 1 ? [{ k: 'tutte', label: `Applica lo stesso piano a tutte le sedi di ${CLI.nome(c)}`, tipo: 'sino' }] : [])
       ],
       onSalva: async (v) => {
         const pc = { mese1: Math.max(1, MESI.indexOf(v.mese1) + 1), annuale: parseInt(v.annuale, 10) || 1 };
         const d = JSON.parse(JSON.stringify(c));
         d.sedi.forEach((x) => { if (x.id === s.id || v.tutte) x.pianoControlli = pc; });
+        d.sedi.forEach((x) => { if (x.id === s.id) { if (v.ordine === ORDINI[1]) x.ordineGru = 'secondo'; else delete x.ordineGru; } });   // l'ordine vale solo per questa sede
         await UI.salva('clienti', d); UI.toast('Piano salvato', 'ok');
       }
     });

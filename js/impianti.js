@@ -13,7 +13,16 @@ window.IMP = (function () {
 
   const kg = (n) => { n = +n; if (!n) return ''; return n >= 1000 ? (n / 1000).toLocaleString('it-IT') + ' t' : n + ' kg'; };
   const portate = (i) => (i.paranchi || []).map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—';
-  const ordina = (a, b) => (a.numeroInterno || '~').localeCompare(b.numeroInterno || '~', 'it', { numeric: true }) || (a.matricola || '').localeCompare(b.matricola || '');
+  // ordine delle gru di una sede. Con «per campata» un numero interno tipo 3/11 o 1-50 (gru/campata)
+  // si ordina per il secondo numero e poi per il primo: 1/1, 2/1, 3/1, 1/2, 2/2…
+  const chiaveNum = (i, modo) => {
+    const n = String(i.numeroInterno || '').trim(), m = modo === 'secondo' && n.match(/^(\d+)\s*[\/-]\s*(\d+)$/);
+    return m ? m[2] + '/' + m[1] : n || '~';
+  };
+  const confronta = (modo) => (a, b) => chiaveNum(a, modo).localeCompare(chiaveNum(b, modo), 'it', { numeric: true }) || (a.matricola || '').localeCompare(b.matricola || '');
+  const ordina = confronta('');
+  const ordineSede = (S, sedeId) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return s.ordineGru || ''; } return ''; };
+  const ordinaSede = (S, sedeId, lista) => lista.sort(confronta(ordineSede(S, sedeId)));
   const cliente = (S, id) => S.clienti.find((c) => c.id === id);
   // stato: in servizio · fuori servizio provvisorio (si controlla ancora) · fuori servizio definitivo (dismesso: grigio, non si controlla più)
   const statoImp = (i) => (i.dismesso || i.stato === 'fsd' ? 'fsd' : i.stato === 'fsp' ? 'fsp' : '');
@@ -64,7 +73,7 @@ window.IMP = (function () {
     if (!c) { el.innerHTML = '<p class="nessuno">Cliente non trovato.</p>'; return { titolo: 'Impianti', indietro: '#/impianti' }; }
     const imp = S.impianti.filter((i) => i.clienteId === cliId);
     const ordSt = (a, b) => ((statoImp(a) === 'fsd') - (statoImp(b) === 'fsd')) || ordina(a, b);
-    const gruppi = (c.sedi || []).map((s) => ({ s, lista: imp.filter((i) => i.sedeId === s.id).sort(ordSt) }));
+    const gruppi = (c.sedi || []).map((s) => ({ s, lista: imp.filter((i) => i.sedeId === s.id).sort((a, b) => ((statoImp(a) === 'fsd') - (statoImp(b) === 'fsd')) || confronta(s.ordineGru || '')(a, b)) }));
     const orfani = imp.filter((i) => !sede(c, i.sedeId));
     if (orfani.length) gruppi.push({ s: null, lista: orfani });
     el.innerHTML = `
@@ -240,5 +249,5 @@ window.IMP = (function () {
     if (a === 'i') return IMPS.render(el, S, b, query);
     return clienti(el, S);
   }
-  return { route, TIPOLOGIE_BASE, icona, titolo: titoloImp, nomeSede, statoImp, pillStato };
+  return { route, TIPOLOGIE_BASE, icona, titolo: titoloImp, nomeSede, statoImp, pillStato, ordinaSede };
 })();

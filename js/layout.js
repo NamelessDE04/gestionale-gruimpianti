@@ -256,8 +256,7 @@ window.LAY = (function () {
     const modifica = !!inModifica[sedeId] && puoModificare;
     const L = aggiorna(salvato ? JSON.parse(JSON.stringify(salvato)) : nuovo(sedeId, c.id));
     if (!(+L.u > 0)) L.u = Math.round(unitaCalcolata(L) * 1000) / 1000;   // da qui in poi testi e simboli hanno sempre la stessa grandezza
-    const imp = S.impianti.filter((i) => i.sedeId === sedeId && !i.dismesso)
-      .sort((a, b) => (a.numeroInterno || '~').localeCompare(b.numeroInterno || '~', 'it', { numeric: true }));
+    const imp = IMP.ordinaSede(S, sedeId, S.impianti.filter((i) => i.sedeId === sedeId && !i.dismesso));
     // stato dei controlli (vista controlli)
     const anno = +UI.oggi().slice(0, 4);
     const pr = CTR.prossima(S, sedeId, anno), n = pr ? pr.n : 4;
