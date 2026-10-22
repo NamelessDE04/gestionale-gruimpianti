@@ -1433,3 +1433,5 @@ a.st-v { cursor: pointer; }
 .giro-st.incorso { background: #fff1d6; color: #8a5a00; }
 .vm.incorso { background: #fff1d6; border-color: #e0a64b; color: #8a5a00; }
 .ctr-giro .sg2-azz { margin-bottom: 96px; }
+button.st-v { font: inherit; text-align: left; border: 0; border-top: 4px solid #9fb0c3; cursor: pointer; }
+button.st-v.t-A { border-top-color: var(--navy); } button.st-v.t-S { border-top-color: var(--arancio); } button.st-v.t-T { border-top-color: var(--giallo); }

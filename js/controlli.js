@@ -123,6 +123,7 @@ window.CTR = (function () {
   const nomeSede = (c, s) => `${CLI.nome(c)} · ${s.sigla ? s.sigla + ' · ' : ''}${s.nome || s.citta}`;
   const annoOggi = () => +oggi().slice(0, 4);
   let annoScelto = annoOggi();
+  const sceltoCtr = {};   // sede|anno -> controllo scelto a mano (1-4), vale finché l'app resta aperta
 
   const slotHtml = (p, n, st, anno, href) => {
     const t = tipoVisita(p, n);
@@ -173,7 +174,8 @@ window.CTR = (function () {
     if (query.get('anno')) annoScelto = +query.get('anno');
     const anno = annoScelto, p = piano(s), st = statoVisite(S, sedeId, anno), imp = impiantiSede(S, sedeId, anno);
     const pr = prossima(S, sedeId, anno);
-    const corr = pr && pr.n;   // il prossimo controllo da fare
+    // il controllo da fare: quello che hai scelto toccando 1°-4° in alto, altrimenti il prossimo
+    const corr = sceltoCtr[sedeId + '|' + anno] || (pr && pr.n);
     el.innerHTML = `
       <section class="sg ctr">
         <div class="card ctr-testa">
@@ -190,9 +192,9 @@ window.CTR = (function () {
         </div>
         ${p.impostato ? '' : `<div class="avviso avviso-mini">Piano dei controlli non impostato (ora: 1° a gennaio, annuale il 1°). <button class="link" id="btnPiano2">Imposta</button></div>`}
         <div class="striscia">${st.map((x) => { const t = tipoVisita(p, x.n);
-          return `<a class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''}" title="${nomeTipo(t)}" href="#/controlli/s/${sedeId}/giro/${anno}/${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></a>`; }).join('')}</div>
+          return `<button type="button" class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''}" title="${nomeTipo(t)}" data-sceglin="${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></button>`; }).join('')}</div>
         ${corr && imp.length && !UT.solaLettura() ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
-          return `<a class="ctr-inizia t-${t}" href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
+          return `<a class="ctr-inizia t-${t}" href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${x.completa ? 'Rivedi' : via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
         <div class="elenco">
           ${imp.map((i) => {
             const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl).length;
@@ -208,8 +210,9 @@ window.CTR = (function () {
             </div>`;
           }).join('')}
         </div>
-        <p class="muted small centro">Con «Inizia» vedi solo le gru da controllare, con la ricerca. Puoi anche toccare il numero del controllo di una gru, oppure l'impianto per la sua scheda dell'anno.</p>
+        <p class="muted small centro">Tocca 1°, 2°, 3° o 4° in alto per scegliere il controllo. Con «Inizia» vedi solo le gru da controllare, con la ricerca. Puoi anche toccare il numero del controllo di una gru, oppure l'impianto per la sua scheda dell'anno.</p>
       </section>`;
+    el.querySelectorAll('[data-sceglin]').forEach((b) => (b.onclick = () => { sceltoCtr[sedeId + '|' + anno] = +b.dataset.sceglin; App.ridisegna(); }));
     const apriPiano = () => modalePiano(S, c, s);
     el.querySelector('#btnPiano').onclick = apriPiano;
     el.querySelector('#btnPiano2')?.addEventListener('click', apriPiano);
