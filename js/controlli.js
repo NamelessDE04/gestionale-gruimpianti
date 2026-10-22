@@ -637,7 +637,7 @@ window.CTR = (function () {
           <div class="giro-lista">
             ${voci.filter((v) => v.per === pp).map((v) => `
               <div class="giro-item cv-item" data-v="${v.id}">
-                <div class="gi-head"><b>${esc(v.testo)}</b></div>
+                <div class="gi-head"><b>${esc(v.testo)}</b>${UT.isDev() && !UT.solaLettura() ? `<button type="button" class="voc-via" data-vocvia="${v.id}" title="Togli questa voce dalla scheda" aria-label="Togli questa voce dalla scheda">🗑</button>` : ''}</div>
                 ${Array.from({ length: np }, (_, k) => k + 1).map((pi) => `
                   <div class="gi-parte" data-p="${pi}">
                     ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
@@ -754,6 +754,22 @@ window.CTR = (function () {
       // il gesto indietro del telefono chiude la finestra senza salvare (e non esce dal controllo)
       history.pushState({ ossAperta: true }, ''); window.addEventListener('popstate', indietro);
     };
+    // Developer: togli una voce da QUESTA scheda (tutti e 4 i controlli dell'anno), con doppia conferma
+    el.querySelectorAll('[data-vocvia]').forEach((b) => (b.onclick = () => {
+      const v = voci.find((x) => x.id === b.dataset.vocvia); if (!v) return;
+      const usata = Object.values(sc.visite || {}).filter((x) => (x.esiti?.[v.id] || []).some(Boolean)).length;
+      const legate = osservazioni.filter((o) => o.vocId === v.id).length;
+      if (!UI.conferma(`Togliere la voce «${v.testo}» da questa scheda ${anno}?\n\nVale solo per questo impianto e sparisce da tutti e 4 i controlli dell'anno${usata ? ` (ha giudizi in ${usata} controll${usata === 1 ? 'o' : 'i'} già fatt${usata === 1 ? 'o' : 'i'}: si perdono)` : ''}.${legate ? `\n${legate} osservazion${legate === 1 ? 'e resta' : 'i restano'} come osservazioni generali.` : ''}`)) return;
+      if (!UI.conferma(`Sei sicuro? La voce «${v.testo}» viene eliminata dalla scheda. Non si torna indietro dopo il salvataggio.`)) return;
+      sc.voci = sc.voci.filter((x) => x.id !== v.id);
+      voci.splice(voci.indexOf(v), 1);
+      for (const x of [vis, ...Object.values(sc.visite || {})]) { if (x?.esiti) delete x.esiti[v.id]; if (x?.valori) delete x.valori[v.id]; }
+      osservazioni.forEach((o) => { if (o.vocId === v.id) { o.vocId = ''; o.p = null; } });
+      el.querySelector(`.cv-item[data-v="${CSS.escape(v.id)}"]`)?.remove();
+      const tot = el.querySelector('.vis-tools .progress'); if (tot) tot.innerHTML = `<b id="nFatti">${voci.reduce((t, x) => t + vis.esiti[x.id].filter(Boolean).length, 0)}</b>/${voci.length * np}`;
+      disegnaOss(); sporco = true;
+      UI.toast(`Voce «${v.testo}» tolta: salva il controllo per confermare`, 'ok');
+    }));
     f.addEventListener('click', (e) => {
       const t = e.target.closest('.oss-aperta[data-l], .val-lettera .lettera-on, #ossLista .oss-riga .grow');
       if (!t) return;
