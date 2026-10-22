@@ -99,11 +99,13 @@ window.CTR = (function () {
     return { id: i.id + '-' + anno, impiantoId: i.id, sedeId: i.sedeId, clienteId: i.clienteId, anno, voci, visite: {}, osservazioni, ...(prima?.noteInterne ? { noteInterne: prima.noteInterne } : {}) };
   }
 
+  // un controllo salvato da solo (uscendo a metà) resta «in corso» finché non lo salvi tu
+  const fatta = (v) => !!v && !v.inCorso;
   // stato di una visita per la sede: fatta se tutti gli impianti l'hanno
   function statoVisite(S, sedeId, anno) {
     const imp = impiantiSede(S, sedeId, anno).filter((i) => !i.dismesso);   // i fuori servizio definitivo non contano più
     return [1, 2, 3, 4].map((n) => {
-      const fatti = imp.filter((i) => schedaDi(S, i.id, anno)?.visite?.[n]).length;
+      const fatti = imp.filter((i) => fatta(schedaDi(S, i.id, anno)?.visite?.[n])).length;
       return { n, fatti, tot: imp.length, completa: imp.length > 0 && fatti === imp.length };
     });
   }
@@ -188,7 +190,9 @@ window.CTR = (function () {
         </div>
         ${p.impostato ? '' : `<div class="avviso avviso-mini">Piano dei controlli non impostato (ora: 1° a gennaio, annuale il 1°). <button class="link" id="btnPiano2">Imposta</button></div>`}
         <div class="striscia">${st.map((x) => { const t = tipoVisita(p, x.n);
-          return `<div class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''}" title="${nomeTipo(t)}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></div>`; }).join('')}</div>
+          return `<a class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''}" title="${nomeTipo(t)}" href="#/controlli/s/${sedeId}/giro/${anno}/${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></a>`; }).join('')}</div>
+        ${corr && imp.length && !UT.solaLettura() ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
+          return `<a class="ctr-inizia t-${t}" href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
         <div class="elenco">
           ${imp.map((i) => {
             const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl).length;
@@ -200,16 +204,70 @@ window.CTR = (function () {
                   <div class="muted small">${i.matricola ? 'Matr. ' + esc(i.matricola) : ''}${aperteN ? ` · <b class="txt-ko">${aperteN} oss. aperte</b>` : ''}${IMP.pillStato(i)}</div>
                 </div>
               </a>
-              <div class="visite-mini">${[1, 2, 3, 4].map((n) => i.dismesso && !sc?.visite?.[n] ? '<span class="vm vm-vuoto">–</span>' : `<a class="vm ${sc?.visite?.[n] ? 'fatto' : ''} ${n === corr && !sc?.visite?.[n] ? 'corrente' : ''} t-${tipoVisita(p, n)}" href="#/controlli/i/${i.id}/${anno}/${n}" title="${n}° controllo">${sc?.visite?.[n] ? '✓' : n}</a>`).join('')}</div>
+              <div class="visite-mini">${[1, 2, 3, 4].map((n) => i.dismesso && !sc?.visite?.[n] ? '<span class="vm vm-vuoto">–</span>' : `<a class="vm ${fatta(sc?.visite?.[n]) ? 'fatto' : sc?.visite?.[n] ? 'incorso' : ''} ${n === corr && !fatta(sc?.visite?.[n]) ? 'corrente' : ''} t-${tipoVisita(p, n)}" href="#/controlli/i/${i.id}/${anno}/${n}" title="${n}° controllo${sc?.visite?.[n]?.inCorso ? ' (in corso)' : ''}">${fatta(sc?.visite?.[n]) ? '✓' : sc?.visite?.[n] ? '⏸' : n}</a>`).join('')}</div>
             </div>`;
           }).join('')}
         </div>
-        <p class="muted small centro">Tocca il numero del controllo per compilarlo, oppure l'impianto per la sua scheda dell'anno.</p>
+        <p class="muted small centro">Con «Inizia» vedi solo le gru da controllare, con la ricerca. Puoi anche toccare il numero del controllo di una gru, oppure l'impianto per la sua scheda dell'anno.</p>
       </section>`;
     const apriPiano = () => modalePiano(S, c, s);
     el.querySelector('#btnPiano').onclick = apriPiano;
     el.querySelector('#btnPiano2')?.addEventListener('click', apriPiano);
     return { titolo: 'Controlli · ' + nomeSede(c, s), indietro: '#/controlli', live: true };
+  }
+
+  // ---------- 2b. GIRO: le gru di un controllo, da fare sopra e fatte sotto, con ricerca ----------
+  let cercaGiro = { k: '', q: '' };
+  function giroSede(el, S, sedeId, anno, n) {
+    const { c, s } = trovaSede(S, sedeId);
+    if (!s || !(n >= 1 && n <= 4)) { el.innerHTML = '<p class="nessuno">Controllo non trovato.</p>'; return { titolo: 'Controlli', indietro: '#/controlli' }; }
+    const p = piano(s), t = tipoVisita(p, n);
+    const chiave = `${sedeId}|${anno}|${n}`; if (cercaGiro.k !== chiave) cercaGiro = { k: chiave, q: '' };
+    const imp = impiantiSede(S, sedeId, anno).filter((i) => !i.dismesso);
+    const vis = (i) => schedaDi(S, i.id, anno)?.visite?.[n];
+    const daFare = imp.filter((i) => !fatta(vis(i))), fatte = imp.filter((i) => fatta(vis(i)));
+    const qui = `#/controlli/s/${sedeId}/giro/${anno}/${n}`;
+    const testo = (i) => [i.numeroInterno, IMP.titolo(i), i.tipologia, i.matricola, i.ubicazione, i.reparto, i.costruttore].filter(Boolean).join(' ').toLowerCase();
+    const riga = (i) => {
+      const sc = schedaDi(S, i.id, anno), v = vis(i), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl).length;
+      return `<a class="riga imp-riga giro-gru ${fatta(v) ? 'fatta' : ''}" href="#/controlli/i/${i.id}/${anno}/${n}?torna=${encodeURIComponent(qui)}" data-t="${esc(testo(i))}">
+        <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
+        <div class="riga-main">
+          <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}${esc(IMP.titolo(i))}</div>
+          <div class="muted small">${[i.matricola && 'Matr. ' + esc(i.matricola), aperteN && `<b class="txt-ko">${aperteN} oss. aperte</b>`].filter(Boolean).join(' · ')}${IMP.pillStato(i)}</div>
+        </div>
+        ${fatta(v) ? `<span class="giro-st ok">✓ ${esc(fmt(v.dataScheda).replace(/\/\d+$/, ''))}</span>` : v ? '<span class="giro-st incorso">⏸ in corso</span>' : '<span class="giro-st">›</span>'}
+      </a>`;
+    };
+    el.innerHTML = `
+      <section class="sg ctr ctr-giro">
+        <div class="card vis-testa t-${t}">
+          <div class="grow"><b>${n}° controllo ${anno} · ${nomeTipo(t)}</b> <span>${MESI[meseVisita(p, n) - 1]}</span>
+            <div class="vis-imp">${esc(nomeSede(c, s))}</div></div>
+          ${info('Qui ci sono solo le gru di questo controllo. Cerca per numero interno, nome, tipo o matricola e tocca la gru per compilarla. Quando torni indietro o passi alla gru dopo, quello che hai fatto si salva da solo: se mancano voci la gru resta qui sopra «⏸ in corso». Con «Salva» nella gru la chiudi e va in fondo, tra quelle già controllate.')}
+        </div>
+        <div class="sg2-barra"><input type="search" id="gCercaGru" class="cerca" placeholder="🔍 Cerca n° interno o nome" autocomplete="off" value="${esc(cercaGiro.q)}"></div>
+        <div class="elenco" id="gruDaFare">${daFare.map(riga).join('') || '<p class="sg2-finito">✓ Tutte le gru di questo controllo sono fatte</p>'}</div>
+        <p class="nessuno" id="gruNessuna" hidden>Nessuna gru trovata.</p>
+        ${fatte.length ? `<div class="sg2-tit" id="gruTitFatte">✓ Già controllate (${fatte.length})</div><div class="elenco" id="gruFatte">${fatte.map(riga).join('')}</div>` : ''}
+        <div class="sg2-azz"><a class="link" href="#/controlli/s/${sedeId}?anno=${anno}">📋 Tutta la sede</a></div>
+        <div class="sg2-piede">
+          <b>${fatte.length}/${imp.length}</b><div class="bar"><i style="width:${imp.length ? fatte.length / imp.length * 100 : 0}%"></i></div>
+          <span class="muted small">gru fatte</span>
+        </div>
+      </section>`;
+    const cerca = el.querySelector('#gCercaGru');
+    const filtra = () => {
+      const q = cerca.value.trim().toLowerCase(); cercaGiro.q = cerca.value; let k = 0;
+      el.querySelectorAll('.giro-gru').forEach((r) => { const ok = !q || r.dataset.t.includes(q) || r.dataset.t.split(' ').some((w) => w.replace(/^0+/, '') === q.replace(/^0+/, '')); r.hidden = !ok; if (ok) k++; });
+      el.querySelector('#gruNessuna').hidden = !!k || !q;
+      const tf = el.querySelector('#gruTitFatte'); if (tf) tf.hidden = !el.querySelector('#gruFatte .giro-gru:not([hidden])');
+    };
+    // aprendo una gru la ricerca si svuota: al ritorno scrivi subito il numero della prossima
+    el.querySelectorAll('.giro-gru').forEach((r) => r.addEventListener('click', () => (cercaGiro.q = '')));
+    cerca.oninput = filtra; cerca.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const r = el.querySelector('.giro-gru:not([hidden])'); if (r) { cercaGiro.q = ''; location.hash = r.getAttribute('href'); } } };
+    filtra();
+    return { titolo: `${n}° controllo · ${nomeSede(c, s)}`, indietro: '#/controlli/s/' + sedeId + '?anno=' + anno, live: true };
   }
 
   function modalePiano(S, c, s) {
@@ -392,7 +450,7 @@ window.CTR = (function () {
     const nominale = (v, pi) => (/DIAMETRO/i.test(v.testo) ? i.paranchi?.[pi - 1]?.fune?.diametro : '');
     // per lavorare in fila: il prossimo impianto della sede che non ha ancora questo controllo
     const fila = impiantiSede(S, i.sedeId), pos = fila.findIndex((x) => x.id === i.id);
-    const prossimoImp = [...fila.slice(pos + 1), ...fila.slice(0, pos)].find((x) => !schedaDi(S, x.id, anno)?.visite?.[n]) || null;
+    const prossimoImp = [...fila.slice(pos + 1), ...fila.slice(0, pos)].find((x) => !x.dismesso && !fatta(schedaDi(S, x.id, anno)?.visite?.[n])) || null;
     // annotazione di fuori servizio provvisorio ancora aperta (nata in un controllo prima di questo)
     const fsAperta = osservazioni.find((o) => !o.risoltaIl && /FUORI SERVIZIO PROVVISORIO/.test(o.testo) && o.visita < n) || null;
     const prossimaLettera = () => { const usate = osservazioni.map((o) => o.lettera); let k = 0; let l; do { l = k < 26 ? String.fromCharCode(65 + k) : 'A' + String.fromCharCode(65 + k - 26); k++; } while (usate.includes(l)); return l; };
@@ -543,7 +601,7 @@ window.CTR = (function () {
       const t = leggiTecnici(); if (t.tecnici.length) Object.assign(vis, { tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, firma: t.firmaDi === vis.firmaDi && vis.firma ? vis.firma : t.firma });
       sc.visite[n] = vis; sc.osservazioni = osservazioni; sc.noteInterne = f.noteInterne.value.trim();
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
-      UI.toast('Controllo salvato: impianto fuori servizio provvisorio', 'ok');
+      sporco = false; UI.toast('Controllo salvato: impianto fuori servizio provvisorio', 'ok');
       location.hash = torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
     });
     // rimetti in servizio: l'annotazione si chiude con [OK] alla data di questo controllo (resta fino al controllo prima)
@@ -554,7 +612,7 @@ window.CTR = (function () {
       Object.keys(vis.esiti).forEach((k) => (vis.esiti[k] = vis.esiti[k].map((x) => (x === fsAperta.lettera ? '' : x))));
       try { await UI.salva('impianti', { ...i, stato: '', fsDal: '' }); } catch (e) {}
       el.querySelector('#boxFsOn').innerHTML = `<b>✅ Rimesso in servizio</b> <span class="muted small">l'annotazione ${esc(fsAperta.lettera)} si chiude con [OK ${esc(fmt(d))}] quando salvi il controllo</span>`;
-      disegnaOss(); UI.toast('Impianto in servizio: compila il controllo e salva', 'ok');
+      sporco = true; disegnaOss(); UI.toast('Impianto in servizio: compila il controllo e salva', 'ok');
     });
     const leggiTecnici = UT.collegaTecnici(el, vis.firmaDi);
     // riga riassuntiva di data e tecnici, salti rapidi tra le sezioni
@@ -577,14 +635,34 @@ window.CTR = (function () {
       if (!firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sulla scheda non comparirà. Salvare lo stesso?`)) return;
       Object.assign(vis, { dataScheda: f.dataScheda.value || oggi(), dataEsecuzione: f.dataEsecuzione.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, firma,
         _da: UT.breve(UT.attuale()), _disp: CONF.nomeDisp(), _quando: new Date().toISOString() });
+      delete vis.inCorso;
       sc.visite[n] = vis; sc.osservazioni = osservazioni; sc.noteInterne = f.noteInterne.value.trim();
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
+      sporco = false;
       App.ricordaTecnico(vis.tecnico); UI.toast('Controllo salvato', 'ok');
       // aperto dal layout: si torna alla pianta (anche con «Salva e prossimo» si resta nel giro del layout)
       location.hash = (e.submitter?.dataset.dopo === 'prossimo' && prossimoImp) ? `#/controlli/i/${prossimoImp.id}/${anno}/${n}${torna ? '?torna=' + encodeURIComponent(torna) : ''}` : torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
     };
+    // ---- salvataggio automatico: se esci (freccia, gesto indietro, altra gru) quello che hai fatto si salva da solo.
+    // Se mancano voci il controllo resta «⏸ in corso» e la gru resta tra quelle da fare; lo chiudi tu con «Salva».
+    let sporco = false;
+    f.addEventListener('input', () => (sporco = true)); f.addEventListener('change', () => (sporco = true));
+    f.addEventListener('click', (e) => { if (e.target.closest('.cod-btn, [data-togli], [data-anom], .chip-t')) sporco = true; });
+    App.allUscita(() => {
+      if (!sporco || UT.solaLettura()) return true;
+      const t = leggiTecnici(); if (!t.tecnici.length) return false;   // senza tecnico non posso salvare: l'app chiede conferma
+      const manc = voci.reduce((k, v) => k + (noteGen(v) ? 0 : vis.esiti[v.id].filter((x, ix) => ix < np && !x).length), 0);
+      Object.assign(vis, { dataScheda: f.dataScheda.value || oggi(), dataEsecuzione: f.dataEsecuzione.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi,
+        firma: t.firmaDi === vis.firmaDi && vis.firma && prima ? vis.firma : t.firma, _da: UT.breve(UT.attuale()), _disp: CONF.nomeDisp(), _quando: new Date().toISOString() });
+      if (manc) vis.inCorso = true; else delete vis.inCorso;
+      const d = JSON.parse(JSON.stringify(sc)); d.visite[n] = vis; d.osservazioni = osservazioni; d.noteInterne = f.noteInterne.value.trim();
+      UI.salva('schedeControllo', d).then(() => UI.toast(manc ? `💾 Salvato da solo · ${IMP.titolo(i)} in corso (${manc} voci da fare)` : `💾 Salvato da solo · ${IMP.titolo(i)}`, 'ok')).catch(() => {});
+      sporco = false; return true;
+    });
+    App.proteggi(() => sporco && !UT.solaLettura());
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${n}° controllo ${anno} di questo impianto? Le osservazioni nate in questo controllo verranno tolte.`)) return;
+      sporco = false;
       delete sc.visite[n]; sc.osservazioni = sc.osservazioni.filter((o) => o.visita !== n);
       if (!Object.keys(sc.visite).length) await Backend.remove('schedeControllo', sc.id); else await UI.salva('schedeControllo', sc);
       location.hash = '#/controlli/i/' + impId + '?anno=' + anno;
@@ -670,6 +748,7 @@ window.CTR = (function () {
   function route(el, S, parti, query) {
     const [, a, b, x, y] = parti;
     if (a === 'modelli') { pagModelli(el, S); return { titolo: 'Modelli di scheda', indietro: '#/controlli', live: true }; }
+    if (a === 's' && x === 'giro') return giroSede(el, S, b, +y, +parti[5]);
     if (a === 's' && y === 'stampa') return CTRS.render(el, S, impiantiSede(S, b, +x).map((i) => i.id), +x, '#/controlli/s/' + b + '?anno=' + x);
     if (a === 's') return sede(el, S, b, query);
     if (a === 'i' && y === 'stampa') return CTRS.render(el, S, [b], +x, '#/controlli/i/' + b + '?anno=' + x);

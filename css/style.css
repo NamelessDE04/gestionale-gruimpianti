@@ -1418,3 +1418,18 @@ body.tz-alza .fab { bottom: calc(16px + var(--tz-h)); }
 .conf-modal .modal-body { display: block; }
 .qr-modal .modal-body { display: block; }
 .sg2-giro .sg2-lista { overflow-anchor: none; }
+
+/* controlli gru: inizia controllo e giro della sede */
+.ctr-inizia { display: block; text-align: center; font-weight: 800; font-size: 18px; padding: 15px 12px; border-radius: 14px; text-decoration: none; box-shadow: var(--ombra); margin: 0 0 12px; background: var(--navy); color: #fff; }
+.ctr-inizia.t-S { background: var(--arancio); color: #fff; } .ctr-inizia.t-T { background: var(--giallo); color: #10243a; }
+.ctr-inizia small { display: block; font-weight: 500; font-size: 12px; opacity: .85; margin-top: 2px; }
+a.st-v { cursor: pointer; }
+.ctr-giro .vis-testa { margin-bottom: 8px; }
+.giro-gru { text-decoration: none; color: inherit; }
+.giro-gru[hidden] { display: none; }
+.giro-gru.fatta { background: #f5fbf6; }
+.giro-st { flex-shrink: 0; font-weight: 800; font-size: 13px; color: var(--muted); padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.giro-st.ok { background: var(--ok); color: #fff; }
+.giro-st.incorso { background: #fff1d6; color: #8a5a00; }
+.vm.incorso { background: #fff1d6; border-color: #e0a64b; color: #8a5a00; }
+.ctr-giro .sg2-azz { margin-bottom: 96px; }
