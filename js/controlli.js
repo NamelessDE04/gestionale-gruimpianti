@@ -553,11 +553,24 @@ window.CTR = (function () {
     const escl = i.controllo?.escluse || [];
     UI.modal({
       titolo: 'Voci di questo impianto', largo: true,
-      infoTxt: 'Togli la spunta alle voci che su questo impianto non si fanno (es. freno ausiliario se non c\'è il motore ausiliario). Per cambiare le voci di tutti gli impianti usa «Modelli di scheda».',
+      infoTxt: 'Togli la spunta alle voci che su questo impianto non si fanno (es. freno ausiliario se non c\'è il motore ausiliario). Per cambiare le voci di tutti gli impianti usa «Modelli di scheda». Se in fondo scrivi un nome, con le voci spuntate nasce un modello nuovo (che poi puoi usare anche per altre gru) e questo impianto passa a quel modello. Le schede già iniziate quest\'anno tengono le loro voci.',
       valori: { modello: m.nome, ...Object.fromEntries(m.voci.map((v) => ['v_' + v.id, !escl.includes(v.id)])) },
       campi: [{ k: 'modello', label: 'Modello di scheda', tipo: 'select', opzioni: ms.map((x) => x.nome) },
-        ...['T', 'S', 'A'].flatMap((pp) => [{ tipo: 'titolo', label: PER_NOME[pp] }, ...m.voci.filter((v) => v.per === pp).map((v) => ({ k: 'v_' + v.id, label: v.testo, tipo: 'sino', mezza: true }))])],
+        ...['T', 'S', 'A'].flatMap((pp) => [{ tipo: 'titolo', label: PER_NOME[pp] }, ...m.voci.filter((v) => v.per === pp).map((v) => ({ k: 'v_' + v.id, label: v.testo, tipo: 'sino', mezza: true }))]),
+        { tipo: 'titolo', label: 'Nuovo modello (facoltativo)' },
+        { k: 'nuovoNome', label: 'Crea un modello con le voci spuntate: scrivi il nome', placeholder: 'es. CLN CARROPONTE SENZA AUX', maiuscolo: true }],
       onSalva: async (v) => {
+        const nome = String(v.nuovoNome || '').trim().toUpperCase();
+        if (nome) {   // modello nuovo con le voci spuntate; l'impianto passa al modello nuovo
+          const voci = m.voci.filter((x) => v['v_' + x.id]);
+          if (!voci.length) { UI.toast('Spunta almeno una voce', 'err'); return false; }
+          const nm = await aggiungiModello(S, nome, voci);
+          if (!nm) { UI.toast('Esiste già un modello con questo nome', 'err'); return false; }
+          await UI.salva('impianti', { ...JSON.parse(JSON.stringify(i)), controllo: { modelloId: nm.id, escluse: [] } });
+          UT.registra('modifica', `Modello di scheda «${nome}» creato dalle voci di ${IMP.titolo(i)}`);
+          UI.toast(`Modello «${nome}» creato (${voci.length} voci): ora lo trovi in «Modelli di scheda»`, 'ok');
+          return;
+        }
         const nuovo = ms.find((x) => x.nome === v.modello) || m;
         const d = JSON.parse(JSON.stringify(i));
         d.controllo = { modelloId: nuovo.id, escluse: nuovo.id === m.id ? m.voci.filter((x) => !v['v_' + x.id]).map((x) => x.id) : [] };
