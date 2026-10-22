@@ -514,7 +514,8 @@ window.SG = (function () {
     cerca.oninput = filtra;
     cerca.onkeydown = (e) => { if (e.key === 'Enter') e.preventDefault(); };
 
-    const dopoGiudizio = (i) => {
+    // y0 = dove stava sullo schermo il sottogancio appena giudicato: il prossimo prende il suo posto, senza far scorrere la pagina
+    const dopoGiudizio = (i, y0) => {
       if (cerca.value) {   // con la ricerca: la svuoto, pronta per il numero successivo
         cerca.value = ''; filtra();
         if (modoGiro === 'elenco') { const j = prossimo(i); corrente = j >= 0 ? j : i; evidenzia(); riga(voci[i].key).scrollIntoView({ block: 'center' }); cerca.focus(); return; }
@@ -522,14 +523,19 @@ window.SG = (function () {
       const j = prossimo(i);
       corrente = j >= 0 ? j : i; evidenzia();
       if (modoGiro === 'uno') return disegnaUno();
-      if (j >= 0) riga(voci[j].key).scrollIntoView({ behavior: 'smooth', block: 'center' });
+      if (j < 0 || y0 === undefined) return;
+      // il prossimo da fare prende esattamente il posto di quello appena giudicato (nessuna animazione):
+      // un sottogancio singolo finito sparisce in fondo e quello sotto sale da solo al suo posto
+      const d = riga(voci[j].key).getBoundingClientRect().top - y0;
+      if (Math.abs(d) > 1) window.scrollBy(0, d);
     };
 
     voci.forEach((v, i) => {
       const box = riga(v.key);
       box.querySelectorAll('.cod-btn[data-c]').forEach((b) => (b.onclick = () => {
         const nuovo = g.righe[v.s.id].codici[v.pi] === b.dataset.c ? '' : b.dataset.c;
-        setCod(i, nuovo); riordina(v); if (nuovo) dopoGiudizio(i);
+        const y0 = box.getBoundingClientRect().top;
+        setCod(i, nuovo); riordina(v); if (nuovo) dopoGiudizio(i, y0);
       }));
       const ba = box.querySelector('[data-altro]'); if (ba) ba.onclick = () => { const a = box.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
       const nota = box.querySelector('[data-nota]');

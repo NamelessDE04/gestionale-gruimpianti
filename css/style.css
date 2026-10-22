@@ -1417,3 +1417,4 @@ body.tz-alza .fab { bottom: calc(16px + var(--tz-h)); }
 @media (max-width: 640px) { .conf-tab { font-size: 12px; } .conf-tab th:first-child { width: 30%; } .conf-tab th, .conf-tab td { padding: 6px 5px; } }
 .conf-modal .modal-body { display: block; }
 .qr-modal .modal-body { display: block; }
+.sg2-giro .sg2-lista { overflow-anchor: none; }
