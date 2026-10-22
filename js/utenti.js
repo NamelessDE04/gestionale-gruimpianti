@@ -450,7 +450,7 @@ window.UT = (function () {
       <section class="cli">
         <div class="sez-head"><h1>Utenti ${info('Developer: fa tutto, anche azzerare e importare i dati, vedere il registro attività e i consumi del cloud. Master: fa tutto il resto e gestisce gli utenti. Tecnico: fa tutto tranne registro e gestione utenti. Risorse Umane: vede anagrafiche, sottoganci e controlli e può stampare, ma non può modificare nulla. Ognuno salva firma e PIN dal proprio profilo.')}</h1>
           <button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo utente</span></button></div>
-        ${isDev() ? `<div class="azioni-lista"><button class="btn ghost small" id="btnAccessi">📱 Accessi e dispositivi</button>${info('Solo per te (Developer). Per ogni persona vedi da quali dispositivi è entrata, con che account Google e quando; i dispositivi nuovi degli ultimi 7 giorni sono segnati 🆕. In fondo i PIN sbagliati, dispositivo per dispositivo. Per i colleghi: aprendo un utente trovi «🔑 Nuovo PIN»: il PIN vecchio non si può leggere (è salvato cifrato), ma ne generi uno nuovo, lo vedi tenendo premuto l\'occhio e lo comunichi.')}</div>` : ''}
+        ${isDev() ? `<div class="azioni-lista"><button class="btn ghost small" id="btnAccessi">📱 Accessi e dispositivi</button>${info('Solo per te (Developer). Per ogni persona vedi da quali dispositivi è entrata, con che account Google e quando; i dispositivi nuovi degli ultimi 7 giorni sono segnati 🆕. In fondo i PIN sbagliati, dispositivo per dispositivo.')}</div>` : ''}
         <div class="elenco">
           ${lista.map((u) => `
             <a class="riga cli-riga ${u.attivo === false ? 'dismesso' : ''}" href="javascript:void(0)" data-u="${u.id}">
@@ -548,43 +548,6 @@ window.UT = (function () {
       } : null,
       testoElimina: 'Elimina utente'
     });
-    if (u && isDev()) {
-      const body = [...document.querySelectorAll('.modal-ov .modal-body')].pop();
-      if (body) {
-        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost small pin-nuovo'; b.textContent = '🔑 Nuovo PIN (lo vedi e lo comunichi)';
-        b.onclick = () => nuovoPin(u); body.appendChild(b);
-      }
-    }
-  }
-
-  // ---------- Developer: PIN nuovo per un collega che l'ha perso ----------
-  // Il PIN vecchio non si può mostrare: è salvato cifrato (mai in chiaro). Se ne crea uno nuovo,
-  // si vede solo tenendo premuto l'occhio, e si salva cifrato come gli altri.
-  async function nuovoPin(u) {
-    let pin = '';
-    for (let k = 0; k < 30; k++) { const c = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0'); if (!/(\d)\1{2}/.test(c) && !(await pinGiaUsato(c, u.id))) { pin = c; break; } }
-    if (!pin) return UI.toast('Riprova', 'err');
-    const ov = document.createElement('div'); ov.className = 'modal-ov';
-    ov.innerHTML = `<div class="modal pin-mod"><div class="modal-head"><h2>🔑 Nuovo PIN per ${esc(u.nome)}</h2></div>
-      <div class="modal-body"><p class="muted small">Il PIN di prima non si può leggere: è salvato cifrato. Questo è un PIN nuovo: tieni premuto l'occhio per vederlo, poi salvalo e comunicalo al collega (meglio a voce). Potrà cambiarlo dal suo profilo.</p>
-        <div class="pin-box"><span data-pin>••••••</span><button type="button" class="pin-occhio" data-occhio aria-label="Tieni premuto per vedere il PIN">👁</button></div>
-        <p class="muted small centro">Tieni premuto 👁 per vederlo · lasci e si nasconde</p></div>
-      <div class="modal-foot"><button type="button" class="btn ghost" data-no>Annulla</button><span class="grow"></span><button type="button" class="btn" data-si>Salva questo PIN</button></div></div>`;
-    const chiudi = () => ov.remove();
-    const vis = ov.querySelector('[data-pin]'), occhio = ov.querySelector('[data-occhio]');
-    const mostra = (e) => { e.preventDefault(); vis.textContent = pin; }, nascondi = () => (vis.textContent = '••••••');
-    occhio.addEventListener('pointerdown', mostra); ['pointerup', 'pointerleave', 'pointercancel', 'blur'].forEach((t) => occhio.addEventListener(t, nascondi));
-    occhio.addEventListener('contextmenu', (e) => e.preventDefault());
-    ov.querySelector('[data-no]').onclick = chiudi;
-    ov.querySelector('[data-si]').onclick = async () => {
-      if (!UI.conferma(`Salvare il PIN nuovo per ${u.nome}? Quello di prima non funzionerà più.`)) return;
-      const d = { ...(S.utenti.find((x) => x.id === u.id) || u) }; d.pinSalt = uid(); d.pinHash = await hash(d.pinSalt, pin); d.pinLen = pin.length;
-      await UI.salva('utenti', d); registra('modifica', `PIN nuovo creato per ${u.nome}`);
-      // chiudo anche la finestra dell'utente: salvandola dopo rimetterebbe il PIN vecchio
-      pin = ''; document.querySelectorAll('.modal-ov').forEach((x) => x.remove()); document.body.classList.remove('modal-aperto');
-      UI.toast('PIN salvato: comunicalo al collega', 'ok');
-    };
-    document.body.appendChild(ov);
   }
 
   // ---------- Developer: da quali dispositivi entrano le persone ----------
