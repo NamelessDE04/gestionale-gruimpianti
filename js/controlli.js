@@ -94,10 +94,23 @@ window.CTR = (function () {
       if (nv(pv.testo) === 'NOTEGENERALI') voci.unshift({ ...pv }); else voci.push({ ...pv });
       return pv.id;
     };
-    const osservazioni = prima ? (prima.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).map((o) => ({ ...o, vocId: vocDi(o.vocId), visita: 0, daAnno: o.daAnno || anno - 1 })) : [];
+    const osservazioni = prima ? (prima.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).map(({ versioni, ...o }) => ({ ...o, vocId: vocDi(o.vocId), visita: 0, daAnno: o.daAnno || anno - 1 })) : [];
     return { id: i.id + '-' + anno, impiantoId: i.id, sedeId: i.sedeId, clienteId: i.clienteId, anno, voci, visite: {}, osservazioni, ...(prima?.noteInterne ? { noteInterne: prima.noteInterne } : {}) };
   }
 
+  // testo di un'osservazione: se è stato cambiato in un controllo, vale da quel controllo in poi;
+  // nei controlli prima resta il testo di prima. o.testo è sempre il più recente (quello della stampa).
+  const testoOss = (o, n) => { const V = o.versioni; if (!V || n === undefined) return o.testo; let t = V[0].testo; V.forEach((x) => { if (x.dal <= n) t = x.testo; }); return t; };
+  function cambiaTesto(o, n, t) {
+    if (!t || t === testoOss(o, n)) return;
+    let V = (o.versioni || [{ dal: 0, testo: o.testo }]).filter((x) => x.dal !== n);
+    if (!o.daAnno && o.visita && n <= o.visita) V = [{ dal: 0, testo: t }, ...V.filter((x) => x.dal > n)];   // nata in questo controllo: cambia e basta
+    else V.push({ dal: n, testo: t });
+    V.sort((a, b) => a.dal - b.dal);
+    V = V.filter((x, k) => !k || x.testo !== V[k - 1].testo);
+    o.testo = V[V.length - 1].testo;
+    if (V.length > 1) o.versioni = V; else delete o.versioni;
+  }
   // osservazione tolta «da un controllo in poi»: nei controlli prima resta com'era
   const tolta = (o, n) => !!o.tolta && (n === undefined || n >= o.tolta);
   // scelta per eliminare un'osservazione nata in un controllo precedente: 'tutto' | 'dopo' | null
@@ -462,7 +475,7 @@ window.CTR = (function () {
         <div class="card">
           <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con [OK e la data].')}</h2></div>
           ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
-              <div class="grow">${esc(o.testo)}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}${o.tolta ? ` · <b class="muted">tolta dal ${o.tolta}° controllo</b>` : ''}</div></div>
+              <div class="grow">${esc(o.testo)}${o.versioni ? `<div class="muted small">prima: ${o.versioni.slice(0, -1).map((x) => '«' + esc(x.testo) + '»').join(', ')} · cambiata dal ${o.versioni[o.versioni.length - 1].dal}° controllo</div>` : ''}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}${o.tolta ? ` · <b class="muted">tolta dal ${o.tolta}° controllo</b>` : ''}</div></div>
               ${UT.solaLettura() ? '' : `<div class="oss-bt"><button class="btn ghost small" data-modoss="${o.lettera}" aria-label="Modifica il testo">✏️</button><button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`}</div>`).join('')
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
@@ -505,7 +518,8 @@ window.CTR = (function () {
         campi: [{ k: 'testo', label: 'Testo', tipo: 'textarea', req: true, maiuscolo: true }, ...(o.risoltaIl ? [{ k: 'data', label: 'Data dell\'OK', tipo: 'date', req: true }] : [])],
         onSalva: async (v) => {
           const d = JSON.parse(JSON.stringify(scV)), x = d.osservazioni.find((y) => y.lettera === o.lettera);
-          x.testo = String(v.testo || '').trim().toUpperCase(); if (o.risoltaIl && v.data) x.risoltaIl = v.data;
+          x.testo = String(v.testo || '').trim().toUpperCase(); if (x.versioni) x.versioni[x.versioni.length - 1].testo = x.testo;   // corregge il testo più recente
+          if (o.risoltaIl && v.data) x.risoltaIl = v.data;
           await UI.salva('schedeControllo', d); UI.toast('Osservazione corretta', 'ok');
         }
       });
@@ -627,7 +641,7 @@ window.CTR = (function () {
                 ${Array.from({ length: np }, (_, k) => k + 1).map((pi) => `
                   <div class="gi-parte" data-p="${pi}">
                     ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
-                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta" data-l="${esc(o.lettera)}">⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(o.testo)}</div>`).join('')}
+                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta" data-l="${esc(o.lettera)}">⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))}</div>`).join('')}
                     <div class="gi-row">
                       <div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>
                       ${haValore(v) ? `<label class="valore"><input type="text" ${unitaDi(v) ? 'inputmode="decimal"' : ''} data-val placeholder="valore" aria-label="Valore${unitaDi(v) ? ' in ' + esc(unitaDi(v)) : ''}">${unitaDi(v) ? `<span>${esc(unitaDi(v))}</span>` : ''}</label>${nominale(v, pi) ? `<span class="prima">nom. ${esc(nominale(v, pi))}</span>` : ''}${(() => { const u = ultimoValore(v, pi); return u ? `<span class="prima ult-val">ultimo: <b>${esc(u.val)}${unitaDi(v) ? ' ' + esc(unitaDi(v)) : ''}</b> · ${esc(fmt(u.data))}</span>` : ''; })()}` : ''}
@@ -670,7 +684,7 @@ window.CTR = (function () {
     const disegnaOss = () => {
       const visibili = osservazioni.filter((o) => !tolta(o, n));
       el.querySelector('#ossLista').innerHTML = visibili.length ? visibili.map((o) => `
-        <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(o.testo)}
+        <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(testoOss(o, n))}
           <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ' · [OK ' + fmt(o.risoltaIl) + ']' : ''}</div></div>
           ${UT.solaLettura() ? '' : `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}" aria-label="Elimina l'osservazione" title="Elimina l'osservazione">🗑</button>`}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
       el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = async () => {
@@ -700,7 +714,8 @@ window.CTR = (function () {
       ov.innerHTML = `<div class="modal oss-mod"><div class="modal-head"><h2><b class="oss-l">${esc(o.lettera)}</b> Osservazione</h2></div>
         <div class="modal-body">
           <p class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}</p>
-          <label>Testo (come compare sulla scheda)<textarea rows="4" data-t>${esc(o.testo)}</textarea></label>
+          <label>Testo (cambia da questo controllo in poi)<textarea rows="4" data-t>${esc(testoOss(o, n))}</textarea></label>
+          ${o.versioni ? `<p class="muted small">Testi precedenti: ${o.versioni.filter((x) => x.dal < n).map((x) => `${x.dal ? 'dal ' + x.dal + '°' : 'all\'inizio'}: «${esc(x.testo)}»`).join(' · ')}</p>` : ''}
           <label class="check oss-ok"><input type="checkbox" data-ok ${o.risoltaIl ? 'checked' : ''}> Sistemata: scrivi [OK e la data]</label>
           <label data-dbox ${o.risoltaIl ? '' : 'hidden'}>Data dell'OK<input type="date" data-d value="${dataOk}"></label>
         </div>
@@ -712,12 +727,12 @@ window.CTR = (function () {
         if (!aperta) return; aperta = false;
         if (salva) {
           const t = ov.querySelector('[data-t]').value.trim().toUpperCase();
-          if (t) o.testo = t;
+          cambiaTesto(o, n, t);   // nei controlli prima resta il testo di prima
           if (ok.checked) {
             o.risoltaIl = ov.querySelector('[data-d]').value || f.dataScheda.value || oggi();
             if (o.vocId && vis.esiti[o.vocId]?.[(o.p || 1) - 1] === o.lettera) vis.esiti[o.vocId][(o.p || 1) - 1] = 'R';   // sistemata in questo controllo
           } else delete o.risoltaIl;
-          el.querySelectorAll(`.oss-aperta[data-l="${CSS.escape(o.lettera)}"]`).forEach((d) => (d.innerHTML = o.risoltaIl ? `✓ <b>${esc(o.lettera)}</b> ${esc(o.testo)} [OK ${fmt(o.risoltaIl)}]` : `⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(o.testo)}`));
+          el.querySelectorAll(`.oss-aperta[data-l="${CSS.escape(o.lettera)}"]`).forEach((d) => (d.innerHTML = o.risoltaIl ? `✓ <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))} [OK ${fmt(o.risoltaIl)}]` : `⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))}`));
           const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
           disegnaOss(); sporco = true;
         }
