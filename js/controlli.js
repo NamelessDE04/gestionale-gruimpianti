@@ -206,6 +206,8 @@ window.CTR = (function () {
           <div class="anno anno-mini"><a href="#/controlli/s/${sedeId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/s/${sedeId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
             { t: '📅 Piano controlli', id: 'btnPiano' },
+            UT.isMaster() && imp.length && { t: '📋 Cambia modello scheda', id: 'btnModSede' },
+            UT.isMaster() && imp.length && { t: '🧹 Azzera controlli', id: 'btnAzzCtr' },
             imp.length && UT.puoInviare() && { t: `🖨️ Stampa tutte le schede ${anno}`, href: `#/controlli/s/${sedeId}/${anno}/stampa` },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.id}` }
           ])}
@@ -232,6 +234,8 @@ window.CTR = (function () {
         </div>
         <p class="muted small centro">Tocca 1°, 2°, 3° o 4° in alto per scegliere il controllo. Con «Inizia» vedi solo le gru da controllare, con la ricerca. Puoi anche toccare il numero del controllo di una gru, oppure l'impianto per la sua scheda dell'anno.</p>
       </section>`;
+    el.querySelector('#btnModSede')?.addEventListener('click', async () => { await assicuraModelli(S); cambiaModelloSede(S, imp, anno); });
+    el.querySelector('#btnAzzCtr')?.addEventListener('click', () => azzeraControlli(S, imp, anno, p));
     el.querySelectorAll('[data-sceglin]').forEach((b) => (b.onclick = () => { sceltoCtr[sedeId + '|' + anno] = +b.dataset.sceglin; App.ridisegna(); }));
     const apriPiano = () => modalePiano(S, c, s);
     el.querySelector('#btnPiano').onclick = apriPiano;
@@ -291,6 +295,106 @@ window.CTR = (function () {
     cerca.oninput = filtra; cerca.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); const r = el.querySelector('.giro-gru:not([hidden])'); if (r) { cercaGiro.q = ''; location.hash = r.getAttribute('href'); } } };
     filtra();
     return { titolo: `${n}° controllo · ${nomeSede(c, s)}`, indietro: '#/controlli/s/' + sedeId + '?anno=' + anno, live: true };
+  }
+
+  // finestra semplice (titolo, contenuto, piede) per le funzioni del Master
+  function finestra(titolo, corpo, piede, cls = '') {
+    const ov = document.createElement('div'); ov.className = 'modal-ov';
+    ov.innerHTML = `<div class="modal largo ${cls}"><div class="modal-head"><h2>${esc(titolo)}</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+      <div class="modal-body mb-blocco">${corpo}</div><div class="modal-foot">${piede}</div></div>`;
+    const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
+    ov.onclick = (e) => { if (e.target === ov) chiudi(); };
+    ov.querySelector('.modal-x').onclick = chiudi;
+    ov.querySelectorAll('[data-chiudi]').forEach((b) => (b.onclick = chiudi));
+    document.body.appendChild(ov); document.body.classList.add('modal-aperto');
+    return { ov, chiudi };
+  }
+  const nvTesto = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  // ---------- CAMBIO MODELLO DI SCHEDA PER LA SEDE (Master) ----------
+  // le schede dell'anno già iniziate vengono «riformattate»: i giudizi restano sulle voci con lo stesso nome,
+  // le osservazioni di voci che nel modello nuovo non ci sono vanno su NOTE GENERALI
+  function rifaiScheda(sc, nuove) {
+    const d = JSON.parse(JSON.stringify(sc)), voci = nuove.map((v) => ({ ...v })), perse = []; let aNg = 0;
+    let ng = voci.find((v) => nvTesto(v.testo) === 'NOTEGENERALI');
+    if (!ng) { const vecchia = (sc.voci || []).find((v) => nvTesto(v.testo) === 'NOTEGENERALI'); if (vecchia) { ng = { ...vecchia }; voci.unshift(ng); } }
+    const verso = {};   // id vecchio -> id nuovo
+    (sc.voci || []).forEach((v) => { const m = voci.find((x) => nvTesto(x.testo) === nvTesto(v.testo)); if (m) verso[v.id] = m.id; else perse.push(v.testo); });
+    const ngId = () => { if (!ng) { ng = { id: uid(), per: 'T', testo: 'NOTE GENERALI', tipo: 'codice' }; voci.unshift(ng); } return ng.id; };
+    Object.values(d.visite || {}).forEach((vis) => {
+      for (const campo of ['esiti', 'valori']) {
+        if (!vis[campo]) continue; const nuovo = {};
+        for (const [k, arr] of Object.entries(vis[campo])) if (verso[k]) nuovo[verso[k]] = arr;
+        vis[campo] = nuovo;
+      }
+    });
+    (d.osservazioni || []).forEach((o) => {
+      if (!o.vocId) return;
+      if (verso[o.vocId]) { o.vocId = verso[o.vocId]; return; }
+      o.vocId = ngId(); o.p = 1; aNg++;   // la voce non c'è più: l'osservazione resta, su NOTE GENERALI
+    });
+    d.voci = voci;
+    return { d, perse, aNg };
+  }
+  function cambiaModelloSede(S, imp, anno) {
+    const ms = modelli(S) || MODELLI_BASE();
+    const famiglia = (i) => (/bandiera/i.test(i.tipologia || '') ? 'bandiera' : 'carroponte');
+    const corpo = `
+      <label>Modello di scheda<select data-mod>${ms.map((m) => `<option value="${m.id}">${esc(m.nome)} (${m.voci.length} voci)</option>`).join('')}</select></label>
+      <label>A quali gru<select data-quali><option value="tutte">Tutte le gru della sede (${imp.length})</option>
+        <option value="carroponte">Solo carriponte (${imp.filter((i) => famiglia(i) === 'carroponte').length})</option>
+        <option value="bandiera">Solo gru a bandiera (${imp.filter((i) => famiglia(i) === 'bandiera').length})</option></select></label>
+      <label class="check"><input type="checkbox" data-anno checked> Aggiorna anche le schede ${anno} già iniziate</label>
+      <div class="cm-riep" data-riep></div>`;
+    const { ov, chiudi } = finestra('Cambia modello scheda', corpo, '<button type="button" class="btn ghost" data-chiudi>Annulla</button><span class="grow"></span><button type="button" class="btn" data-vai>Cambia modello</button>', 'cm-modal');
+    const calcola = () => {
+      const m = ms.find((x) => x.id === ov.querySelector('[data-mod]').value), q = ov.querySelector('[data-quali]').value, conAnno = ov.querySelector('[data-anno]').checked;
+      const gru = imp.filter((i) => q === 'tutte' || famiglia(i) === q);
+      const schede = conAnno ? gru.map((i) => schedaDi(S, i.id, anno)).filter(Boolean) : [];
+      const perse = new Set(); let osNg = 0;
+      schede.forEach((sc) => { const r = rifaiScheda(sc, m.voci); r.perse.forEach((t) => { if (nvTesto(t) !== 'NOTEGENERALI') perse.add(t); }); osNg += r.aNg; });
+      ov.querySelector('[data-riep]').innerHTML = `<b>${gru.length} gru</b> passano al modello «${esc(m.nome)}».<br>${conAnno ? `${schede.length} schede del ${anno} vengono riformattate.` : `Le schede del ${anno} già iniziate restano come sono: il modello nuovo vale dalle schede nuove.`}
+        ${perse.size ? `<br><span class="txt-ko">Voci del vecchio modello senza corrispondenza (i loro giudizi si perdono): ${[...perse].map(esc).join(', ')}</span>` : ''}
+        ${osNg ? `<br>${osNg} osservazioni passano su NOTE GENERALI (restano tutte).` : ''}`;
+      return { m, gru, schede, conAnno };
+    };
+    ov.querySelectorAll('select, input').forEach((x) => (x.onchange = calcola)); calcola();
+    ov.querySelector('[data-vai]').onclick = async () => {
+      const { m, gru, schede } = calcola();
+      if (!UI.conferma(`Passare ${gru.length} gru al modello «${m.nome}»${schede.length ? ` e riformattare ${schede.length} schede del ${anno}` : ''}?`)) return;
+      for (const i of gru) await UI.salva('impianti', { ...JSON.parse(JSON.stringify(i)), controllo: { modelloId: m.id, escluse: [] } });
+      for (const sc of schede) await UI.salva('schedeControllo', rifaiScheda(sc, m.voci).d);
+      UT.registra('modifica', `Modello scheda «${m.nome}» per ${gru.length} gru${schede.length ? `, ${schede.length} schede ${anno} riformattate` : ''}`);
+      chiudi(); UI.toast(`Fatto: ${gru.length} gru col modello «${m.nome}»`, 'ok');
+    };
+  }
+
+  // ---------- AZZERA CONTROLLI (Master): griglia gru × 1°-4° ----------
+  function azzeraControlli(S, imp, anno, p) {
+    const vis = (i, n) => schedaDi(S, i.id, anno)?.visite?.[n];
+    const corpo = `<p class="muted small">Spunta i controlli da cancellare. Toccando l'intestazione di una colonna selezioni tutto quel controllo.</p>
+      <div class="az-wrap"><table class="az-tab"><thead><tr><th>Gru</th>${[1, 2, 3, 4].map((n) => `<th><button type="button" class="link" data-col="${n}">${n}°<small>${MESI[meseVisita(p, n) - 1].slice(0, 3)}</small></button></th>`).join('')}</tr></thead>
+      <tbody>${imp.map((i) => `<tr><td>${i.numeroInterno ? `<b>${esc(i.numeroInterno)}</b> ` : ''}${esc(IMP.titolo(i))}</td>${[1, 2, 3, 4].map((n) => `<td>${vis(i, n) ? `<input type="checkbox" data-az="${i.id}|${n}" aria-label="${n}° controllo">` : '<span class="muted">–</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+    const { ov, chiudi } = finestra(`Azzera controlli ${anno}`, corpo, '<button type="button" class="btn ghost" data-chiudi>Annulla</button><span class="grow"></span><button type="button" class="btn ghost danger" data-vai disabled>🧹 Azzera (0)</button>', 'az-modal');
+    const sel = () => [...ov.querySelectorAll('[data-az]:checked')];
+    const agg = () => { const k = sel().length, b = ov.querySelector('[data-vai]'); b.disabled = !k; b.textContent = `🧹 Azzera (${k})`; };
+    ov.querySelectorAll('[data-az]').forEach((c) => (c.onchange = agg));
+    ov.querySelectorAll('[data-col]').forEach((b) => (b.onclick = () => {
+      const cs = [...ov.querySelectorAll(`[data-az$="|${b.dataset.col}"]`)], tutte = cs.every((c) => c.checked);
+      cs.forEach((c) => (c.checked = !tutte)); agg();
+    }));
+    ov.querySelector('[data-vai]').onclick = async () => {
+      const lista = sel().map((c) => c.dataset.az.split('|'));
+      if (!UI.conferma(`Azzerare ${lista.length} controlli?\n\nSi cancellano giudizi, valori, firme e le osservazioni nate in quei controlli. Non si torna indietro.`)) return;
+      const per = {}; lista.forEach(([id, n]) => (per[id] = [...(per[id] || []), +n]));
+      for (const [id, ns] of Object.entries(per)) {
+        const sc = JSON.parse(JSON.stringify(schedaDi(S, id, anno)));
+        ns.forEach((n) => { delete sc.visite[n]; sc.osservazioni = (sc.osservazioni || []).filter((o) => o.visita !== n); sc.osservazioni.forEach((o) => { if (o.tolta === n) delete o.tolta; }); });
+        if (!Object.keys(sc.visite).length && !sc.noteInterne && !sc.osservazioni.length) await Backend.remove('schedeControllo', sc.id); else await UI.salva('schedeControllo', sc);
+      }
+      UT.registra('modifica', `Azzerati ${lista.length} controlli ${anno} (${Object.keys(per).length} gru)`);
+      chiudi(); UI.toast(`Azzerati ${lista.length} controlli`, 'ok');
+    };
   }
 
   function modalePiano(S, c, s) {

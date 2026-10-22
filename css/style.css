@@ -1441,3 +1441,17 @@ button.st-v.t-A { border-top-color: var(--navy); } button.st-v.t-S { border-top-
 .el-scelta { display: block; width: 100%; text-align: left; margin: 10px 0 0; padding: 12px 14px; white-space: normal; height: auto; }
 .el-scelta b { display: block; font-size: 15px; }
 .el-scelta small { display: block; font-weight: 400; font-size: 12.5px; color: var(--muted); margin-top: 3px; line-height: 1.35; }
+
+/* finestre del Master: cambio modello e azzera controlli */
+.modal-body.mb-blocco { display: block; }
+.cm-modal label { display: block; margin-bottom: 12px; }
+.cm-modal .check { display: flex; align-items: center; gap: 10px; }
+.cm-riep { background: #eef3f9; border-radius: 10px; padding: 10px 12px; font-size: 13.5px; line-height: 1.45; overflow-wrap: anywhere; }
+.az-wrap { max-height: 60vh; overflow: auto; border: 1px solid var(--linea); border-radius: 10px; }
+.az-tab { width: 100%; border-collapse: collapse; font-size: 13px; table-layout: fixed; }
+.az-tab th, .az-tab td { border-bottom: 1px solid var(--linea); padding: 6px 6px; text-align: center; overflow-wrap: anywhere; }
+.az-tab th:first-child, .az-tab td:first-child { text-align: left; width: 46%; }
+.az-tab th { position: sticky; top: 0; background: #eef3f9; z-index: 1; }
+.az-tab th .link { font-weight: 800; font-size: 14px; background: none; border: 0; cursor: pointer; color: var(--navy); padding: 4px 6px; }
+.az-tab th .link small { display: block; font-weight: 500; font-size: 11px; color: var(--muted); }
+.az-tab input[type=checkbox] { width: 26px; height: 26px; min-height: 0; accent-color: #d93025; }
