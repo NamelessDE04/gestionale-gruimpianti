@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.28';
+  const VERSIONE = '0.42.29';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -11,7 +11,14 @@ window.App = (function () {
   const tecnicoPredefinito = () => UT.attuale()?.nome || '';
   const ricordaTecnico = () => {};
 
+  // una pagina con modifiche non salvate (es. controllo sottoganci) mette qui una funzione che dice se c'è qualcosa da perdere
+  let guardia = null, hashOra = location.hash;
+  const proteggi = (fn) => { guardia = fn; };
+  const daSalvare = () => { try { return !!(guardia && guardia()); } catch (e) { return false; } };
+  window.addEventListener('beforeunload', (e) => { if (daSalvare()) { e.preventDefault(); e.returnValue = ''; } });
+
   function ridisegna() {
+    guardia = null;
     const [path, qs] = (location.hash.replace(/^#\/?/, '') || '').split('?');
     const parti = path.split('/').filter(Boolean);
     const query = new URLSearchParams(qs || '');
@@ -110,7 +117,11 @@ window.App = (function () {
     let avvisato = false;
     const erroreDati = () => { if (!avvisato) { avvisato = true; UI.toast('Il cloud ha rifiutato la lettura: controlla le regole di Firebase', 'err'); } };
     COLLEZIONI.forEach((c) => { Backend.subscribe(c, aggiornaDati(c), erroreDati); pronti++; });
-    window.addEventListener('hashchange', () => { document.querySelectorAll('.modal-ov').forEach((m) => m.remove()); document.body.classList.remove('modal-aperto'); ridisegna(); window.scrollTo(0, 0); });
+    window.addEventListener('hashchange', () => {
+      // uscita da una pagina con modifiche non salvate (freccia dell'app, gesto indietro del telefono, link): chiedo prima
+      if (daSalvare() && !UI.conferma('Uscire senza salvare?\n\nTutto quello che non hai salvato con «💾 Salva» andrà perso.')) { history.pushState(null, '', hashOra); return; }
+      hashOra = location.hash;
+      document.querySelectorAll('.modal-ov').forEach((m) => m.remove()); document.body.classList.remove('modal-aperto'); ridisegna(); window.scrollTo(0, 0); });
     ridisegna();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
@@ -128,7 +139,7 @@ window.App = (function () {
   }
 
   document.addEventListener('DOMContentLoaded', avvio);
-  const api = { ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
+  const api = { proteggi, ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
   Object.defineProperty(api, 'tecnici', { get: () => UT.nomi() });
   return api;
 })();

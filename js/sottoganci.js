@@ -411,7 +411,7 @@ window.SG = (function () {
         <div class="sg2-barra">
           <input type="search" id="gCerca" class="cerca" placeholder="🔍 Cerca n° o nome" autocomplete="off">
           <button type="button" class="btn ghost small" id="btnModo">${modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco'}</button>
-          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Un componente segnato «\\» (eliminato) resta così nei controlli dopo fino a fine anno; dall\'anno dopo sparisce dall\'elenco. I sottoganci con più componenti sono raggruppati: tocca il numero per aprirli. Quando un sottogancio ha tutti i giudizi va in fondo, sotto «Già controllati»; il contatore in basso conta i sottoganci finiti, non i componenti. «💾 Salva» salva a metà e resti dove sei: dopo puoi anche uscire e riprendere da dove eri. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
+          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Un componente segnato «\\» (eliminato) resta così nei controlli dopo fino a fine anno; dall\'anno dopo sparisce dall\'elenco. I sottoganci con più componenti sono raggruppati: tocca il numero per aprirli. Quando un sottogancio ha tutti i giudizi va in fondo, sotto «Già controllati»; il contatore in basso conta i sottoganci finiti, non i componenti. «💾 Salva» salva a metà e resti dove sei: dopo puoi anche uscire e riprendere da dove eri. Se esci senza salvare (freccia indietro o gesto del telefono) l\'app ti chiede prima conferma. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
         </div>
 
         <div class="sg2-lista giro-lista" id="gDaFare">
@@ -458,6 +458,7 @@ window.SG = (function () {
     const f = el.querySelector('#fGiro');
     const riga = (k) => el.querySelector(`.sg2-gi[data-k="${CSS.escape(k)}"]`);
     let corrente = 0;   // indice della voce "a cui sei arrivato" (anche per la scheda singola)
+    let sporco = false; // ci sono modifiche non salvate? (se esci senza salvare l'app chiede conferma)
     const gruppo = (sid) => el.querySelector(`.sg2-grp[data-g="${CSS.escape(sid)}"]`);
     const apri = (sid, si) => { const gr = gruppo(sid); if (!gr?.classList.contains('multi')) return; gr.classList.toggle('aperto', si); gr.querySelector('.sg2-grp-fr').textContent = si ? '▾' : '▸'; };
     // i sottoganci finiti vanno in fondo, sotto «Già controllati»; gli altri restano in ordine sopra
@@ -491,7 +492,7 @@ window.SG = (function () {
       const box = riga(v.key); segnaBottoni(box, cod);
       box.classList.remove('manca'); box.classList.toggle('fatto', !!cod);
       if (box.querySelector('.sg2-altri')) box.querySelector('.sg2-altri').hidden = true;
-      statoGruppo(v.s); aggiorna();
+      statoGruppo(v.s); aggiorna(); sporco = true;
     };
     // dopo il giudizio: se il sottogancio è finito lo chiudo e lo sposto in fondo
     const riordina = (v) => { if (completo(v.s)) { apri(v.s.id, false); } ordina(); };
@@ -547,6 +548,10 @@ window.SG = (function () {
     });
     items.forEach((s) => gruppo(s.id).querySelector('[data-gh]')?.addEventListener('click', () => apri(s.id, !gruppo(s.id).classList.contains('aperto'))));
     items.forEach(statoGruppo); ordina(); corrente = Math.max(0, prossimo(-1)); evidenzia(); aggiorna();
+    sporco = false;
+    App.proteggi(() => sporco && !UT.solaLettura());
+    f.addEventListener('input', (e) => { if (e.target.id !== 'gCerca') sporco = true; });
+    f.addEventListener('change', (e) => { if (e.target.id !== 'gCerca') sporco = true; });
 
     // --- una scheda alla volta ---
     const uno = el.querySelector('#uno');
@@ -615,6 +620,7 @@ window.SG = (function () {
         firmaTecnico: firma, chiuso: finisci ? true : !!(esistente && esistente.chiuso !== false && !mancanti.length)
       });
       try { await UI.salva('giriSottoganci', g); } catch (er) { return; }
+      sporco = false;
       App.ricordaTecnico(g.tecnico);
       if (!finisci) return UI.toast(`✓ Salvato correttamente · ${fatti()}/${items.length} sottoganci fatti`, 'ok');   // resto qui, dove ero
       UI.toast('Controllo finito e salvato', 'ok');
@@ -630,7 +636,7 @@ window.SG = (function () {
     });
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${slotN}° controllo (${slot.nome}) del ${anno}?`)) return;
-      await Backend.remove('giriSottoganci', g.id); location.hash = '#/sottoganci/c/' + cliId;
+      await Backend.remove('giriSottoganci', g.id); sporco = false; location.hash = '#/sottoganci/c/' + cliId;
     });
     return { titolo: `${slotN}° controllo · ${nomeCliente(c)}`, indietro: '#/sottoganci/c/' + cliId + '?anno=' + anno, live: false };
   }
