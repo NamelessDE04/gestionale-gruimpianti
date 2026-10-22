@@ -433,7 +433,7 @@ window.CTR = (function () {
                 ${Array.from({ length: np }, (_, k) => k + 1).map((pi) => `
                   <div class="gi-parte" data-p="${pi}">
                     ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
-                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta">⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(o.testo)}</div>`).join('')}
+                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta" data-l="${esc(o.lettera)}">⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(o.testo)}</div>`).join('')}
                     <div class="gi-row">
                       <div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>
                       ${haValore(v) ? `<label class="valore"><input type="text" ${unitaDi(v) ? 'inputmode="decimal"' : ''} data-val placeholder="valore" aria-label="Valore${unitaDi(v) ? ' in ' + esc(unitaDi(v)) : ''}">${unitaDi(v) ? `<span>${esc(unitaDi(v))}</span>` : ''}</label>${nominale(v, pi) ? `<span class="prima">nom. ${esc(nominale(v, pi))}</span>` : ''}${(() => { const u = ultimoValore(v, pi); return u ? `<span class="prima ult-val">ultimo: <b>${esc(u.val)}${unitaDi(v) ? ' ' + esc(unitaDi(v)) : ''}</b> · ${esc(fmt(u.data))}</span>` : ''; })()}` : ''}
@@ -444,7 +444,7 @@ window.CTR = (function () {
               </div>`).join('')}
           </div>`).join('')}
         <div class="card">
-          <h2>Osservazioni dell'anno</h2>
+          <h2>Osservazioni dell'anno ${info('Con 🗑 togli un\'osservazione del tutto, senza scrivere [OK]: sparisce dalla scheda e la sua lettera viene tolta dalle caselle, anche dei controlli già fatti quest\'anno. Vale quando salvi il controllo. Se invece il problema è stato risolto, scrivi [OK e la data] dalla pagina dell\'impianto con ✏️.')}</h2>
           <div id="ossLista"></div>
           <button type="button" class="btn ghost small" id="btnOssLibera">+ Osservazione non legata a una voce</button>
         </div>
@@ -477,12 +477,19 @@ window.CTR = (function () {
       el.querySelector('#ossLista').innerHTML = osservazioni.length ? osservazioni.map((o) => `
         <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(o.testo)}
           <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ' · [OK ' + fmt(o.risoltaIl) + ']' : ''}</div></div>
-          ${o.visita === n && !o.risoltaIl ? `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}">×</button>` : ''}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
+          ${UT.solaLettura() ? '' : `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}" aria-label="Elimina l'osservazione" title="Elimina l'osservazione">🗑</button>`}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
       el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = () => {
         const o = osservazioni.find((x) => x.lettera === b.dataset.togli);
+        // quelle nate adesso si tolgono e basta; le altre (controlli prima o anno prima) chiedono conferma
+        if (o.visita !== n && !UI.conferma(`Eliminare l'osservazione ${o.lettera}?\n\n«${o.testo}»\n\nSparisce del tutto dalla scheda (anche dai controlli già fatti quest'anno), senza [OK]. Diventa definitivo quando salvi il controllo.`)) return;
         osservazioni.splice(osservazioni.indexOf(o), 1);
-        if (o.vocId && vis.esiti[o.vocId]?.[(o.p || 1) - 1] === o.lettera) { vis.esiti[o.vocId][(o.p || 1) - 1] = ''; mostra(voci.find((x) => x.id === o.vocId), o.p || 1); }
-        disegnaOss();
+        // la lettera sparisce dalle caselle: in questo controllo e in quelli già fatti
+        for (const x of [vis, ...Object.values(sc.visite || {})]) {
+          const es = x?.esiti?.[o.vocId]; if (es && es[(o.p || 1) - 1] === o.lettera) es[(o.p || 1) - 1] = '';
+        }
+        el.querySelectorAll('.oss-aperta').forEach((d) => { if (d.dataset.l === o.lettera) d.remove(); });
+        const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
+        disegnaOss(); UI.toast(`Osservazione ${o.lettera} tolta${o.visita !== n ? ': salva il controllo per confermare' : ''}`, 'ok');
       }));
     };
     const nuovaOss = (v, pi) => UI.modal({
