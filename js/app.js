@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.39';
+  const VERSIONE = '0.42.40';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -27,6 +27,8 @@ window.App = (function () {
     let info = { titolo: '', indietro: null, live: true };
     const y = window.scrollY;
     UT.imposta(S);
+    // interfaccia «Minimal» solo per gli utenti che l'hanno
+    document.body.classList.toggle('tema-minimal', UT.attuale()?.tema === 'minimal');
     // senza accesso si vede solo la schermata di login (o di primo avvio)
     const io = UT.attuale();
     document.body.classList.toggle('master', UT.isMaster());
