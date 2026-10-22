@@ -88,9 +88,20 @@ window.UT = (function () {
       default: return NOMI_COL[col] || col;
     }
   }
+  // ---- dispositivo da cui si lavora: un codice fisso salvato sul dispositivo + che tipo di dispositivo è ----
+  const idDisp = () => { try { let k = localStorage.getItem('gid_disp_id'); if (!k) { k = uid(); localStorage.setItem('gid_disp_id', k); } return k; } catch (e) { return ''; } };
+  function descDisp() {
+    const ua = navigator.userAgent || '';
+    const os = /Android/i.test(ua) ? 'Android' : /iPhone|iPad|iPod/i.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPhone/iPad' : /Windows/i.test(ua) ? 'Windows' : /Mac OS/i.test(ua) ? 'Mac' : /Linux/i.test(ua) ? 'Linux' : 'sistema sconosciuto';
+    const br = /Edg\//.test(ua) ? 'Edge' : /SamsungBrowser/.test(ua) ? 'Samsung Internet' : /OPR\//.test(ua) ? 'Opera' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : 'browser';
+    const tipo = /Mobi|iPhone/i.test(ua) ? 'Telefono' : /iPad|Tablet|Android/i.test(ua) || (os === 'Windows' && navigator.maxTouchPoints > 1) ? 'Tablet' : 'PC';
+    let app = false; try { app = matchMedia('(display-mode: standalone)').matches; } catch (e) {}
+    return `${tipo} ${os} · ${br}${app ? ' · app installata' : ''}`;
+  }
+  const dispOra = () => ({ id: idDisp(), desc: descDisp(), nome: (() => { try { return CONF.nomeDisp(); } catch (e) { return ''; } })(), account: (() => { try { return Backend.account?.() || ''; } catch (e) { return ''; } })() });
   function registra(azione, testo, extra = {}) {
     const u = attuale() || extra.utente;
-    const voce = { id: uid(), t: new Date().toISOString(), uid: u?.id || '', nome: u?.nome || extra.nome || '—', azione, testo, ...(extra.col ? { col: extra.col, docId: extra.docId } : {}) };
+    const voce = { id: uid(), t: new Date().toISOString(), uid: u?.id || '', nome: u?.nome || extra.nome || '—', azione, testo, ...(extra.col ? { col: extra.col, docId: extra.docId } : {}), ...(/^accesso/.test(azione) ? { disp: dispOra() } : {}) };
     try { Backend.append('log', voce, 10000); } catch (e) { /* registro pieno: non blocco il lavoro */ }
   }
 
@@ -439,6 +450,7 @@ window.UT = (function () {
       <section class="cli">
         <div class="sez-head"><h1>Utenti ${info('Developer: fa tutto, anche azzerare e importare i dati, vedere il registro attività e i consumi del cloud. Master: fa tutto il resto e gestisce gli utenti. Tecnico: fa tutto tranne registro e gestione utenti. Risorse Umane: vede anagrafiche, sottoganci e controlli e può stampare, ma non può modificare nulla. Ognuno salva firma e PIN dal proprio profilo.')}</h1>
           <button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo utente</span></button></div>
+        ${isDev() ? `<div class="azioni-lista"><button class="btn ghost small" id="btnAccessi">📱 Accessi e dispositivi</button>${info('Solo per te (Developer). Per ogni persona vedi da quali dispositivi è entrata, con che account Google e quando; i dispositivi nuovi degli ultimi 7 giorni sono segnati 🆕. In fondo i PIN sbagliati, dispositivo per dispositivo. Per i colleghi: aprendo un utente trovi «🔑 Nuovo PIN»: il PIN vecchio non si può leggere (è salvato cifrato), ma ne generi uno nuovo, lo vedi tenendo premuto l\'occhio e lo comunichi.')}</div>` : ''}
         <div class="elenco">
           ${lista.map((u) => `
             <a class="riga cli-riga ${u.attivo === false ? 'dismesso' : ''}" href="javascript:void(0)" data-u="${u.id}">
@@ -450,6 +462,7 @@ window.UT = (function () {
         </div>
       </section>`;
     el.querySelector('#btnNuovo').onclick = () => modaleUtente(null);
+    el.querySelector('#btnAccessi')?.addEventListener('click', accessi);
     el.querySelectorAll('[data-u]').forEach((r) => (r.onclick = () => {
       const u = S.utenti.find((x) => x.id === r.dataset.u);
       if (ruoloDi(u) === 'developer' && !isDev() && u.id !== attuale()?.id) return UI.toast('Il Developer lo può modificare solo un Developer', 'err');
@@ -535,6 +548,75 @@ window.UT = (function () {
       } : null,
       testoElimina: 'Elimina utente'
     });
+    if (u && isDev()) {
+      const body = [...document.querySelectorAll('.modal-ov .modal-body')].pop();
+      if (body) {
+        const b = document.createElement('button'); b.type = 'button'; b.className = 'btn ghost small pin-nuovo'; b.textContent = '🔑 Nuovo PIN (lo vedi e lo comunichi)';
+        b.onclick = () => nuovoPin(u); body.appendChild(b);
+      }
+    }
+  }
+
+  // ---------- Developer: PIN nuovo per un collega che l'ha perso ----------
+  // Il PIN vecchio non si può mostrare: è salvato cifrato (mai in chiaro). Se ne crea uno nuovo,
+  // si vede solo tenendo premuto l'occhio, e si salva cifrato come gli altri.
+  async function nuovoPin(u) {
+    let pin = '';
+    for (let k = 0; k < 30; k++) { const c = String(crypto.getRandomValues(new Uint32Array(1))[0] % 1000000).padStart(6, '0'); if (!/(\d)\1{2}/.test(c) && !(await pinGiaUsato(c, u.id))) { pin = c; break; } }
+    if (!pin) return UI.toast('Riprova', 'err');
+    const ov = document.createElement('div'); ov.className = 'modal-ov';
+    ov.innerHTML = `<div class="modal pin-mod"><div class="modal-head"><h2>🔑 Nuovo PIN per ${esc(u.nome)}</h2></div>
+      <div class="modal-body"><p class="muted small">Il PIN di prima non si può leggere: è salvato cifrato. Questo è un PIN nuovo: tieni premuto l'occhio per vederlo, poi salvalo e comunicalo al collega (meglio a voce). Potrà cambiarlo dal suo profilo.</p>
+        <div class="pin-box"><span data-pin>••••••</span><button type="button" class="pin-occhio" data-occhio aria-label="Tieni premuto per vedere il PIN">👁</button></div>
+        <p class="muted small centro">Tieni premuto 👁 per vederlo · lasci e si nasconde</p></div>
+      <div class="modal-foot"><button type="button" class="btn ghost" data-no>Annulla</button><span class="grow"></span><button type="button" class="btn" data-si>Salva questo PIN</button></div></div>`;
+    const chiudi = () => ov.remove();
+    const vis = ov.querySelector('[data-pin]'), occhio = ov.querySelector('[data-occhio]');
+    const mostra = (e) => { e.preventDefault(); vis.textContent = pin; }, nascondi = () => (vis.textContent = '••••••');
+    occhio.addEventListener('pointerdown', mostra); ['pointerup', 'pointerleave', 'pointercancel', 'blur'].forEach((t) => occhio.addEventListener(t, nascondi));
+    occhio.addEventListener('contextmenu', (e) => e.preventDefault());
+    ov.querySelector('[data-no]').onclick = chiudi;
+    ov.querySelector('[data-si]').onclick = async () => {
+      if (!UI.conferma(`Salvare il PIN nuovo per ${u.nome}? Quello di prima non funzionerà più.`)) return;
+      const d = { ...(S.utenti.find((x) => x.id === u.id) || u) }; d.pinSalt = uid(); d.pinHash = await hash(d.pinSalt, pin); d.pinLen = pin.length;
+      await UI.salva('utenti', d); registra('modifica', `PIN nuovo creato per ${u.nome}`);
+      // chiudo anche la finestra dell'utente: salvandola dopo rimetterebbe il PIN vecchio
+      pin = ''; document.querySelectorAll('.modal-ov').forEach((x) => x.remove()); document.body.classList.remove('modal-aperto');
+      UI.toast('PIN salvato: comunicalo al collega', 'ok');
+    };
+    document.body.appendChild(ov);
+  }
+
+  // ---------- Developer: da quali dispositivi entrano le persone ----------
+  async function accessi() {
+    let log = [];
+    try { log = await Backend.leggiTutti('log'); } catch (e) { return UI.toast('Per leggere gli accessi serve l\'account Google del Master su questo dispositivo', 'err'); }
+    const acc = log.filter((x) => x.azione === 'accesso'), neg = log.filter((x) => x.azione === 'accesso negato');
+    const recente = (t) => t && (Date.now() - new Date(t).getTime()) < 7 * 864e5;
+    const quando = (t) => { if (!t) return '—'; const d = new Date(t); return `${d.toLocaleDateString('it-IT')} ${d.toTimeString().slice(0, 5)}`; };
+    const gruppi = (lista) => {
+      const m = new Map();
+      lista.forEach((x) => { const k = x.disp?.id || '?'; const g = m.get(k) || { disp: x.disp, n: 0, primo: x.t, ultimo: x.t, metodi: new Set() }; g.n++; if (x.t < g.primo) g.primo = x.t; if (x.t > g.ultimo) { g.ultimo = x.t; g.disp = x.disp || g.disp; } g.metodi.add((x.testo || '').replace('Accesso con ', '')); m.set(k, g); });
+      return [...m.values()].sort((a, b) => b.ultimo.localeCompare(a.ultimo));
+    };
+    const rigaDisp = (g) => `<div class="acc-disp ${recente(g.primo) ? 'nuovo' : ''}">
+      <div><b>${g.disp ? esc(g.disp.desc) : 'Dispositivo non registrato'}</b>${recente(g.primo) ? ' <span class="pill st-scadenza">🆕 nuovo</span>' : ''}
+        <small>${g.disp ? [g.disp.nome, g.disp.account && 'account ' + g.disp.account, 'codice ' + (g.disp.id || '').slice(-6).toUpperCase()].filter(Boolean).map(esc).join(' · ') : 'accessi di prima di questa versione'}</small></div>
+      <div class="acc-n"><b>${g.n}</b> ${g.n === 1 ? 'accesso' : 'accessi'}<small>ultimo ${quando(g.ultimo)}<br>primo ${quando(g.primo)}</small></div></div>`;
+    const persone = [...new Set(acc.map((x) => x.uid))].map((id) => ({ id, nome: S.utenti.find((u) => u.id === id)?.nome || acc.find((x) => x.uid === id)?.nome || '—', g: gruppi(acc.filter((x) => x.uid === id)) }))
+      .sort((a, b) => a.nome.localeCompare(b.nome));
+    const ov = document.createElement('div'); ov.className = 'modal-ov';
+    ov.innerHTML = `<div class="modal largo acc-mod"><div class="modal-head"><h2>📱 Accessi e dispositivi</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+      <div class="modal-body">
+        <p class="muted small">Il codice è fisso per ogni dispositivo (cambia solo se si cancellano i dati del browser). Se vedi un dispositivo che non conosci, cambia il PIN di quella persona.</p>
+        ${persone.map((p) => `<h3 class="acc-chi">${esc(p.nome)} <span class="muted small">· ${p.g.length} ${p.g.length === 1 ? 'dispositivo' : 'dispositivi'}</span></h3>${p.g.map(rigaDisp).join('')}`).join('') || '<p class="muted">Nessun accesso registrato.</p>'}
+        ${neg.length ? `<h3 class="acc-chi txt-ko">PIN sbagliati</h3>${gruppi(neg).map(rigaDisp).join('')}` : ''}
+      </div>
+      <div class="modal-foot"><span class="grow"></span><button type="button" class="btn" data-x>Chiudi</button></div></div>`;
+    const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
+    ov.onclick = (e) => { if (e.target === ov) chiudi(); };
+    ov.querySelector('.modal-x').onclick = chiudi; ov.querySelector('[data-x]').onclick = chiudi;
+    document.body.appendChild(ov); document.body.classList.add('modal-aperto');
   }
 
   // ---------- REGISTRO ATTIVITÀ (solo Master, si consulta in PDF) ----------

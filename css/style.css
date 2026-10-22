@@ -1480,3 +1480,17 @@ button.st-v.t-A { border-top-color: var(--navy); } button.st-v.t-S { border-top-
 .st-v.fasc-on.corrente { outline: 3px solid #10243a; outline-offset: 1px; }
 .ctr-inizia.fasc-on, .ctr-inizia.fasc-on.t-A, .ctr-inizia.fasc-on.t-S, .ctr-inizia.fasc-on.t-T { background: var(--fc); color: #10243a; }
 html.tema-tenue .ctr-inizia.fasc-on { color: #10243a; }
+
+/* Developer: PIN nuovo e accessi per dispositivo */
+.pin-nuovo { grid-column: 1 / -1; justify-self: start; margin-top: 4px; }
+.pin-mod .modal-body, .acc-mod .modal-body { display: block; }
+.pin-box { display: flex; align-items: center; justify-content: center; gap: 16px; margin: 14px 0 6px; }
+.pin-box [data-pin] { font-size: 34px; font-weight: 800; letter-spacing: .25em; font-variant-numeric: tabular-nums; min-width: 7ch; text-align: center; }
+.pin-occhio { width: 64px; height: 64px; border-radius: 50%; border: 1.5px solid var(--linea); background: #fff; font-size: 28px; cursor: pointer; user-select: none; -webkit-user-select: none; touch-action: none; }
+.pin-occhio:active { background: var(--grigio-bg); }
+.acc-chi { margin: 16px 0 6px; font-size: 15px; }
+.acc-disp { display: flex; justify-content: space-between; gap: 12px; padding: 9px 11px; border: 1px solid var(--linea); border-radius: 10px; margin-bottom: 6px; background: #fff; }
+.acc-disp.nuovo { border-color: #e0b84b; background: #fffaf0; }
+.acc-disp > div:first-child { min-width: 0; overflow-wrap: anywhere; }
+.acc-disp small { display: block; color: var(--muted); font-size: 12px; margin-top: 2px; }
+.acc-n { text-align: right; flex-shrink: 0; font-size: 13px; }
