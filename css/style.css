@@ -1455,3 +1455,15 @@ button.st-v.t-A { border-top-color: var(--navy); } button.st-v.t-S { border-top-
 .az-tab th .link { font-weight: 800; font-size: 14px; background: none; border: 0; cursor: pointer; color: var(--navy); padding: 4px 6px; }
 .az-tab th .link small { display: block; font-weight: 500; font-size: 11px; color: var(--muted); }
 .az-tab input[type=checkbox] { width: 26px; height: 26px; min-height: 0; accent-color: #d93025; }
+
+/* modifica di un'osservazione toccandola durante il controllo */
+.oss-aperta[data-l], .val-lettera .lettera-on, #ossLista .oss-riga .grow { cursor: pointer; }
+.oss-aperta[data-l]::after { content: ' ✎'; opacity: .6; }
+.oss-mod .modal-body { display: block; }
+.oss-mod .modal-head h2 { display: flex; align-items: center; gap: 10px; }
+.oss-mod label { display: block; margin-bottom: 12px; font-weight: 600; }
+.oss-mod label[hidden] { display: none; }
+.oss-mod .check { display: flex; align-items: center; gap: 10px; }
+.oss-mod textarea { width: 100%; text-transform: uppercase; }
+.oss-mod .modal-foot { flex-wrap: nowrap; } .oss-mod .oss-si { min-width: 120px; }
+.oss-mod .oss-si { margin-left: auto; }

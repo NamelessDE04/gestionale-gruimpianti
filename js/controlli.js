@@ -638,7 +638,7 @@ window.CTR = (function () {
               </div>`).join('')}
           </div>`).join('')}
         <div class="card">
-          <h2>Osservazioni dell'anno ${info('Con 🗑 togli un\'osservazione senza scrivere [OK]. Se è nata in un controllo prima puoi scegliere: «solo da questo controllo in poi» (nei controlli già fatti resta com\'era) oppure «da tutto l\'anno» (sparisce anche dalle caselle dei controlli già fatti). Vale quando salvi il controllo. Se invece il problema è stato risolto, scrivi [OK e la data] dalla pagina dell\'impianto con ✏️.')}</h2>
+          <h2>Osservazioni dell'anno ${info('Tocca un\'osservazione (anche il riquadro rosso sulla voce o la lettera) per correggerla o segnarla [OK]: con «OK» salvi e torni dove eri, con «Indietro» esci senza salvare. Con 🗑 togli un\'osservazione senza scrivere [OK]. Se è nata in un controllo prima puoi scegliere: «solo da questo controllo in poi» (nei controlli già fatti resta com\'era) oppure «da tutto l\'anno» (sparisce anche dalle caselle dei controlli già fatti). Vale quando salvi il controllo. Se invece il problema è stato risolto, scrivi [OK e la data] dalla pagina dell\'impianto con ✏️.')}</h2>
           <div id="ossLista"></div>
           <button type="button" class="btn ghost small" id="btnOssLibera">+ Osservazione non legata a una voce</button>
         </div>
@@ -691,6 +691,54 @@ window.CTR = (function () {
         disegnaOss(); UI.toast(`Osservazione ${o.lettera} tolta${modo === 'dopo' ? ` dal ${n}° controllo in poi` : ''}${o.visita !== n ? ': salva il controllo per confermare' : ''}`, 'ok');
       }));
     };
+    // ---- tocco su un'annotazione (riquadro sulla voce, lettera nella casella o riga dell'elenco): si apre la modifica.
+    // «OK» salva e torni dove eri; «Indietro» (anche il gesto indietro del telefono) chiude senza salvare.
+    const apriOss = (lettera) => {
+      const o = osservazioni.find((x) => x.lettera === lettera); if (!o) return;
+      const y = window.scrollY, dataOk = o.risoltaIl || f.dataScheda.value || oggi();
+      const ov = document.createElement('div'); ov.className = 'modal-ov';
+      ov.innerHTML = `<div class="modal oss-mod"><div class="modal-head"><h2><b class="oss-l">${esc(o.lettera)}</b> Osservazione</h2></div>
+        <div class="modal-body">
+          <p class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}</p>
+          <label>Testo (come compare sulla scheda)<textarea rows="4" data-t>${esc(o.testo)}</textarea></label>
+          <label class="check oss-ok"><input type="checkbox" data-ok ${o.risoltaIl ? 'checked' : ''}> Sistemata: scrivi [OK e la data]</label>
+          <label data-dbox ${o.risoltaIl ? '' : 'hidden'}>Data dell'OK<input type="date" data-d value="${dataOk}"></label>
+        </div>
+        <div class="modal-foot"><button type="button" class="btn ghost" data-no>‹ Indietro</button><span class="grow"></span><button type="button" class="btn big oss-si" data-si>OK</button></div></div>`;
+      const ok = ov.querySelector('[data-ok]'), dbox = ov.querySelector('[data-dbox]');
+      ok.onchange = () => (dbox.hidden = !ok.checked);
+      let aperta = true;
+      const chiudi = (salva) => {
+        if (!aperta) return; aperta = false;
+        if (salva) {
+          const t = ov.querySelector('[data-t]').value.trim().toUpperCase();
+          if (t) o.testo = t;
+          if (ok.checked) {
+            o.risoltaIl = ov.querySelector('[data-d]').value || f.dataScheda.value || oggi();
+            if (o.vocId && vis.esiti[o.vocId]?.[(o.p || 1) - 1] === o.lettera) vis.esiti[o.vocId][(o.p || 1) - 1] = 'R';   // sistemata in questo controllo
+          } else delete o.risoltaIl;
+          el.querySelectorAll(`.oss-aperta[data-l="${CSS.escape(o.lettera)}"]`).forEach((d) => (d.innerHTML = o.risoltaIl ? `✓ <b>${esc(o.lettera)}</b> ${esc(o.testo)} [OK ${fmt(o.risoltaIl)}]` : `⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(o.testo)}`));
+          const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
+          disegnaOss(); sporco = true;
+        }
+        ov.remove(); document.body.classList.remove('modal-aperto');
+        window.removeEventListener('popstate', indietro);
+        if (history.state?.ossAperta) history.back();   // tolgo il passo aggiunto per il gesto indietro
+        window.scrollTo(0, y);   // riparti esattamente da dove eri
+      };
+      const indietro = () => { if (aperta) { history.replaceState(null, ''); chiudi(false); } };
+      ov.querySelector('[data-no]').onclick = () => chiudi(false);
+      ov.querySelector('[data-si]').onclick = () => chiudi(true);
+      document.body.appendChild(ov); document.body.classList.add('modal-aperto');
+      // il gesto indietro del telefono chiude la finestra senza salvare (e non esce dal controllo)
+      history.pushState({ ossAperta: true }, ''); window.addEventListener('popstate', indietro);
+    };
+    f.addEventListener('click', (e) => {
+      const t = e.target.closest('.oss-aperta[data-l], .val-lettera .lettera-on, #ossLista .oss-riga .grow');
+      if (!t) return;
+      const l = t.dataset.l || t.closest('.oss-aperta')?.dataset.l || (t.classList.contains('lettera-on') ? t.textContent.trim() : t.closest('.oss-riga')?.querySelector('[data-togli]')?.dataset.togli || t.closest('.oss-riga')?.querySelector('.oss-l')?.textContent.trim());
+      if (l) apriOss(l);
+    });
     const nuovaOss = (v, pi) => UI.modal({
       titolo: v ? `Anomalia · ${v.testo}${np > 1 ? ' · P' + pi : ''}` : 'Osservazione',
       infoTxt: 'Scrivi il problema come vuoi che compaia sulla scheda (es. «RIVEDERE SALDATURE SU STAFFA SOSTEGNO MOTORE CARRO»).',
