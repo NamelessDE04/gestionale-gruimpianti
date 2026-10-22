@@ -391,7 +391,7 @@ window.CTR = (function () {
   // ---------- AZZERA CONTROLLI (Master): griglia gru × 1°-4° ----------
   function azzeraControlli(S, imp, anno, p) {
     const vis = (i, n) => schedaDi(S, i.id, anno)?.visite?.[n];
-    const corpo = `<p class="muted small">Spunta i controlli da cancellare. Toccando l'intestazione di una colonna selezioni tutto quel controllo.</p>
+    const corpo = `<p class="muted small">Spunta i controlli da cancellare. Toccando l'intestazione di una colonna selezioni tutto quel controllo. Le annotazioni (osservazioni A, B, C…) restano tutte: rifacendo il controllo le ritrovi aperte e tieni solo quelle che servono.</p>
       <div class="az-wrap"><table class="az-tab"><thead><tr><th>Gru</th>${[1, 2, 3, 4].map((n) => `<th><button type="button" class="link" data-col="${n}">${n}°<small>${MESI[meseVisita(p, n) - 1].slice(0, 3)}</small></button></th>`).join('')}</tr></thead>
       <tbody>${imp.map((i) => `<tr><td>${i.numeroInterno ? `<b>${esc(i.numeroInterno)}</b> ` : ''}${esc(IMP.titolo(i))}</td>${[1, 2, 3, 4].map((n) => `<td>${vis(i, n) ? `<input type="checkbox" data-az="${i.id}|${n}" aria-label="${n}° controllo">` : '<span class="muted">–</span>'}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
     const { ov, chiudi } = finestra(`Azzera controlli ${anno}`, corpo, '<button type="button" class="btn ghost" data-chiudi>Annulla</button><span class="grow"></span><button type="button" class="btn ghost danger" data-vai disabled>🧹 Azzera (0)</button>', 'az-modal');
@@ -404,11 +404,12 @@ window.CTR = (function () {
     }));
     ov.querySelector('[data-vai]').onclick = async () => {
       const lista = sel().map((c) => c.dataset.az.split('|'));
-      if (!UI.conferma(`Azzerare ${lista.length} controlli?\n\nSi cancellano giudizi, valori, firme e le osservazioni nate in quei controlli. Non si torna indietro.`)) return;
+      if (!UI.conferma(`Azzerare ${lista.length} controlli?\n\nSi cancellano giudizi, valori e firme. Le annotazioni restano: rifacendo il controllo le ritrovi aperte. Non si torna indietro.`)) return;
       const per = {}; lista.forEach(([id, n]) => (per[id] = [...(per[id] || []), +n]));
       for (const [id, ns] of Object.entries(per)) {
         const sc = JSON.parse(JSON.stringify(schedaDi(S, id, anno)));
-        ns.forEach((n) => { delete sc.visite[n]; sc.osservazioni = (sc.osservazioni || []).filter((o) => o.visita !== n); sc.osservazioni.forEach((o) => { if (o.tolta === n) delete o.tolta; }); });
+        // le annotazioni restano tutte (anche quelle nate in questi controlli); torna visibile quella «tolta» da qui
+        ns.forEach((n) => { delete sc.visite[n]; (sc.osservazioni || []).forEach((o) => { if (o.tolta === n) delete o.tolta; }); });
         if (!Object.keys(sc.visite).length && !sc.noteInterne && !sc.osservazioni.length) await Backend.remove('schedeControllo', sc.id); else await UI.salva('schedeControllo', sc);
       }
       UT.registra('modifica', `Azzerati ${lista.length} controlli ${anno} (${Object.keys(per).length} gru)`);
@@ -583,7 +584,7 @@ window.CTR = (function () {
     };
     const voci = sc.voci.filter((v) => periodi.includes(v.per));
     const osservazioni = sc.osservazioni;
-    const aperte = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && !tolta(o, n) && o.visita < n);
+    const aperte = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && !tolta(o, n) && (o.visita < n || (o.visita === n && !prima)));
     // valori iniziali: per le anomalie ancora aperte riporto la lettera
     leggiVisita(vis, voci);
     voci.forEach((v) => {
@@ -607,7 +608,7 @@ window.CTR = (function () {
     const fila = impiantiSede(S, i.sedeId), pos = fila.findIndex((x) => x.id === i.id);
     const prossimoImp = [...fila.slice(pos + 1), ...fila.slice(0, pos)].find((x) => !x.dismesso && !fatta(schedaDi(S, x.id, anno)?.visite?.[n])) || null;
     // annotazione di fuori servizio provvisorio ancora aperta (nata in un controllo prima di questo)
-    const fsAperta = osservazioni.find((o) => !o.risoltaIl && !tolta(o, n) && /FUORI SERVIZIO PROVVISORIO/.test(o.testo) && o.visita < n) || null;
+    const fsAperta = osservazioni.find((o) => !o.risoltaIl && !tolta(o, n) && /FUORI SERVIZIO PROVVISORIO/.test(o.testo) && (o.visita < n || (o.visita === n && !prima))) || null;
     const prossimaLettera = () => { const usate = osservazioni.map((o) => o.lettera); let k = 0; let l; do { l = k < 26 ? String.fromCharCode(65 + k) : 'A' + String.fromCharCode(65 + k - 26); k++; } while (usate.includes(l)); return l; };
 
     el.innerHTML = `
