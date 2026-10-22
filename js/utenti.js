@@ -496,20 +496,20 @@ window.UT = (function () {
     document.body.appendChild(ov); ov.querySelector('[data-ok]').onclick = () => ov.remove();
   }
 
-  const TEMI = ['Classica', 'Minimal'];
+  const TEMI = ['Classica', 'Tenue (colori leggeri)'];
   function modaleUtente(u) {
     const io = attuale();
     UI.modal({
       titolo: u ? 'Utente ' + u.nome : 'Nuovo utente',
       infoTxt: u ? 'Lascia vuoto il PIN per non cambiarlo.' : 'Scegli un PIN iniziale e comunicalo al collega: potrà cambiarlo dal suo profilo.',
-      valori: u ? { ...u, ruolo: RUOLI[ruoloDi(u)], attivo: u.attivo !== false, tema: u.tema === 'minimal' ? TEMI[1] : TEMI[0] } : { ruolo: RUOLI.tecnico, attivo: true, tema: TEMI[0] },
+      valori: u ? { ...u, ruolo: RUOLI[ruoloDi(u)], attivo: u.attivo !== false, tema: ['tenue', 'minimal'].includes(u.tema) ? TEMI[1] : TEMI[0] } : { ruolo: RUOLI.tecnico, attivo: true, tema: TEMI[0] },
       campi: [
         { k: 'nome', label: 'Nome e cognome', req: true, mezza: true },
         { k: 'nomeBreve', label: 'Sigla per il rapportino', mezza: true, placeholder: 'es. VL', aiuto: 'Compare solo sul rapportino stampato (PDF). Nell\'app si usa sempre il nome.' },
         { k: 'ruolo', label: 'Livello di accesso', tipo: 'select', opzioni: Object.entries(RUOLI).filter(([k]) => k !== 'developer' || isDev() || ruoloDi(u) === 'developer').map(([, v]) => v), mezza: true },
         { k: 'pin', label: u ? 'Nuovo PIN (4-6 cifre)' : 'PIN (4-6 cifre)', tipo: 'password', mezza: true },
         { k: 'google', label: Backend.mode === 'cloud' ? 'Account Google' : 'Account Google (per quando sarà online)', tipo: 'email', mezza: true, placeholder: 'nome@gmail.com', aiuto: Backend.mode === 'cloud' ? 'Senza account Google la persona entra solo col PIN su un dispositivo già collegato' : '' },
-        { k: 'tema', label: 'Interfaccia', tipo: 'select', opzioni: TEMI, mezza: true, aiuto: '«Minimal»: più sobria, con meno colori. Vale solo per questo utente, su tutti i dispositivi.' },
+        { k: 'tema', label: 'Interfaccia', tipo: 'select', opzioni: TEMI, mezza: true, aiuto: '«Tenue»: tutti i colori molto più leggeri (per chi è sensibile alla luce), le sigle dei giudizi restano accese; nel controllo sottoganci la pagina resta ferma passando da un componente all\'altro. Vale solo per questo utente, su tutti i dispositivi.' },
         ...(u ? [{ k: 'attivo', label: 'Utente attivo (se lo togli non può più entrare)', tipo: 'sino' }] : [])
       ],
       onSalva: async (v) => {
@@ -522,7 +522,7 @@ window.UT = (function () {
         if (v.google && S.utenti.some((x) => x.id !== u?.id && (x.google || '').toLowerCase() === v.google.toLowerCase())) { UI.toast('Account Google già associato a un altro utente', 'err'); return false; }
         const d = u ? { ...u } : { id: uid(), firma: null };
         Object.assign(d, { nome: v.nome, nomeBreve: v.nomeBreve || '', ruolo, google: (v.google || '').toLowerCase(), attivo: u ? v.attivo : true });
-        if (v.tema === TEMI[1]) d.tema = 'minimal'; else delete d.tema;
+        if (v.tema === TEMI[1]) d.tema = 'tenue'; else delete d.tema;
         if (v.pin) { d.pinSalt = uid(); d.pinHash = await hash(d.pinSalt, v.pin); d.pinLen = v.pin.length; }
         await UI.salva('utenti', d); UI.toast('Utente salvato', 'ok');
         sincronizzaRuoli(S.utenti.filter((x) => x.id !== d.id).concat(d));

@@ -1,0 +1,54 @@
+/* ===== Interfaccia «Tenue» =====
+   Per chi è sensibile alla luce: tutta l'app uguale a sempre, ma con colori molto più tenui.
+   Le sigle dei giudizi (B, D, DE, E, X, R, P, L, S, FS, NC…) invece restano di colore acceso.
+   Vale solo per gli utenti che l'hanno (Gestione utenti → Interfaccia): sull'<html> c'è la classe tema-tenue. */
+html.tema-tenue body {
+  --navy: #5d7186; --navy-2: #71849a; --giallo: #eedb9a; --arancio: #ecc6a2;
+  --bg: #f6f7f9; --card: #ffffff; --linea: #e6e9ed; --testo: #36424f; --muted: #8b95a1;
+  --ok: #86c3a0; --ok-bg: #f0f7f3; --warn: #b39448; --warn-bg: #fbf7ec; --ko: #d99a93; --ko-bg: #fbf1f0;
+  --info: #8aa3c4; --info-bg: #f1f4f9; --grigio-bg: #f0f2f4;
+  --ombra: 0 1px 2px rgba(20, 40, 70, .04), 0 3px 10px rgba(20, 40, 70, .04);
+}
+/* colori scritti direttamente nei riquadri (barra, nastro, home, fascette, magnetini, disegni): ammorbiditi */
+html.tema-tenue .topbar, html.tema-tenue .tape, html.tema-tenue .tile, html.tema-tenue .foot, html.tema-tenue .avatar, html.tema-tenue .utente-chip,
+html.tema-tenue .ctr-inizia, html.tema-tenue .sg2-inizia, html.tema-tenue .sg2-fasce, html.tema-tenue .striscia, html.tema-tenue .sg2-dati,
+html.tema-tenue .vis-testa, html.tema-tenue .mag-sede, html.tema-tenue .sez-paranco,
+html.tema-tenue .cartella-ico, html.tema-tenue .imp-ico, html.tema-tenue .giro-head, html.tema-tenue .avviso,
+html.tema-tenue .prom, html.tema-tenue img, html.tema-tenue .riga svg, html.tema-tenue .vm, html.tema-tenue .sg2-piede .bar {
+  filter: saturate(.4) brightness(1.04);
+}
+html.tema-tenue .topbar { background: #6a7d91; }
+html.tema-tenue .tape { opacity: .55; }
+html.tema-tenue .tile.attiva { border-color: #eadfb8; }
+html.tema-tenue .tile.attiva .tile-ill { background: linear-gradient(160deg, #fdfaf0, #f6efd8); }
+html.tema-tenue .sg2-gi.ora { box-shadow: inset 5px 0 0 #e9c79a; }
+html.tema-tenue input:focus, html.tema-tenue select:focus, html.tema-tenue textarea:focus { outline: 3px solid rgba(238, 219, 154, .5); border-color: #e3cf86; }
+html.tema-tenue .oss-aperta { background: #fbf3f2; }
+html.tema-tenue .notina, html.tema-tenue .sg2-gi .notina { color: #9a8350; }
+
+/* sigle dei giudizi: colori accesi (anche sui tasti non ancora scelti) */
+html.tema-tenue .cod-btn { font-weight: 900; }
+html.tema-tenue .cod-btn.c-b { color: #00a83e; } html.tema-tenue .cod-btn.c-d { color: #d19200; } html.tema-tenue .cod-btn.c-e { color: #f01818; }
+html.tema-tenue .cod-btn.c-s { color: #0a66ff; } html.tema-tenue .cod-btn.c-x { color: #7c3aed; } html.tema-tenue .cod-btn.c-cv { color: #0a66ff; }
+html.tema-tenue .cod-btn.on.c-b, html.tema-tenue .cod-btn.on.c-cv { background: #00c24a; border-color: #00c24a; color: #fff; }
+html.tema-tenue .cod-btn.on.c-d { background: #ffc400; border-color: #ffc400; color: #3a2a00; }
+html.tema-tenue .cod-btn.on.c-e { background: #ff1f1f; border-color: #ff1f1f; color: #fff; }
+html.tema-tenue .cod-btn.on.c-s { background: #0a66ff; border-color: #0a66ff; color: #fff; }
+html.tema-tenue .cod-btn.on.c-x { background: #7c3aed; border-color: #7c3aed; color: #fff; }
+html.tema-tenue .cod-btn.altro.on { color: #fff; }
+html.tema-tenue em.c-b { background: #00c24a; color: #fff; } html.tema-tenue em.c-d { background: #ffc400; color: #3a2a00; }
+html.tema-tenue em.c-e { background: #ff1f1f; color: #fff; } html.tema-tenue em.c-s { background: #0a66ff; color: #fff; } html.tema-tenue em.c-x { background: #7c3aed; color: #fff; }
+html.tema-tenue .lettera-on, html.tema-tenue .oss-l { background: #ff1f1f; color: #fff; }
+html.tema-tenue .u-st em.c-b, html.tema-tenue .u-st em.c-d, html.tema-tenue .u-st em.c-e, html.tema-tenue .u-st em.c-s, html.tema-tenue .u-st em.c-x { color: #fff; }
+html.tema-tenue .u-st em.c-d { color: #3a2a00; }
+
+/* bottoni e avvisi: tenui ma leggibili (testo scuro sui colori chiari) */
+html.tema-tenue .btn.big { background: #a9d3b9; border-color: #a9d3b9; color: #1f3a2b; }
+html.tema-tenue .btn.big small { color: #2f4d3b; }
+html.tema-tenue .btn.ghost { color: #4d5f72; }
+html.tema-tenue .btn.ghost.big, html.tema-tenue .sg2-piede .btn.ghost { background: #fff; border-color: #a9d3b9; color: #2f5a42; }
+html.tema-tenue .tile-badge { background: #f6dcd8; color: #7a2e26; box-shadow: none; }
+html.tema-tenue .btn.danger { border-color: #e3b1ab; color: #a5473d; }
+html.tema-tenue #toast { background: #5d7186; color: #fff; }
+html.tema-tenue #toast.ok { background: #cfe8d8; color: #1f3a2b; } html.tema-tenue #toast.err { background: #f6dcd8; color: #7a2e26; }
+html.tema-tenue .st-ok { color: #3f7d5a; } html.tema-tenue .st-scadenza { color: #86692a; } html.tema-tenue .st-scaduto, html.tema-tenue .st-fuori { color: #9a4a42; }

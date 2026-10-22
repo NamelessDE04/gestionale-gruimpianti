@@ -525,6 +525,14 @@ window.SG = (function () {
       corrente = j >= 0 ? j : i; evidenzia();
       if (modoGiro === 'uno') return disegnaUno();
       if (j < 0 || y0 === undefined) return;
+      // interfaccia «Tenue»: dentro lo stesso sottogancio la pagina resta ferma (scende solo la riga evidenziata);
+      // si sposta solo se il componente dopo è fuori dallo schermo
+      if (document.documentElement.classList.contains('tema-tenue') && voci[j].s === voci[i].s) {
+        const r = riga(voci[j].key).getBoundingClientRect();
+        if (r.bottom > innerHeight - 90) window.scrollBy(0, r.bottom - (innerHeight - 90));
+        else if (r.top < 120) window.scrollBy(0, r.top - 120);
+        return;
+      }
       // il prossimo da fare prende esattamente il posto di quello appena giudicato (nessuna animazione):
       // un sottogancio singolo finito sparisce in fondo e quello sotto sale da solo al suo posto
       const d = riga(voci[j].key).getBoundingClientRect().top - y0;
