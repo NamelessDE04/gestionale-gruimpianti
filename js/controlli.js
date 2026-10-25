@@ -290,7 +290,7 @@ window.CTR = (function () {
         <div class="card vis-testa t-${t}">
           <div class="grow"><b>${n}° controllo ${anno} · ${nomeTipo(t)}</b> <span>${MESI[meseVisita(p, n) - 1]}</span>
             <div class="vis-imp">${esc(nomeSede(c, s))}</div></div>
-          ${info('Qui ci sono solo le gru di questo controllo. Cerca per numero interno, nome, tipo o matricola e tocca la gru per compilarla. Quando torni indietro o passi alla gru dopo, quello che hai fatto si salva da solo: se mancano voci la gru resta qui sopra «⏸ in corso». Con «Salva» nella gru la chiudi e va in fondo, tra quelle già controllate.')}
+          ${info('Qui ci sono solo le gru di questo controllo. Cerca per numero interno, nome, tipo o matricola e tocca la gru per compilarla. Quando torni indietro o passi alla gru dopo, quello che hai fatto si salva da solo: se mancano voci la gru resta qui sopra «⏸ in corso». Con «✓ Concludi controllo» nella gru la chiudi e va in fondo, tra quelle già controllate.')}
         </div>
         <div class="sg2-barra"><input type="search" id="gCercaGru" class="cerca" placeholder="🔍 Cerca n° interno o nome" autocomplete="off" value="${esc(cercaGiro.q)}"></div>
         <div class="elenco" id="gruDaFare">${daFare.map(riga).join('') || '<p class="sg2-finito">✓ Tutte le gru di questo controllo sono fatte</p>'}</div>
@@ -704,8 +704,7 @@ window.CTR = (function () {
           <p class="muted small">Salva il controllo con le voci vuote (restano solo le lettere delle osservazioni ancora aperte) e su «NOTE GENERALI» l'annotazione «FUORI SERVIZIO PROVVISORIO».</p>
         </div>`}
         <div class="azioni-form sticky vis-salva">
-          <button class="btn ghost big" type="submit" data-dopo="sede">Salva</button>
-          ${prossimoImp ? `<button class="btn big" type="submit" data-dopo="prossimo">Salva e prossimo ›<small>N° ${esc(prossimoImp.numeroInterno || '')} ${esc(IMP.titolo(prossimoImp))}</small></button>` : ''}
+          <button class="btn big" type="submit" data-dopo="sede">✓ Concludi controllo<small>Non serve salvare: tornando indietro si salva da solo</small></button>
         </div>
       </form>`;
 
@@ -891,7 +890,7 @@ window.CTR = (function () {
       voci.forEach((v) => { if (!noteGen(v)) for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) manc.push(box(v.id, pi)); });
       if (manc.length) {
         manc.forEach((b) => b.classList.add('manca')); manc[0].scrollIntoView({ behavior: 'smooth', block: 'center' });
-        if (!UI.conferma(`${manc.length} voci non eseguite. Nell'app resteranno segnate come non eseguite; sulla scheda del cliente compariranno con la X. Salvare?`)) return;
+        if (!UI.conferma(`${manc.length} voci non eseguite. Nell'app resteranno segnate come non eseguite; sulla scheda del cliente compariranno con la X. Concludere il controllo?`)) return;
       }
       const t = leggiTecnici();
       if (!t.tecnici.length) return UI.toast('Scegli almeno un tecnico', 'err');
@@ -904,12 +903,12 @@ window.CTR = (function () {
       sc.visite[n] = vis; sc.osservazioni = osservazioni; sc.noteInterne = f.noteInterne.value.trim();
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
       sporco = false;
-      App.ricordaTecnico(vis.tecnico); UI.toast('Controllo salvato', 'ok');
+      App.ricordaTecnico(vis.tecnico); UI.toast('✓ Controllo concluso e salvato', 'ok');
       // aperto dal layout: si torna alla pianta (anche con «Salva e prossimo» si resta nel giro del layout)
       location.hash = (e.submitter?.dataset.dopo === 'prossimo' && prossimoImp) ? `#/controlli/i/${prossimoImp.id}/${anno}/${n}${torna ? '?torna=' + encodeURIComponent(torna) : ''}` : torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
     };
     // ---- salvataggio automatico: se esci (freccia, gesto indietro, altra gru) quello che hai fatto si salva da solo.
-    // Se mancano voci il controllo resta «⏸ in corso» e la gru resta tra quelle da fare; lo chiudi tu con «Salva».
+    // Se mancano voci il controllo resta «⏸ in corso» e la gru resta tra quelle da fare; lo chiudi tu con «Concludi controllo».
     let sporco = false;
     f.addEventListener('input', () => (sporco = true)); f.addEventListener('change', () => (sporco = true));
     f.addEventListener('click', (e) => { if (e.target.closest('.cod-btn, [data-togli], [data-anom], .chip-t')) sporco = true; });

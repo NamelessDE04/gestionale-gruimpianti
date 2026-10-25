@@ -1104,7 +1104,7 @@ function buildReport() {
           <span class="vh">Mezzo</span>
         </div>
       </header>
-      <div class="rp-grid" style="grid-template-rows:auto repeat(${weeks},minmax(0,1fr))">${cells}</div>
+      <div class="rp-grid" style="grid-template-rows:max-content repeat(${weeks},auto)">${cells}</div>
     </section>
     <section class="rp-page rp-reg">
       <header class="rp-head"><div class="rp-title"><img class="rp-logo" src="logo.png" alt=""><div><h1>Registro attività · ${MESI[m]} ${y}</h1><p>Stampato il ${gen}</p></div></div></header>
@@ -1122,10 +1122,23 @@ function buildReport() {
 /* PDF del mese già in A4 orizzontale: la pagina viene "fotografata" e messa in un PDF
    (così non dipende da come il browser imposta la stampa: verticale, margini, scala…) */
 const MMPX = 96 / 25.4;
+/* il mese deve stare tutto nel foglio: se le caselle piene allungano le righe e le ultime settimane
+   escono dal foglio, rimpicciolisco il testo un poco alla volta finché ci sta (sotto i 4pt non scendo) */
+function fitLavagna(root) {
+  root.querySelectorAll('.rp-cal .rp-grid').forEach(g => {
+    let pt = 6.5;
+    g.style.setProperty('--rpf', pt + 'pt');
+    const fuori = () => g.scrollHeight > g.clientHeight + 1;
+    while (fuori() && pt > 4) { pt = Math.round((pt - .25) * 100) / 100; g.style.setProperty('--rpf', pt + 'pt'); }
+    // se ancora non ci sta, tolgo gli spazi tra le righe
+    if (fuori()) g.classList.add('stretta');
+  });
+}
 function impagina(box) {
   box.innerHTML = $('#printArea').innerHTML;
   const pagine = [...box.querySelectorAll('.rp-page')];
   pagine.forEach(p => p.classList.add('pdf'));
+  fitLavagna(box);
   alignArrows(box, '.rp-cell', '.rp-cont');
   // il registro può essere lungo: lo divido in più fogli orizzontali senza tagliare le righe
   const reg = box.querySelector('.rp-reg');
@@ -1176,6 +1189,7 @@ async function exportPdf() {
   const pa = $('#printArea');
   await Promise.all([...pa.querySelectorAll('img')].map(i => (i.decode ? i.decode() : Promise.resolve()).catch(() => {})));
   pa.style.cssText = 'display:block;position:absolute;left:-10000px;top:0';
+  fitLavagna(pa);
   alignArrows(pa, '.rp-cell', '.rp-cont');
   pa.style.cssText = '';
   if (!document.getElementById('pageLandscape')) {

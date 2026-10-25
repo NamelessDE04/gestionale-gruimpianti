@@ -1525,3 +1525,8 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
 .memo-riga .btn { flex-shrink: 0; }
 .memo-riga.fatto { opacity: .6; }
 .memo-rap #btnMemo { margin-top: 6px; }
+/* fascette selezionabili (sottoganci e attrezzi): si sceglie quale controllo fare */
+.sg2-fasce > button { font-family: inherit; cursor: pointer; line-height: 1.2; }
+.sg2-fasce > .in-corso { border-style: dashed; }
+.sg2-fasce > .scelta { outline: 3px solid var(--c); outline-offset: 2px; color: var(--testo, #10243a); background: color-mix(in srgb, var(--c) 14%, #fff); }
+.ap-pallini i.mezzo { background: linear-gradient(90deg, var(--c) 50%, transparent 50%); }

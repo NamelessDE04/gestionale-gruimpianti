@@ -144,7 +144,7 @@ window.APR = (function () {
           return `<a class="sg2-riga ${a.dismesso ? 'dismesso' : ''}" href="#/approfonditi/${tipo}/a/${a.id}">
             <span class="n">${esc(a.nInterno || '–')}</span>
             <span class="d">${esc(a.tipoDesc || T.uno)}<small>${[a.casa, a.portata, a.nFabbrica && 'n° ' + a.nFabbrica].filter(Boolean).map(esc).join(' · ')}${ult?.fuoriServizio ? ' · <b class="txt-ko">FUORI SERVIZIO</b>' : ''}</small></span>
-            <span class="ap-pallini">${SLOT.map((s, i) => `<i style="--c:${s.col}" class="${ct[i] ? 'on' : ''}" title="${s.nome}"></i>`).join('')}</span></a>`; }).join('')}</div>`).join('')
+            <span class="ap-pallini">${SLOT.map((s, i) => `<i style="--c:${s.col}" class="${ct[i] ? (ct[i].inCorso ? 'mezzo' : 'on') : ''}" title="${s.nome}${ct[i]?.inCorso ? ' · in corso' : ''}"></i>`).join('')}</span></a>`; }).join('')}</div>`).join('')
         || `<p class="nessuno">${tutti.length ? 'Nessun risultato.' : `Nessun${tipo === 'pinza' ? 'a pinza o gancio a C' : ' magnete'} in elenco. Aggiungi il primo con «${T.nuovo}».`}</p>`;
     } else {
       const tutti = S.schedeApprofondite.filter((d) => d.tipo === tipo);
@@ -174,11 +174,15 @@ window.APR = (function () {
   }
 
   // ================= ATTREZZO (pinza / magnete) =================
+  const sceltoSlotA = {};   // attrezzo|anno -> fascetta scelta a mano
   function schedaAttrezzo(el, S, tipo, id, query) {
     const T = TIPI[tipo], a = S.attrezzi.find((x) => x.id === id);
     if (!a) { el.innerHTML = '<p class="nessuno">Attrezzo non trovato.</p>'; return { titolo: T.titolo, indietro: '#/approfonditi/' + tipo }; }
     if (query.get('anno')) annoScelto = +query.get('anno');
-    const anno = annoScelto, ct = controlliAnno(S, id, anno), prossimo = SLOT.find((s, i) => !ct[i]);
+    const anno = annoScelto, ct = controlliAnno(S, id, anno), scelta = sceltoSlotA[id + '|' + anno];
+    // la fascetta da fare: quella toccata in alto, altrimenti la prossima non finita
+    const prossimo = scelta ? SLOT[scelta - 1] : SLOT.find((s, i) => !ct[i] || ct[i].inCorso);
+    const pk = prossimo && ct[prossimo.n - 1], inCorso = pk && pk.inCorso, giaFatta = pk && !pk.inCorso;
     const c = cliDi(S, a.sedeId), comp = componenti(a), base = `#/approfonditi/${tipo}/a/${id}`;
     const oss = ct.filter(Boolean).flatMap((k) => [
       ...(k.righe || []).filter((r) => r.c === 'N').map((r) => `<li><b>${r.n}</b> ${esc(r.oss || '')} <small class="muted">${dataBreve(k.data)}</small></li>`),
@@ -189,15 +193,16 @@ window.APR = (function () {
         <div class="card sg2-testa">
           <div class="grow"><h1>${esc(a.tipoDesc || T.uno)} ${a.nInterno ? `<span class="loc">n° ${esc(a.nInterno)}</span>` : ''}</h1>
             <p class="muted small">${esc(nomeCli(c))}${a.casa ? ' · ' + esc(a.casa) : ''}${a.portata ? ' · ' + esc(a.portata) : ''}
-            ${info('Il pulsante grande avvia il prossimo controllo dell\'anno (una fascetta per controllo). Tocca una fascetta già fatta per correggerla. Nel menu ⋯ trovi la stampa del foglio e la modifica dei dati dell\'attrezzo.')}</p></div>
+            ${info('Tocca una delle 4 fascette per scegliere quale controllo fare (anche solo il 4°, senza aver fatto gli altri): il pulsante grande avvia quello scelto. Se è già fatto, serve a correggerlo. Nel menu ⋯ trovi la stampa del foglio e la modifica dei dati dell\'attrezzo.')}</p></div>
           <div class="anno anno-mini"><a href="${base}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="${base}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
             UT.puoInviare() && { t: `🖨️ Foglio ${anno} per il cliente`, href: `${base}/stampa/${anno}` },
             !UT.solaLettura() && { t: '✏️ Modifica dati attrezzo', href: `${base}/modifica` }
           ])}
         </div>
-        <div class="sg2-fasce">${SLOT.map((s, i) => ct[i] ? `<a class="fatta" style="--c:${s.col}" href="${base}/controllo/${anno}/${s.n}">✓ ${s.nome} ${dataBreve(ct[i].data)}</a>` : `<span style="--c:${s.col}">${s.nome}</span>`).join('')}</div>
-        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="${base}/controllo/${anno}/${prossimo.n}">▶ Inizia controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}</small></a>`
+        <div class="sg2-fasce">${SLOT.map((s, i) => { const k = ct[i], sel = prossimo && prossimo.n === s.n;
+          return `<button type="button" class="${k ? 'fatta' : ''} ${k && k.inCorso ? 'in-corso' : ''} ${sel ? 'scelta' : ''}" style="--c:${s.col}" data-sceglif="${s.n}">${k ? (k.inCorso ? '⏸ ' : '✓ ') : ''}${s.nome}${k && !k.inCorso ? ' ' + dataBreve(k.data) : ''}</button>`; }).join('')}</div>
+        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="${base}/controllo/${anno}/${prossimo.n}">▶ ${giaFatta ? 'Rivedi o correggi' : inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${giaFatta ? ' · già fatto il ' + dataBreve(pk.data) : inCorso ? ' · in corso' : ''}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
         <div class="sg2-tit">Componenti · giudizi ${anno}</div>
         <div class="sg2-lista">${comp.map((cp, i) => `
@@ -206,6 +211,7 @@ window.APR = (function () {
         ${oss.length ? `<div class="sg2-tit">Osservazioni ${anno}</div><div class="card"><ul class="ap-oss">${oss.join('')}</ul></div>` : ''}
         ${tipo === 'pinza' && a.accessori ? `<div class="sg2-tit">Accessori</div><div class="card"><p class="ap-pre">${esc(a.accessori)}</p></div>` : ''}
       </section>`;
+    el.querySelectorAll('[data-sceglif]').forEach((b) => (b.onclick = () => { sceltoSlotA[id + '|' + anno] = +b.dataset.sceglif; App.ridisegna(); }));
     return { titolo: `${T.uno.charAt(0).toUpperCase() + T.uno.slice(1)} · ${c ? c.nome : ''}`, indietro: '#/approfonditi/' + tipo, live: true };
   }
 
@@ -287,7 +293,7 @@ window.APR = (function () {
           ${UT.campoTecnici((g.tecnici || []).map((t) => t.id), g.firmaDi)}
         </details>
         <p class="muted small ap-sotto">${esc(a.tipoDesc || T.uno)}${a.nInterno ? ' n° ' + esc(a.nInterno) : ''} · ${esc(nomeCli(cliDi(S, a.sedeId)))}
-          ${info('Per ogni componente tocca il giudizio: X = esame visivo-funzionale, nc = non controllato, \\ = non presente, / = non eseguito. «N° oss.» apre un\'osservazione numerata (il numero va sul foglio). Sotto, R/S se hai ripristinato, sostituito, pulito o lubrificato. Quello che lasci vuoto, al salvataggio, diventa «nc»' + (tipo === 'magnete' ? ' (i controlli annuali diventano «/»)' : '') + '.')}</p>
+          ${info('Per ogni componente tocca il giudizio: X = esame visivo-funzionale, nc = non controllato, \\ = non presente, / = non eseguito. «N° oss.» apre un\'osservazione numerata (il numero va sul foglio). Sotto, R/S se hai ripristinato, sostituito, pulito o lubrificato. Non serve salvare: se esci (freccia o gesto indietro) quello che hai fatto si salva da solo e il controllo resta «in corso». Con «✓ Concludi controllo» quello che hai lasciato vuoto diventa «nc»' + (tipo === 'magnete' ? ' (i controlli annuali diventano «/»)' : '') + '.')}</p>
         <div class="sg2-lista">${comp.map((cp, i) => `
           <div class="sg2-gi ap-gi" data-i="${i}">
             <div class="h"><span class="d">${esc(cp.t)}${tipo === 'magnete' ? `<small>${cp.sc === 'A' ? 'annuale' : 'trimestrale'}</small>` : ''}</span></div>
@@ -301,7 +307,7 @@ window.APR = (function () {
           <div class="azioni-form"><a class="link" href="${base}">📂 Torna all'attrezzo</a><span class="grow"></span>
             ${esistente && !UT.solaLettura() ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}</div>
         </div>
-        <div class="sg2-piede"><b><span id="nFatti">0</span>/${comp.length}</b><div class="bar"><i id="gBar"></i></div><button class="btn big" type="submit">Salva</button></div>
+        <div class="sg2-piede"><b><span id="nFatti">0</span>/${comp.length}</b><div class="bar"><i id="gBar"></i></div><button class="btn big" type="submit">✓ Concludi controllo</button></div>
       </form>`;
     const f = el.querySelector('#fC');
     const agg = () => { el.querySelector('#nFatti').textContent = fatti(); el.querySelector('#gBar').style.width = (fatti() / comp.length * 100) + '%'; };
@@ -337,13 +343,33 @@ window.APR = (function () {
       if (!firma && !UI.conferma(`${t.firmatario} non ha ancora salvato la firma nel profilo: sul foglio non comparirà. Salvare lo stesso?`)) return;
       Object.assign(g, { data: f.data.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, firmaTecnico: firma,
         note: f.note.value.trim().toUpperCase(), fuoriServizio: f.fs.checked, sedeId: a.sedeId, clienteId: a.clienteId });
+      delete g.inCorso;
       try { await UI.salva('controlliAttrezzi', g); } catch (er) { return; }
-      UI.toast(vuoti ? `Controllo salvato · ${vuoti} ${vuoti === 1 ? 'voce vuota segnata' : 'voci vuote segnate'} nc` : 'Controllo salvato', 'ok');
+      sporco = false;
+      UI.toast(vuoti ? `✓ Controllo concluso · ${vuoti} ${vuoti === 1 ? 'voce vuota segnata' : 'voci vuote segnate'} nc` : '✓ Controllo concluso e salvato', 'ok');
       location.hash = base + '?anno=' + anno;
     };
+    // salvataggio automatico quando esci: il controllo resta «⏸ in corso» finché non lo concludi
+    let sporco = false;
+    f.addEventListener('input', () => (sporco = true)); f.addEventListener('change', () => (sporco = true));
+    f.addEventListener('click', (e) => { if (e.target.closest('[data-c], [data-rs]')) sporco = true; });
+    App.allUscita(() => {
+      if (!sporco || UT.solaLettura()) return true;
+      const t = leggiTecnici(); if (!t.tecnici.length) return false;
+      const d = JSON.parse(JSON.stringify(g));
+      d.righe = d.righe.slice(0, comp.length);
+      Object.assign(d, { data: f.data.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi,
+        firmaTecnico: t.firmaDi === g.firmaDi && g.firmaTecnico && esistente ? g.firmaTecnico : t.firma,
+        note: f.note.value.trim().toUpperCase(), fuoriServizio: f.fs.checked, sedeId: a.sedeId, clienteId: a.clienteId });
+      // un controllo già concluso resta concluso (si corregge e basta); uno nuovo resta in corso
+      if (!esistente || esistente.inCorso) d.inCorso = true;
+      UI.salva('controlliAttrezzi', d).then(() => UI.toast(d.inCorso ? `💾 Salvato da solo · in corso (${fatti()}/${comp.length})` : '💾 Salvato da solo', 'ok')).catch(() => {});
+      sporco = false; return true;
+    });
+    App.proteggi(() => sporco && !UT.solaLettura());
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${slotN}° controllo (${slot.nome}) del ${anno}?`)) return;
-      await Backend.remove('controlliAttrezzi', g.id); location.hash = base;
+      sporco = false; await Backend.remove('controlliAttrezzi', g.id); location.hash = base;
     });
     return { titolo: `${slotN}° controllo · ${a.tipoDesc || T.uno}`, indietro: base + '?anno=' + anno, live: false };
   }

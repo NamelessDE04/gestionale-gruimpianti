@@ -645,3 +645,19 @@ body.dragging .panel.drawer{outline:2px dashed #c3cedc;outline-offset:-6px}
 .rp-page.pdf .rp-head h1 small{font-size:9pt;color:#6a7381;font-weight:600}
 .x-cli{font-weight:800;color:var(--pen-red)}
 .test-banner{background:#ede4ff;color:#4b2a8f;font-weight:700}
+
+/* ============================================================
+   STAMPA LAVAGNA: il mese sta sempre in un foglio.
+   Le righe delle settimane sono alte quanto serve (non più uguali e tagliate);
+   se il contenuto non ci sta, fitLavagna() rimpicciolisce tutto il testo un po' alla volta.
+   ============================================================ */
+.rp-grid{--rpf:6.5pt;font-size:var(--rpf);overflow:hidden;align-content:stretch}
+.rp-grid .rp-cell{font-size:1em;overflow:visible;padding:.12em .15em}
+.rp-grid .rp-dow{font-size:1.08em}
+.rp-grid .rp-num{font-size:1.2em;margin-bottom:0;line-height:1.1}
+.rp-grid .rp-mag{font-size:.97em}
+.rp-grid .rp-who{font-size:.9em}
+.rp-grid .rp-cont .lbl,.rp-grid .rp-mnote{font-size:.93em}
+.rp-grid .rp-cell .ast{font-size:.85em}
+.rp-grid .rp-note{overflow-wrap:anywhere}
+.rp-grid.stretta .rp-cell{line-height:1.05}.rp-grid.stretta .rp-mag,.rp-grid.stretta .rp-note{margin:0}

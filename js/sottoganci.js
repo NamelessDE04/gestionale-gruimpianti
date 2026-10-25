@@ -139,6 +139,7 @@ window.SG = (function () {
 
   // ---------- CARTELLA DEL CLIENTE ----------
   const filtroTesto = {};
+  const sceltoSlot = {};   // cartella|anno -> fascetta scelta a mano (1-4), vale finché l'app resta aperta
   function cartella(el, S, cliId, query) {
     const c = cliente(S, cliId);
     if (!c) { el.innerHTML = '<p class="nessuno">Cliente non trovato.</p>'; return { titolo: 'Sottoganci', indietro: '#/sottoganci' }; }
@@ -146,8 +147,11 @@ window.SG = (function () {
     const anno = annoScelto;
     const sl = slotGiri(S, cliId, anno);
     const aperto = (g) => g && g.chiuso === false;   // controllo salvato ma non ancora finito
-    const prossimo = SLOT.find((s, i) => !sl[i] || aperto(sl[i]));
+    // la fascetta da fare: quella scelta toccandola in alto, altrimenti la prossima non fatta
+    const scelta = sceltoSlot[cliId + '|' + anno];
+    const prossimo = scelta ? SLOT[scelta - 1] : SLOT.find((s, i) => !sl[i] || aperto(sl[i]));
     const inCorso = prossimo && aperto(sl[prossimo.n - 1]) ? sl[prossimo.n - 1] : null;
+    const giaFatta = prossimo && sl[prossimo.n - 1] && !inCorso;
     const tutti = elenco(S, cliId, anno);
     const t = (filtroTesto[cliId] || '').toLowerCase();
     const items = trovaInCartella(tutti, t);
@@ -159,7 +163,7 @@ window.SG = (function () {
           <div class="grow">
             <h1><a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)}</a> ${UI.magnete(c.sede)}</h1>
             <p class="muted small">${esc(c.localita || '')} · ${nAtt} sottoganci · <span class="pill st-${st.k}">${esc(st.label)}</span>
-              ${UI.info('Il pulsante grande avvia il prossimo controllo dell\'anno (una fascetta per controllo). Tocca una fascetta già fatta per correggerla. Tocca un sottogancio per modificarlo. «＋ Aggiungi sottogancio» per inserirne uno nuovo. Nel menu ⋯ trovi l\'elenco da stampare, l\'invio al cliente e il titolo dell\'elenco.')}</p>
+              ${UI.info('Tocca una delle 4 fascette per scegliere quale controllo fare (anche solo il 4°, senza aver fatto gli altri): il pulsante grande avvia quello scelto. Se la fascetta è già fatta, il pulsante serve a correggerla. Tocca un sottogancio per modificarlo. «＋ Aggiungi sottogancio» per inserirne uno nuovo. Nel menu ⋯ trovi l\'elenco da stampare, l\'invio al cliente e il titolo dell\'elenco.')}</p>
           </div>
           <div class="anno anno-mini"><a href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
@@ -170,11 +174,10 @@ window.SG = (function () {
           ])}
         </div>
         <div class="sg2-fasce">
-          ${SLOT.map((s, i) => { const ok = sl[i];
-            return ok ? `<a class="fatta ${aperto(ok) ? 'in-corso' : ''}" style="--c:${s.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${s.n}">${aperto(ok) ? '⏸' : '✓'} ${s.nome}${aperto(ok) ? '' : ' ' + dataBreve(ok.data).replace(/\/\d+$/, '')}</a>`
-              : `<span style="--c:${s.col}">${s.nome}</span>`; }).join('')}
+          ${SLOT.map((s, i) => { const ok = sl[i], sel = prossimo && prossimo.n === s.n;
+            return `<button type="button" class="${ok ? 'fatta' : ''} ${ok && aperto(ok) ? 'in-corso' : ''} ${sel ? 'scelta' : ''}" style="--c:${s.col}" data-sceglif="${s.n}">${ok ? (aperto(ok) ? '⏸' : '✓') + ' ' : ''}${s.nome}${ok && !aperto(ok) ? ' ' + dataBreve(ok.data).replace(/\/\d+$/, '') : ''}</button>`; }).join('')}
         </div>
-        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ ${inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${inCorso ? ` · ${Object.values(inCorso.righe).reduce((n, r) => n + r.codici.filter(Boolean).length, 0)} giudizi già dati` : ''}</small></a>`
+        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ ${giaFatta ? 'Rivedi o correggi' : inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${inCorso ? ` · ${Object.values(inCorso.righe).reduce((n, r) => n + r.codici.filter(Boolean).length, 0)} giudizi già dati` : giaFatta ? ' · già fatto il ' + dataBreve(sl[prossimo.n - 1].data) : ''}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
         ${!UT.solaLettura() ? `<a class="btn ghost sg2-nuovo" href="#/sottoganci/c/${cliId}/nuovo">＋ Aggiungi sottogancio</a>` : ''}
         ${tutti.length > 5 ? `<input type="search" id="fTesto" class="cerca" placeholder="🔍 Cerca n°, nome o n° certificato" value="${esc(filtroTesto[cliId] || '')}">` : ''}
@@ -192,6 +195,7 @@ window.SG = (function () {
       </section>`;
 
     el.querySelector('#btnEliminaCart')?.addEventListener('click', () => eliminaCartella(S, cliId));
+    el.querySelectorAll('[data-sceglif]').forEach((b) => (b.onclick = () => { sceltoSlot[cliId + '|' + anno] = +b.dataset.sceglif; App.ridisegna(); }));
     const ft = el.querySelector('#fTesto');
     if (ft) ft.oninput = () => {
       filtroTesto[cliId] = ft.value; const pos = ft.selectionStart;
@@ -411,7 +415,7 @@ window.SG = (function () {
         <div class="sg2-barra">
           <input type="search" id="gCerca" class="cerca" placeholder="🔍 Cerca n° o nome" autocomplete="off">
           <button type="button" class="btn ghost small" id="btnModo">${modoGiro === 'elenco' ? '▢ Una alla volta' : '☰ Elenco'}</button>
-          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Un componente segnato «\\» (eliminato) resta così nei controlli dopo fino a fine anno; dall\'anno dopo sparisce dall\'elenco. I sottoganci con più componenti sono raggruppati: tocca il numero per aprirli. Quando un sottogancio ha tutti i giudizi va in fondo, sotto «Già controllati»; il contatore in basso conta i sottoganci finiti, non i componenti. «💾 Salva» salva a metà e resti dove sei: dopo puoi anche uscire e riprendere da dove eri. Se esci senza salvare (freccia indietro o gesto del telefono) l\'app ti chiede prima conferma. «✓ Finisci» chiude il controllo: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
+          ${UI.info('Tocca il giudizio di ogni sottogancio: la pagina passa da sola al prossimo. «altro» apre gli altri giudizi (S, SU, \\, NC), la matita ✎ le note. Con tanti accessori scrivi il numero nella ricerca: dopo il giudizio la ricerca si svuota e puoi scrivere subito il numero successivo. Con «Una alla volta» vedi un sottogancio per volta a tutto schermo. Un componente segnato «\\» (eliminato) resta così nei controlli dopo fino a fine anno; dall\'anno dopo sparisce dall\'elenco. I sottoganci con più componenti sono raggruppati: tocca il numero per aprirli. Quando un sottogancio ha tutti i giudizi va in fondo, sotto «Già controllati»; il contatore in basso conta i sottoganci finiti, non i componenti. Non serve salvare: quando esci (freccia indietro o gesto del telefono) quello che hai fatto si salva da solo e il controllo resta «in corso», poi riprendi da dove eri. «✓ Concludi controllo» lo chiude: quelli lasciati senza giudizio diventano NC (non controllati). «↺ Azzera e ricomincia» (in fondo) cancella tutti i giudizi.')}
         </div>
 
         <div class="sg2-lista giro-lista" id="gDaFare">
@@ -450,8 +454,7 @@ window.SG = (function () {
 
         <div class="sg2-piede">
           <b><span id="nFatti">0</span>/${items.length}</b><div class="bar"><i id="gBar"></i></div>
-          <button class="btn ghost big" type="button" id="btnSalvaG">💾 Salva</button>
-          <button class="btn big" type="submit">✓ Finisci</button>
+          <button class="btn big" type="submit">✓ Concludi controllo</button>
         </div>
       </form>`;
 
@@ -630,12 +633,23 @@ window.SG = (function () {
       try { await UI.salva('giriSottoganci', g); } catch (er) { return; }
       sporco = false;
       App.ricordaTecnico(g.tecnico);
-      if (!finisci) return UI.toast(`✓ Salvato correttamente · ${fatti()}/${items.length} sottoganci fatti`, 'ok');   // resto qui, dove ero
+      if (!finisci) return UI.toast(`💾 Salvato da solo · ${fatti()}/${items.length} sottoganci fatti`, 'ok');
       UI.toast('Controllo finito e salvato', 'ok');
       location.hash = '#/sottoganci/c/' + cliId + '?anno=' + anno;
     }
     f.onsubmit = (e) => { e.preventDefault(); salvaGiro(true); };
-    el.querySelector('#btnSalvaG').onclick = () => salvaGiro(false);
+    // salvataggio automatico: uscendo (freccia, gesto indietro, altra pagina) quello che hai fatto si salva da solo, «in corso»
+    App.allUscita(() => {
+      if (!sporco || UT.solaLettura()) return true;
+      const t = leggiTecnici(); if (!t.tecnici.length) return false;   // senza tecnico non posso salvare: l'app chiede conferma
+      const mancanti = voci.filter((v) => !g.righe[v.s.id].codici[v.pi]).length;
+      voci.forEach((v) => (g.righe[v.s.id].note[v.pi] = (g.righe[v.s.id].note[v.pi] || '').trim()));
+      const firma = t.firmaDi === g.firmaDi && g.firmaTecnico && esistente ? g.firmaTecnico : t.firma;
+      const d = JSON.parse(JSON.stringify(Object.assign(g, { data: f.data.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi, noteGenerali: f.noteGenerali.value.trim(),
+        firmaTecnico: firma, chiuso: !!(esistente && esistente.chiuso !== false && !mancanti) })));
+      UI.salva('giriSottoganci', d).then(() => UI.toast(`💾 Salvato da solo · ${fatti()}/${items.length} sottoganci fatti${d.chiuso ? '' : ' (in corso)'}`, 'ok')).catch(() => {});
+      sporco = false; return true;
+    });
     el.querySelector('#btnAzzera')?.addEventListener('click', async () => {
       if (!UI.conferma('Azzerare il controllo?\n\nTutti i giudizi dati verranno cancellati e si riparte da capo.')) return;
       voci.forEach((v) => { g.righe[v.s.id].codici[v.pi] = v.elim ? '\\' : ''; g.righe[v.s.id].note[v.pi] = precedente?.righe[v.s.id]?.note?.[v.pi] || ''; });

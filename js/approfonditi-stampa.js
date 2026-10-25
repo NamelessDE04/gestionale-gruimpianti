@@ -71,7 +71,7 @@ window.APS = (function () {
 
   function foglioAttrezzo(S, a, anno) {
     const g = G[a.tipo], cli = SG.cliente(S, a.sedeId);
-    const ctrl = APR.controlliAnno(S, a.id, anno);   // [slot1..slot4] (o null)
+    const ctrl = APR.controlliAnno(S, a.id, anno).map((k) => (k && !k.inCorso ? k : null));   // [slot1..slot4] (o null); quelli «in corso» non vanno sul foglio
     const comp = APR.componenti(a);
     let h = LOGO(g.logo);
     if (cli) {
