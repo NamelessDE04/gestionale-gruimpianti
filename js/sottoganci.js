@@ -79,12 +79,15 @@ window.SG = (function () {
     return giriDi(S, cliId).sort((a, b) => b.data.localeCompare(a.data))[0] || null;
   }
   // stato della cartella: quando va fatto il prossimo controllo (ogni 3 mesi)
+  const MESI_SG = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
   function statoCartella(S, cliId) {
     const u = ultimoGiro(S, cliId);
     if (!u) return { k: 'mai', label: 'Mai controllato' };
-    const prossimo = addMesi(u.data, 3), d = giorniDa(prossimo);
-    if (d < 0) return { k: 'scaduto', label: `Controllo scaduto da ${-d} gg`, prossimo };
-    if (d <= 15) return { k: 'scadenza', label: `Controllo tra ${d} gg`, prossimo };
+    // scade a fine mese: es. ultimo controllo a luglio → va fatto entro il 31 ottobre, in ritardo solo dal 1° novembre
+    const tre = addMesi(u.data, 3), [y, m] = tre.split('-').map(Number);
+    const prossimo = UI.iso(new Date(y, m, 0)), d = giorniDa(prossimo), mese = MESI_SG[m - 1];
+    if (d < 0) return { k: 'scaduto', label: `In ritardo (da fare a ${mese})`, prossimo };
+    if (oggi().slice(0, 7) === prossimo.slice(0, 7)) return { k: 'scadenza', label: `Da fare entro ${mese}`, prossimo };
     return { k: 'ok', label: 'In regola', prossimo };
   }
   const daEliminare = (S, cliId) => {

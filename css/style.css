@@ -1530,3 +1530,7 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
 .sg2-fasce > .in-corso { border-style: dashed; }
 .sg2-fasce > .scelta { outline: 3px solid var(--c); outline-offset: 2px; color: var(--testo, #10243a); background: color-mix(in srgb, var(--c) 14%, #fff); }
 .ap-pallini i.mezzo { background: linear-gradient(90deg, var(--c) 50%, transparent 50%); }
+/* cartelle: il testo non deve mai allargare la casella oltre lo schermo */
+.cartella { min-width: 0; max-width: 100%; }
+.cartella-txt { min-width: 0; }
+.cartella-st .pill { white-space: normal; max-width: 100%; }
