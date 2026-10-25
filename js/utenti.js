@@ -124,7 +124,7 @@ window.UT = (function () {
       case 'attrezzi': return `${d.tipo === 'magnete' ? 'Magnete' : 'Pinza / gancio a C'} ${d.nInterno ? 'n° ' + d.nInterno + ' ' : ''}– ${sede(d.sedeId)}`;
       case 'controlliAttrezzi': { const a = S.attrezzi?.find((x) => x.id === d.attrezzoId); return `Controllo ${d.slot}° ${d.anno} ${a ? (a.tipoDesc || '') + (a.nInterno ? ' n° ' + a.nInterno : '') : ''} – ${sede(d.sedeId)}`; }
       case 'schedeApprofondite': return `${({ fune: 'Scheda fune e carrucole', bozzello: 'Scheda controllo gancio', indagine: 'Indagine approfondita' })[d.tipo] || 'Controllo approfondito'} ${d.data || ''} – ${sede(d.sedeId)}`;
-      case 'impostazioni': return d.id === 'modelliScheda' ? 'Modelli di scheda' : d.id === 'modificheCablaggio' ? 'Valori del configuratore cablaggio' : d.id === 'tipologieGru' ? 'Tipologie di gru' : 'Impostazioni';
+      case 'impostazioni': return d.id === 'modelliScheda' ? 'Modelli di scheda' : d.id === 'modificheCablaggio' ? 'Valori del configuratore cablaggio' : d.id === 'modelliImpianto' ? 'Tipi di impianto' : d.id === 'tipologieGru' ? 'Tipologie di gru' : 'Impostazioni';
       default: return NOMI_COL[col] || col;
     }
   }

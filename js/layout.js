@@ -21,15 +21,16 @@ window.LAY = (function () {
     }
     return L;
   }
-  const eBandiera = (i) => /bandiera/i.test(i?.tipologia || '');
+  const tipoIco = (i) => (i && window.MIMP ? MIMP.di(App.dati(), i).icona : '');
+  const eBandiera = (i) => tipoIco(i) === 'bandiera' || /bandiera/i.test(i?.tipologia || '');
   // famiglie di impianti per il filtro e per il simbolo nel layout
   const FAMIGLIE = { carroponte: 'Carriponte', bandiera: 'Gru a bandiera', pinza: 'Pinze', seghetto: 'Seghetti' };
-  const famiglia = (i) => { const t = i?.tipologia || ''; return /bandiera/i.test(t) ? 'bandiera' : /pinz/i.test(t) ? 'pinza' : /seghett/i.test(t) ? 'seghetto' : 'carroponte'; };
+  const famiglia = (i) => { const t = i?.tipologia || '', k = tipoIco(i); if (k === 'bandiera' || k === 'seghetto') return k; return /bandiera/i.test(t) ? 'bandiera' : /pinz/i.test(t) ? 'pinza' : /seghett/i.test(t) ? 'seghetto' : 'carroponte'; };
   // nel layout il simbolo si può cambiare a mano (p.fam), altrimenti segue la tipologia
   const famigliaIn = (L, i) => (L.impianti.find((p) => p.impId === i.id)?.fam) || famiglia(i);
   const SCALE = [1, 0.8, 0.65, 0.5];   // grandezza dei simboli (bandiera, pinza, seghetto)
   const filtroLay = {};               // filtro scelto per sede (solo su questo dispositivo)
-  const sigla = (i) => i.numeroInterno || (eBandiera(i) ? 'GB' : 'CP');
+  const sigla = (i) => i.numeroInterno || (eBandiera(i) ? 'GB' : famiglia(i) === 'seghetto' ? 'SG' : 'CP');
   const RIDIM = ['capannone', 'zona', 'uffici', 'corsia', 'corridoio'];
 
   // cose che si possono aggiungere

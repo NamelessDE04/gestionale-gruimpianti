@@ -12,7 +12,7 @@ window.IMP = (function () {
   const marche = (S) => [...new Set(S.impianti.map((i) => i.marca).filter(Boolean))].sort();
 
   const kg = (n) => { n = +n; if (!n) return ''; return n >= 1000 ? (n / 1000).toLocaleString('it-IT') + ' t' : n + ' kg'; };
-  const portate = (i) => (i.paranchi || []).map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—';
+  const portate = (i, S) => (S && !MIMP.di(S, i).gru ? '' : (i.paranchi || []).map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—');
   // ordine delle gru di una sede. Con «per campata» un numero interno tipo 3/11 o 1-50 (gru/campata)
   // si ordina per il secondo numero e poi per il primo: 1/1, 2/1, 3/1, 1/2, 2/2…
   const chiaveNum = (i, modo) => {
@@ -32,9 +32,7 @@ window.IMP = (function () {
   const titoloImp = (i) => [i.tipologia, i.marca].filter(Boolean).join(' ') || 'Impianto';
 
   // piccola icona in base al tipo (bandiera o carroponte)
-  const icona = (t = '') => /bandiera/i.test(t)
-    ? `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M10 36V5" stroke="#16324f" stroke-width="4"/><path d="M10 8h24" stroke="#f2b705" stroke-width="5"/><path d="M26 10v10" stroke="#16324f" stroke-width="2"/><path d="M26 20c0 4-4 4-4 1" fill="none" stroke="#16324f" stroke-width="2.5"/><path d="M5 36h12" stroke="#16324f" stroke-width="4"/></svg>`
-    : `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M6 36V8M34 36V8" stroke="#16324f" stroke-width="4"/><path d="M3 9h34" stroke="#f2b705" stroke-width="5"/><rect x="16" y="12" width="8" height="5" fill="#16324f"/><path d="M20 17v9c0 4-4 4-4 1" fill="none" stroke="#16324f" stroke-width="2.5"/></svg>`;
+  const icona = (x) => MIMP.icona(window.App && App.dati ? App.dati() : null, typeof x === 'string' ? { tipologia: x } : x);
 
   // ---------- 1. ELENCO CLIENTI (con quanti impianti hanno) ----------
   let cerca = '';
@@ -47,7 +45,8 @@ window.IMP = (function () {
     el.innerHTML = `
       <section class="cli">
         <div class="sez-head">
-          <h1>Anagrafica impianti ${info('Gli impianti sono divisi per cliente. Tocca un cliente per vedere i suoi impianti e aggiungerne di nuovi. Puoi cercare anche per matricola, numero di serie o numero interno.')}</h1>
+          <h1>Anagrafica impianti ${info('Gli impianti sono divisi per cliente. Tocca un cliente per vedere i suoi impianti e aggiungerne di nuovi. Puoi cercare anche per matricola, numero di serie o numero interno.' + (UT.isMaster() ? ' Con «⚙ Tipi di impianto» decidi quali voci ha la scheda di ogni tipo (gru a ponte, bandiera, seghetto…) e ne crei di nuovi.' : ''))}</h1>
+          ${UT.isMaster() && !UT.solaLettura() ? '<a class="btn ghost small" href="#/impianti/modelli">⚙ Tipi di impianto</a>' : ''}
         </div>
         <input type="search" id="fCerca" class="cerca" placeholder="Cerca cliente, matricola, n° di serie, n° interno…" value="${esc(cerca)}">
         <div class="elenco">
@@ -89,12 +88,12 @@ window.IMP = (function () {
           <div class="elenco">
             ${g.lista.map((i) => `
               <a class="riga imp-riga ${statoImp(i) === 'fsd' ? 'dismesso' : ''}" href="#/impianti/i/${i.id}">
-                <span class="imp-ico">${icona(i.tipologia)}</span>
+                <span class="imp-ico">${icona(i)}</span>
                 <div class="riga-main">
                   <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}<b>${esc(titoloImp(i))}</b></div>
                   <div class="muted small">${[i.matricola && 'Matr. ' + esc(i.matricola), i.annoCostruzione && 'Anno ' + esc(i.annoCostruzione)].filter(Boolean).join(' · ')}${pillStato(i)}</div>
                 </div>
-                <div class="riga-dx"><b class="portata">${portate(i)}</b></div>
+                <div class="riga-dx"><b class="portata">${portate(i, S)}</b></div>
               </a>`).join('') || `<p class="muted vuoto-sede">Nessun impianto in questa sede. ${g.s ? `<a class="link" href="#/impianti/nuovo?cliente=${c.id}&sede=${g.s.id}">Aggiungi</a>` : ''}</p>`}
           </div>`).join('') || '<p class="nessuno">Nessun impianto. Aggiungi il primo con «+ Nuovo impianto».</p>'}
         ${(c.sedi || []).length ? '' : `<p class="nessuno">Questo cliente non ha sedi: <a class="link" href="#/clienti/${c.id}">aggiungile in anagrafica</a>.</p>`}
@@ -109,10 +108,13 @@ window.IMP = (function () {
     const orig = id ? S.impianti.find((x) => x.id === id) : null;
     if (id && !orig) { el.innerHTML = '<p class="nessuno">Impianto non trovato.</p>'; return { titolo: 'Impianto', indietro: '#/impianti' }; }
     const i = orig ? JSON.parse(JSON.stringify(orig)) : {
-      id: uid(), clienteId: query.get('cliente') || '', sedeId: query.get('sede') || '', tipologia: '', marca: '',
+      id: uid(), clienteId: query.get('cliente') || '', sedeId: query.get('sede') || '', tipologia: '', marca: '', modello: query.get('tipo') || 'ponte',
       paranchi: [{ ruolo: 'Primario', portata: '' }], annoCostruzione: '', matricola: '', numeroSerie: '', numeroInterno: ''
     };
     const clientiOrd = [...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b)));
+    const MODELLI = MIMP.tutti(S);
+    i.modello = MIMP.di(S, i).id;
+    const M = () => MODELLI.find((m) => m.id === i.modello) || MODELLI[0];
     el.innerHTML = `
       <form class="sg form card" id="fImp" novalidate>
         <h1>${id ? 'Modifica impianto' : 'Nuovo impianto'}</h1>
@@ -121,17 +123,21 @@ window.IMP = (function () {
             ${clientiOrd.map((c) => `<option value="${c.id}" ${c.id === i.clienteId ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
           <label>Sede *<select name="sedeId"></select></label>
         </div>
+        <div class="lab-blocco">Tipo di impianto ${info('Il tipo decide le voci della scheda: una gru a ponte ha sollevamento, carrello e ponte; una bandiera ha braccio e rotazione al posto del ponte; un seghetto ha i dati della macchina e del taglio.' + (UT.isMaster() ? ' I tipi e le loro voci si cambiano in Anagrafica impianti › «⚙ Tipi di impianto».' : ''))}</div>
+        <div class="mimp-scelta">${MODELLI.map((m) => `<button type="button" class="mimp-ico ${m.id === i.modello ? 'on' : ''}" data-modello="${m.id}">${MIMP.ICONE[m.icona] || MIMP.ICONE.generico}<span>${esc(m.nome)}</span></button>`).join('')}</div>
         <div class="due">
-          <label><span class="lab-riga">Tipologia di gru
-              <button type="button" class="link" id="btnTipi">modifica elenco</button></span>
+          <label><span class="lab-riga">Tipologia
+              ${UT.isMaster() ? '<button type="button" class="link" id="btnTipi">modifica elenco</button>' : ''}</span>
             <select name="tipologia"></select></label>
           <label>Marca<input name="marca" list="listaMarche" value="${esc(i.marca)}">
             <datalist id="listaMarche">${marche(S).map((m) => `<option value="${esc(m)}">`).join('')}</datalist></label>
         </div>
 
+        <div id="bloccoGru">
         <h2 class="sez-form">Portata ${info('Se la gru ha più paranchi (es. doppio paranco) tocca «+ Aggiungi paranco»: il primo è il primario, il secondo il secondario. Scrivi la portata in kg (es. 10000 per 10 t).')}</h2>
         <div id="paranchi"></div>
         <button type="button" class="btn ghost small" id="btnParanco">+ Aggiungi paranco</button>
+        </div>
 
         <h2 class="sez-form">Identificazione e misure</h2>
         <div class="due">
@@ -142,7 +148,7 @@ window.IMP = (function () {
           <label>Numero interno<input name="numeroInterno" value="${esc(i.numeroInterno)}" placeholder="numero usato dal cliente"></label>
           <label>Anno di costruzione<input name="annoCostruzione" type="number" inputmode="numeric" min="1900" max="2100" value="${esc(i.annoCostruzione)}"></label>
         </div>
-        <div class="due">
+        <div class="due" id="bloccoScart">
           <label>Scartamento (luce) <span class="unita">(mm)</span><input name="scartamento" type="number" inputmode="numeric" value="${esc(i.scartamento || '')}" placeholder="distanza tra le vie di corsa"></label>
           <span></span>
         </div>
@@ -154,7 +160,7 @@ window.IMP = (function () {
             <option value="fsd" ${statoImp(i) === 'fsd' ? 'selected' : ''}>Fuori servizio definitivo</option></select></label>
           <label>Dal<input type="date" name="fsDal" value="${esc(i.fsDal || '')}"></label>
         </div>
-        <p class="muted small">Sollevamento, carrello, ponte, impianto elettrico e documenti si compilano dalle tab della scheda, dopo il salvataggio.</p>
+        <p class="muted small">Le altre voci (<span id="altreVoci"></span>) e i documenti si compilano dalle tab della scheda, dopo il salvataggio.</p>
 
         <div class="azioni-form">
           ${id ? '<button type="button" class="btn danger ghost" id="btnElimina">Elimina</button>' : ''}
@@ -175,25 +181,36 @@ window.IMP = (function () {
     f.clienteId.onchange = sedi; sedi();
     // tipologia (elenco modificabile)
     const disegnaTipi = () => {
-      const voci = tipologie(S).slice();
+      const voci = M().tipologie.slice();
       if (i.tipologia && !voci.includes(i.tipologia)) voci.push(i.tipologia);
       f.tipologia.innerHTML = '<option value="">— scegli —</option>' + voci.map((t) => `<option ${t === i.tipologia ? 'selected' : ''}>${esc(t)}</option>`).join('');
     };
     disegnaTipi();
     f.tipologia.onchange = () => (i.tipologia = f.tipologia.value);
-    el.querySelector('#btnTipi').onclick = () => UI.modal({
-      titolo: 'Tipologie di gru',
+    // tipo di impianto: cambia le tipologie e le parti del form
+    const mostraTipo = () => {
+      const m = M();
+      el.querySelector('#bloccoGru').hidden = !m.gru; el.querySelector('#bloccoScart').hidden = !m.scartamento;
+      el.querySelector('#altreVoci').textContent = [m.gru && 'sollevamento, carrello', m.ponte && 'ponte', ...m.sezioni.map((x) => x.titolo.toLowerCase()), m.elettrico && 'impianto elettrico'].filter(Boolean).join(', ') || 'nessuna';
+    };
+    mostraTipo();
+    el.querySelectorAll('[data-modello]').forEach((b) => (b.onclick = () => {
+      i.modello = b.dataset.modello; el.querySelectorAll('[data-modello]').forEach((x) => x.classList.toggle('on', x === b));
+      if (!M().tipologie.includes(i.tipologia)) i.tipologia = '';
+      disegnaTipi(); mostraTipo();
+    }));
+    el.querySelector('#btnTipi')?.addEventListener('click', () => UI.modal({
+      titolo: 'Tipologie · ' + M().nome,
       infoTxt: 'Scrivi una tipologia per riga. Puoi aggiungere, togliere o rinominare le voci. Gli impianti già salvati mantengono la loro tipologia.',
-      valori: { voci: tipologie(S).join('\n') },
+      valori: { voci: M().tipologie.join('\n') },
       campi: [{ k: 'voci', label: 'Voci del menu', tipo: 'textarea' }],
       onSalva: async (v) => {
         const voci = [...new Set(v.voci.split('\n').map((x) => x.trim()).filter(Boolean))];
         if (!voci.length) { UI.toast('Serve almeno una voce', 'err'); return false; }
-        await UI.salva('impostazioni', { id: 'tipologieGru', voci });
-        S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'tipologieGru'), { id: 'tipologieGru', voci }];
-        disegnaTipi(); UI.toast('Elenco aggiornato', 'ok');
+        await MIMP.salvaTipologie(S, i.modello, voci);
+        M().tipologie = voci; disegnaTipi(); UI.toast('Elenco aggiornato', 'ok');
       }
-    });
+    }));
     // paranchi
     const box = el.querySelector('#paranchi');
     const leggi = () => box.querySelectorAll('.paranco').forEach((r, n) => (i.paranchi[n].portata = r.querySelector('input').value));
@@ -217,7 +234,7 @@ window.IMP = (function () {
       if (!f.clienteId.value) return UI.toast('Scegli il cliente', 'err');
       if (!f.sedeId.value) return UI.toast('Scegli la sede', 'err');
       Object.assign(i, {
-        clienteId: f.clienteId.value, sedeId: f.sedeId.value, tipologia: f.tipologia.value, marca: f.marca.value.trim(),
+        clienteId: f.clienteId.value, sedeId: f.sedeId.value, modello: i.modello, tipologia: f.tipologia.value, marca: f.marca.value.trim(),
         // tengo tutti i dati del paranco (fune, motori, carrello…), aggiorno solo nome e portata
         paranchi: i.paranchi.map((p, n) => ({ ...p, ruolo: RUOLI[n] || 'Paranco ' + (n + 1), portata: p.portata ? +p.portata : '' })),
         scartamento: f.scartamento.value,
@@ -230,7 +247,8 @@ window.IMP = (function () {
       const dop = S.impianti.find((x) => x.id !== i.id && x.matricola && i.matricola && x.matricola.toLowerCase() === i.matricola.toLowerCase());
       if (dop && !UI.conferma(`C'è già un impianto con matricola ${i.matricola}. Salvare comunque?`)) return;
       await UI.salva('impianti', i); UI.toast('Impianto salvato', 'ok');
-      location.hash = '#/impianti/i/' + i.id + (giaSalvato ? '' : '?tab=soll');
+      const m = M(), primaTab = m.gru ? 'soll' : m.sezioni[0] ? 'x_' + m.sezioni[0].id : 'dati';
+      location.hash = '#/impianti/i/' + i.id + (giaSalvato ? '' : '?tab=' + primaTab);
     };
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare ${titoloImp(i)}${i.matricola ? ' (matr. ' + i.matricola + ')' : ''} con tutti i suoi dati, documenti e storico?`)) return;
@@ -243,6 +261,10 @@ window.IMP = (function () {
   function route(el, S, parti, query) {
     const [, a, b, cmd] = parti;
     if (a === 'c') return delCliente(el, S, b);
+    if (a === 'modelli') {
+      if (!UT.isMaster()) { el.innerHTML = '<p class="nessuno">Solo il master e il developer possono modificare i tipi di impianto.</p>'; return { titolo: 'Tipi di impianto', indietro: '#/impianti' }; }
+      return b ? MIMP.modifica(el, S, b) : MIMP.elenco(el, S);
+    }
     if (a === 'nuovo') return form(el, S, null, query);
     if (a === 'i' && cmd === 'modifica') return form(el, S, b, query);
     if (a === 'i' && cmd === 'stampa') return IMPS.stampa(el, S, b);

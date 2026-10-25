@@ -65,7 +65,9 @@ window.CTR = (function () {
   }
   const modelloDi = (S, imp) => {
     const ms = modelli(S) || MODELLI_BASE();
-    return ms.find((m) => m.id === imp.controllo?.modelloId) || ms.find((m) => m.id === (/bandiera/i.test(imp.tipologia || '') ? 'bandiera' : 'carroponte')) || ms[0];
+    const daTipo = window.MIMP ? MIMP.di(S, imp) : null;   // il tipo di impianto può proporre il suo modello di scheda
+    return ms.find((m) => m.id === imp.controllo?.modelloId) || (daTipo?.schedaCtr && ms.find((m) => m.id === daTipo.schedaCtr))
+      || ms.find((m) => m.id === (daTipo?.icona === 'bandiera' || /bandiera/i.test(imp.tipologia || '') ? 'bandiera' : 'carroponte')) || ms[0];
   };
   const vociPerImpianto = (S, imp) => modelloDi(S, imp).voci.filter((v) => !(imp.controllo?.escluse || []).includes(v.id));
 
@@ -241,7 +243,7 @@ window.CTR = (function () {
             const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).length;
             return `<div class="riga imp-riga ${i.dismesso ? 'dismesso' : ''}">
               <a class="imp-link" href="#/controlli/i/${i.id}?anno=${anno}">
-                <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
+                <span class="imp-ico">${IMP.icona(i)}</span>
                 <div class="riga-main">
                   <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}${esc(IMP.titolo(i))}</div>
                   <div class="muted small">${i.matricola ? 'Matr. ' + esc(i.matricola) : ''}${aperteN ? ` · <b class="txt-ko">${aperteN} oss. aperte</b>` : ''}${IMP.pillStato(i)}</div>
@@ -277,7 +279,7 @@ window.CTR = (function () {
     const riga = (i) => {
       const sc = schedaDi(S, i.id, anno), v = vis(i), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).length;
       return `<a class="riga imp-riga giro-gru ${fatta(v) ? 'fatta' : ''}" href="#/controlli/i/${i.id}/${anno}/${n}?torna=${encodeURIComponent(qui)}" data-t="${esc(testo(i))}">
-        <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
+        <span class="imp-ico">${IMP.icona(i)}</span>
         <div class="riga-main">
           <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}${esc(IMP.titolo(i))}</div>
           <div class="muted small">${[i.matricola && 'Matr. ' + esc(i.matricola), aperteN && `<b class="txt-ko">${aperteN} oss. aperte</b>`].filter(Boolean).join(' · ')}${IMP.pillStato(i)}</div>
@@ -463,7 +465,7 @@ window.CTR = (function () {
     el.innerHTML = `
       <section class="sg ctr">
         <div class="card ctr-testa">
-          <span class="imp-ico">${IMP.icona(i.tipologia)}</span>
+          <span class="imp-ico">${IMP.icona(i)}</span>
           <div class="grow">
             <h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
             <p class="muted small"><a class="link-anag" href="#/controlli/s/${i.sedeId}?anno=${anno}">${esc(c ? nomeSede(c, s) : '')}</a>${i.matricola ? ' · matr. ' + esc(i.matricola) : ''}</p>

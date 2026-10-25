@@ -114,11 +114,13 @@ window.IMPS = (function () {
   function render(el, S, id, query) {
     const i = S.impianti.find((x) => x.id === id);
     if (!i) { el.innerHTML = '<p class="nessuno">Impianto non trovato.</p>'; return { titolo: 'Impianto', indietro: '#/impianti' }; }
-    const bandiera = /bandiera/i.test(i.tipologia || '');
+    // le tab dipendono dal tipo di impianto (gru a ponte, bandiera, seghetto, …)
+    const M = MIMP.di(S, i);
     const TABS = [
-      { k: 'dati', l: 'Dati impianto' }, { k: 'soll', l: 'Sollevamento' }, { k: 'carrello', l: 'Carrello' },
-      ...(bandiera ? [] : [{ k: 'ponte', l: 'Ponte' }]),
-      { k: 'elettrico', l: 'Impianto elettrico' },
+      { k: 'dati', l: 'Dati impianto' }, ...(M.gru ? [{ k: 'soll', l: 'Sollevamento' }, { k: 'carrello', l: 'Carrello' }] : []),
+      ...(M.ponte ? [{ k: 'ponte', l: 'Ponte' }] : []),
+      ...M.sezioni.map((x) => ({ k: 'x_' + x.id, l: x.titolo })),
+      ...(M.elettrico ? [{ k: 'elettrico', l: 'Impianto elettrico' }] : []),
       { k: 'documenti', l: 'Documenti', n: (i.allegati || []).length }, { k: 'storico', l: 'Storico', n: (i.storico || []).length }
     ];
     let tab = query.get('tab') || 'dati'; if (!TABS.some((t) => t.k === tab)) tab = 'dati';
@@ -129,12 +131,12 @@ window.IMPS = (function () {
     if (tab === 'dati') {
       corpo = card('Dati dell\'impianto', `
         <div class="griglia-campi">
-          ${[['Tipologia', i.tipologia], ['Marca', i.marca], ['Anno di costruzione', i.annoCostruzione], ['Matricola', i.matricola],
-            ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ['Scartamento (luce)', i.scartamento && i.scartamento + ' mm']]
+          ${[['Tipo di impianto', M.nome], ['Tipologia', i.tipologia], ['Marca', i.marca], ['Anno di costruzione', i.annoCostruzione], ['Matricola', i.matricola],
+            ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ...(M.scartamento ? [['Scartamento (luce)', i.scartamento && i.scartamento + ' mm']] : [])]
             .map(([l, v]) => `<div class="campo"><span>${l}</span><b>${v ? esc(v) : '<i class="muted">—</i>'}</b></div>`).join('')}
         </div>
-        <h3 class="sotto-tit">Portata</h3>
-        <div class="paranchi-vista">${paranchi.map((p, n) => `<div class="paranco-v"><span>${esc(RUOLO(p, n))}</span><b>${kg(p.portata) || '—'}</b></div>`).join('')}</div>`,
+        ${M.gru ? `<h3 class="sotto-tit">Portata</h3>
+        <div class="paranchi-vista">${paranchi.map((p, n) => `<div class="paranco-v"><span>${esc(RUOLO(p, n))}</span><b>${kg(p.portata) || '—'}</b></div>`).join('')}</div>` : ''}`,
         `<a class="btn ghost small" href="#/impianti/i/${i.id}/modifica">✏️ Modifica</a>`);
     }
     if (tab === 'soll') {
@@ -174,6 +176,12 @@ window.IMPS = (function () {
       corpo = card('Impianto elettrico e bordo gru', vista(F_ELE, i.elettrico), btn({ a: 'mod', path: ['elettrico'], s: 'elettrico', t: 'Impianto elettrico e bordo gru' }, '✏️ Modifica')) +
         `<p class="muted small rimando">Schema elettrico e schema del radiocomando si allegano nella tab <a class="link" href="#/impianti/i/${i.id}?tab=documenti">Documenti</a>.</p>`;
     }
+    if (tab.startsWith('x_')) {
+      const sez = M.sezioni.find((x) => 'x_' + x.id === tab), r = MIMP.righe(sez, i.dati?.[sez.id]);
+      corpo = card(esc(sez.titolo), r.length ? `<div class="griglia-campi">${r.map(([l, v]) => `<div class="campo"><span>${esc(l)}</span><b>${v}</b></div>`).join('')}</div>`
+        : `<p class="muted vuoto-dati">${sez.campi.length ? 'Nessun dato inserito. Tocca «Modifica».' : 'Questa sezione non ha ancora voci.'}</p>`,
+        sez.campi.length ? btn({ a: 'mod', path: ['dati', sez.id], s: 'x:' + sez.id, t: sez.titolo }, '✏️ Modifica') : '');
+    }
     if (tab === 'documenti') {
       const al = (i.allegati || []).slice().sort((a, b) => (b.data || '').localeCompare(a.data || ''));
       corpo = card(`Documenti ${info('Puoi allegare PDF o foto: schema elettrico, schema del radiocomando, manuali, dichiarazioni… I file restano su questo dispositivo (con il cloud saranno condivisi).')}`, `
@@ -209,11 +217,11 @@ window.IMPS = (function () {
     el.innerHTML = `
       <section class="cli imp-scheda">
         <div class="card cli-head">
-          <span class="imp-ico big">${IMP.icona(i.tipologia)}</span>
+          <span class="imp-ico big">${IMP.icona(i)}</span>
           <div class="grow">
             <h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
             <p class="muted">${s ? UI.magnete(s) : ''} <a class="link-anag" href="#/clienti/${i.clienteId}">${esc(c ? CLI.nome(c) : '(cliente)')}</a> · ${esc(s ? s.nome || s.citta : '')}
-              ${i.matricola ? ' · Matr. ' + esc(i.matricola) : ''} · <b>${paranchi.map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—'}</b>${IMP.pillStato(i)}${i.fsDal && IMP.statoImp(i) ? ' <span class="muted small">dal ' + UI.fmt(i.fsDal) + '</span>' : ''}</p>
+              ${i.matricola ? ' · Matr. ' + esc(i.matricola) : ''}${M.gru ? ` · <b>${paranchi.map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—'}</b>` : ''}${IMP.pillStato(i)}${i.fsDal && IMP.statoImp(i) ? ' <span class="muted small">dal ' + UI.fmt(i.fsDal) + '</span>' : ''}</p>
           </div>
           <a class="btn ghost" href="#/impianti/i/${i.id}/stampa" title="Riepilogo di tutti i dati in PDF">🖨️ Stampa</a>
         </div>
@@ -221,7 +229,7 @@ window.IMPS = (function () {
         ${corpo}
       </section>`;
 
-    collega(el, S, i);
+    collega(el, S, i, M);
     el.querySelector('.tab.on')?.scrollIntoView({ inline: 'center', block: 'nearest' });
     return { titolo: IMP.titolo(i), indietro: '#/impianti/c/' + i.clienteId, live: true };
   }
@@ -235,10 +243,10 @@ window.IMPS = (function () {
   }
 
   // ---------- azioni dei pulsanti ----------
-  function collega(el, S, i) {
+  function collega(el, S, i, M) {
     el.querySelectorAll('[data-az]').forEach((b) => (b.onclick = () => {
       const az = JSON.parse(b.dataset.az);
-      if (az.a === 'mod') modifica(i, az);
+      if (az.a === 'mod') modifica(i, az, M);
       if (az.a === 'sost') sostituisci(i, az);
       if (az.a === 'togliAux') {
         if (!UI.conferma('Togliere il motore ausiliario da questo paranco?')) return;
@@ -268,8 +276,9 @@ window.IMPS = (function () {
   }
 
   // finestra di modifica di un riquadro
-  function modifica(i, az) {
-    const schema = SCHEMI[az.s];
+  function modifica(i, az, M) {
+    const sez = az.s.startsWith('x:') && M ? M.sezioni.find((x) => x.id === az.s.slice(2)) : null;
+    const schema = sez ? MIMP.campiModal(sez) : SCHEMI[az.s];
     const cur = prendi(i, az.path) || {};
     UI.modal({
       titolo: az.t, campi: schema, valori: { ...cur }, largo: true,
@@ -336,7 +345,7 @@ window.IMPS = (function () {
     if (!i) { el.innerHTML = '<p class="nessuno">Impianto non trovato.</p>'; return { titolo: 'Stampa', indietro: '#/impianti' }; }
     const c = S.clienti.find((x) => x.id === i.clienteId), s = (c?.sedi || []).find((x) => x.id === i.sedeId);
     const paranchi = i.paranchi?.length ? i.paranchi : [{ ruolo: 'Primario' }];
-    const bandiera = /bandiera/i.test(i.tipologia || '');
+    const M = MIMP.di(S, i);
     const nessuno = '<p class="r-vuoto">Dati non inseriti</p>';
     // tabella etichetta/valore su 3 colonne, solo campi compilati
     const tab = (schema, o) => {
@@ -368,24 +377,27 @@ window.IMPS = (function () {
 
         ${sezione('Dati dell\'impianto', `
           <div class="r-griglia">
-            ${[['Tipologia', i.tipologia], ['Marca', i.marca], ['Anno di costruzione', i.annoCostruzione], ['Matricola', i.matricola],
-              ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ['Scartamento (luce)', i.scartamento && i.scartamento + ' mm'],
-              ...paranchi.map((p, n) => ['Portata ' + RUOLO(p, n).replace('Paranco ', 'paranco '), kg(p.portata)])]
+            ${[['Tipo di impianto', M.nome], ['Tipologia', i.tipologia], ['Marca', i.marca], ['Anno di costruzione', i.annoCostruzione], ['Matricola', i.matricola],
+              ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ...(M.scartamento ? [['Scartamento (luce)', i.scartamento && i.scartamento + ' mm']] : []),
+              ...(M.gru ? paranchi.map((p, n) => ['Portata ' + RUOLO(p, n).replace('Paranco ', 'paranco '), kg(p.portata)]) : [])]
               .map(([l, v]) => `<div class="r-c"><span>${l}</span><b>${v ? esc(v) : '—'}</b></div>`).join('')}
           </div>`)}
 
-        ${paranchi.map((p, n) => sezione('Sollevamento' + (piu ? ' – ' + esc(RUOLO(p, n)) : ''),
+        ${!M.gru ? '' : paranchi.map((p, n) => sezione('Sollevamento' + (piu ? ' – ' + esc(RUOLO(p, n)) : ''),
           blocco('Dati di sollevamento', tab(F_SOLL, p)) + blocco('Fune', tab(F_FUNE, p.fune)) +
           blocco('Motore di sollevamento', motore(p.motore)) +
           (p.motoreAux ? blocco('Motore di sollevamento ausiliario', motore(p.motoreAux)) : ''))).join('')}
 
-        ${paranchi.map((p, n) => sezione('Carrello' + (piu ? ' – ' + esc(RUOLO(p, n)) : ''),
+        ${!M.gru ? '' : paranchi.map((p, n) => sezione('Carrello' + (piu ? ' – ' + esc(RUOLO(p, n)) : ''),
           blocco('Dati del carrello', tab(F_CARR, p.carrello)) + blocco('Motore di traslazione carrello', motore(p.carrello?.motore)))).join('')}
 
-        ${bandiera ? '' : sezione('Ponte', blocco('Dati del ponte', tab(F_PONTE, i.ponte)) +
+        ${!M.ponte ? '' : sezione('Ponte', blocco('Dati del ponte', tab(F_PONTE, i.ponte)) +
           blocco('Motore di traslazione ponte' + (i.ponte?.numeroMotori > 1 ? ` (${esc(i.ponte.numeroMotori)} uguali)` : ''), motore(i.ponte?.motore)))}
 
-        ${sezione('Impianto elettrico e bordo gru', tab(F_ELE, i.elettrico))}
+        ${M.sezioni.map((x) => { const r = MIMP.righe(x, i.dati?.[x.id]);
+          return sezione(esc(x.titolo), r.length ? `<div class="r-griglia">${r.map(([l, v]) => `<div class="r-c"><span>${esc(l)}</span><b>${v}</b></div>`).join('')}</div>` : nessuno); }).join('')}
+
+        ${M.elettrico ? sezione('Impianto elettrico e bordo gru', tab(F_ELE, i.elettrico)) : ''}
 
         ${sezione('Documenti allegati', (i.allegati || []).length
           ? `<ul class="r-lista">${i.allegati.map((a) => `<li><b>${esc(a.tipo)}</b> – ${esc(a.nome)} (${fmt(a.data)})</li>`).join('')}</ul>` : '<p class="r-vuoto">Nessun documento</p>')}

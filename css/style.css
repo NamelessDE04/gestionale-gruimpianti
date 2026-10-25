@@ -1534,3 +1534,29 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
 .cartella { min-width: 0; max-width: 100%; }
 .cartella-txt { min-width: 0; }
 .cartella-st .pill { white-space: normal; max-width: 100%; }
+/* ===== tipi di impianto (anagrafica personalizzabile) ===== */
+.lab-blocco { font-weight: 700; font-size: 14px; margin: 6px 0 4px; display: flex; align-items: center; gap: 6px; }
+.mimp-scelta, .mimp-icone { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; margin-bottom: 10px; }
+.mimp-ico { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 8px 4px; border: 2px solid var(--bordo, #d7dee6); border-radius: 12px; background: #fff; cursor: pointer; font: inherit; font-size: 12px; font-weight: 700; color: var(--testo, #10243a); min-width: 0; }
+.mimp-ico svg { width: 40px; height: 40px; }
+.mimp-ico span { max-width: 100%; overflow-wrap: anywhere; text-align: center; line-height: 1.15; }
+.mimp-ico.on { border-color: #f2b705; background: #fff8dc; box-shadow: 0 0 0 2px #f2b705 inset; }
+.mimp-checks { display: grid; gap: 6px; margin-bottom: 10px; }
+.mimp-sez { padding: 10px; margin-bottom: 10px; border: 1px solid var(--bordo, #d7dee6); }
+.mimp-sez-h { display: flex; gap: 6px; align-items: center; margin-bottom: 8px; }
+.mimp-sez-h input { flex: 1; min-width: 0; font-weight: 700; }
+.mimp-campo { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.3fr) minmax(0, 1fr) auto; gap: 6px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--bordo, #d7dee6); }
+.mimp-campo input, .mimp-campo select { min-width: 0; width: 100%; }
+.mimp-campo [data-o] { grid-column: 1 / 4; }
+.mimp-campo [data-u][hidden] + [data-o] { grid-column: 3 / 4; }
+.mimp-campo [data-u][hidden] + [data-o][hidden] { display: none; }
+.mimp-btn { display: flex; gap: 4px; grid-column: 4; grid-row: 1; }
+@media (max-width: 560px) {
+  .mimp-campo { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto; }
+  .mimp-campo [data-l] { grid-column: 1 / 3; }
+  .mimp-btn { grid-column: 3; grid-row: 1; }
+  .mimp-campo [data-t] { grid-column: 1; }
+  .mimp-campo [data-u] { grid-column: 2; }
+  .mimp-campo [data-o], .mimp-campo [data-u][hidden] + [data-o] { grid-column: 2 / 4; }
+  .mimp-campo [data-u][hidden] + [data-o][hidden] { display: none; }
+}
