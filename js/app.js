@@ -1,8 +1,8 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.54';
-  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho'];
-  const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [] };
+  const VERSIONE = '0.42.55';
+  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria'];
+  const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
   const el = document.getElementById('app');
   let vistaLive = true, pronti = 0;
@@ -150,7 +150,9 @@ window.App = (function () {
 
   document.addEventListener('DOMContentLoaded', () => { if (Backend.test) { document.body.classList.add('in-test'); document.getElementById('testBar').hidden = false; } });
   document.addEventListener('DOMContentLoaded', avvio);
-  const api = { proteggi, allUscita, ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
+  // dopo lo sblocco col PIN: se mentre era bloccato sono arrivati dati nuovi ridisegno, altrimenti lascio la pagina com'è
+  const ridisegnaSeServe = () => { if (document.body.classList.contains('fuori')) ridisegna(); };
+  const api = { ridisegnaSeServe, proteggi, allUscita, ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
   Object.defineProperty(api, 'tecnici', { get: () => UT.nomi() });
   return api;
 })();

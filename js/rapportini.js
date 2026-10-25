@@ -213,6 +213,11 @@ window.RAP = (function () {
             <div class="frasi-rapide"><button type="button" class="chip-s" data-frase-da="COME DA SCHEDE DI CONTROLLO.">＋ Come da schede di controllo</button></div>
             <textarea name="daEseguire" rows="4" placeholder="Lavori da fare in seguito (se ce ne sono)">${esc(r.daEseguire)}</textarea>
           </div>
+          <div class="card memo-rap">
+            <div class="card-head"><h2>📌 Promemoria per l'ufficio ${info('Per le cose che il cliente vi chiede di ricordare: un\'offerta per pezzi di ricambio, funi, un preventivo… Il promemoria non va sul rapportino del cliente: compare nella home di chi stampa e invia i documenti (Master, Risorse Umane, Developer) e resta lì finché qualcuno non lo segna come fatto.')}</h2></div>
+            <div id="memoLista"></div>
+            <button type="button" class="btn ghost" id="btnMemo">+ Nuovo promemoria</button>
+          </div>
           <div class="card">
             <h2>Consegna e firme</h2>
             <div class="tre">
@@ -232,6 +237,28 @@ window.RAP = (function () {
         </form>
       </section>`;
     const f = el.querySelector('#fRap');
+    // --- promemoria per l'ufficio (si salvano subito, a parte dal rapportino)
+    const memoLista = () => {
+      const lista = (S.promemoria || []).filter((m) => m.rapportinoId === r.id).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
+      el.querySelector('#memoLista').innerHTML = lista.map((m) => `<div class="memo-riga ${m.fatto ? 'fatto' : ''}"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b><small>${m.fatto ? `✓ fatto il ${fmt((m.fattoIl || '').slice(0, 10))}${m.fattoNome ? ' da ' + esc(m.fattoNome) : ''}` : `scritto da ${esc(m.daNome || '—')} il ${fmt((m.creato || '').slice(0, 10))} · in attesa`}</small></div></div>`).join('') || '<p class="muted small">Nessun promemoria.</p>';
+    };
+    memoLista();
+    el.querySelector('#btnMemo').onclick = () => {
+      if (!f.clienteId.value) return UI.toast('Prima scegli il cliente', 'err');
+      UI.modal({
+        titolo: '📌 Nuovo promemoria per l\'ufficio',
+        infoTxt: 'Scrivi cosa va fatto (es. «FARE OFFERTA PER 2 FUNI PARANCO N° 3»). Compare nella home di Master, Risorse Umane e Developer finché non viene segnato come fatto.',
+        campi: [{ k: 'testo', label: 'Cosa ricordare', tipo: 'textarea', req: true, maiuscolo: true }],
+        testoSalva: 'Salva promemoria',
+        onSalva: async (v) => {
+          const io = UT.attuale();
+          const m = { id: uid(), testo: String(v.testo || '').trim().toUpperCase(), rapportinoId: r.id, clienteId: f.clienteId.value, sedeId: f.sedeId.value || '', creato: new Date().toISOString(), da: io?.id || '', daNome: io ? UT.breve(io) : '', fatto: false };
+          await UI.salva('promemoria', m);
+          if (!(S.promemoria || []).some((x) => x.id === m.id)) (S.promemoria = S.promemoria || []).push(m);
+          memoLista(); UI.toast('Promemoria salvato: lo vedrà l\'ufficio', 'ok');
+        }
+      });
+    };
     el.querySelector('.rif-rap').addEventListener('input', () => (el.querySelector('#rifSint').textContent = sintesiRif({ ordine: f.ordine.value.trim(), offerta: f.offerta.value.trim(), ddtNumero: f.ddtNumero.value.trim(), ddtData: f.ddtData.value })));
     const sedeAttuale = () => trova(S, f.sedeId.value).s;
     const cliente = () => S.clienti.find((c) => c.id === f.clienteId.value);
@@ -589,5 +616,26 @@ window.RAP = (function () {
     }
     return lista(el, S);
   }
-  return { route, badge, oreLavoro, assegnaNumeri, ora15 };
+  // ---------- promemoria nella home (Master, Risorse Umane, Developer): restano finché non sono fatti ----------
+  function memoHome(S) {
+    if (!UT.puoInviare()) return '';
+    const lista = (S.promemoria || []).filter((m) => !m.fatto).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
+    if (!lista.length) return '';
+    return `<div class="card memo-home"><div class="card-head"><h2>📌 Promemoria da fare <span class="pill st-scadenza">${lista.length}</span> ${info('Li scrivono i tecnici dal rapportino quando il cliente chiede qualcosa (offerte, ricambi, funi…). Restano qui finché qualcuno non tocca «✓ Fatto».')}</h2></div>
+      ${lista.map((m) => { const { c, s } = trova(S, m.sedeId), cl = c || S.clienti.find((x) => x.id === m.clienteId), rp = S.rapportini.find((x) => x.id === m.rapportinoId);
+        return `<div class="memo-riga"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b>
+          <small>${esc(cl ? CLI.nome(cl) : '—')}${s ? ' · ' + esc(s.sigla || s.nome || '') : ''} · ${rp ? `<a href="#/rapportini/r/${rp.id}">rapportino N° ${esc(numeroDi(rp))}</a>` : 'rapportino'} · ${esc(m.daNome || '—')}, ${fmt((m.creato || '').slice(0, 10))}</small></div>
+          <button type="button" class="btn ghost small" data-memofatto="${m.id}">✓ Fatto</button></div>`; }).join('')}</div>`;
+  }
+  function collegaMemo(el, S) {
+    el.querySelectorAll('[data-memofatto]').forEach((b) => (b.onclick = async () => {
+      const m = (S.promemoria || []).find((x) => x.id === b.dataset.memofatto); if (!m) return;
+      if (!UI.conferma(`Segnare come FATTO?\n\n«${m.testo}»\n\nSparisce dalla home di tutti.`)) return;
+      const io = UT.attuale();
+      await UI.salva('promemoria', { ...m, fatto: true, fattoIl: new Date().toISOString(), fattoDa: io?.id || '', fattoNome: io ? UT.breve(io) : '' });
+      UI.toast('Promemoria fatto', 'ok');
+    }));
+  }
+
+  return { route, badge, oreLavoro, assegnaNumeri, ora15, memoHome, collegaMemo };
 })();

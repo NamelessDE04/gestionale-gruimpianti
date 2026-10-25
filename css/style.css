@@ -1507,3 +1507,21 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
 .inv-vista { display: flex; width: 100%; }
 .seg.arch-modo { display: grid; grid-template-columns: repeat(3, 1fr); width: 100%; }
 .seg.arch-modo button { white-space: normal; line-height: 1.2; padding: 6px 8px; }
+
+/* blocco dopo 5 minuti: il PIN si chiede sopra la pagina */
+.blocco-ov { position: fixed; inset: 0; z-index: 9990; background: var(--bg); overflow: auto; }
+.blocco-ov .login { min-height: 100%; }
+
+/* promemoria per l'ufficio */
+.memo-home { border: 2px solid #f2b705; }
+.memo-home .card-head h2 { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.memo-riga { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-top: 1px solid var(--linea); }
+.memo-riga:first-of-type { border-top: 0; }
+.memo-riga > span { font-size: 20px; flex-shrink: 0; }
+.memo-riga .grow { min-width: 0; overflow-wrap: anywhere; }
+.memo-riga b { display: block; font-size: 15px; }
+.memo-riga small { display: block; color: var(--muted); font-size: 12.5px; margin-top: 2px; }
+.memo-riga small a { color: var(--info); text-decoration: underline; }
+.memo-riga .btn { flex-shrink: 0; }
+.memo-riga.fatto { opacity: .6; }
+.memo-rap #btnMemo { margin-top: 6px; }

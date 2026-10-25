@@ -11,25 +11,39 @@ window.UT = (function () {
   // il Developer ha tutto quello del Master e in più: azzera dati, importa dati, registro attività e monitoraggio consumi
   const ALTI = ['developer', 'master'];
   const CHIAVE = 'gid_sessione';
-  // la sessione vale solo finché l'app resta aperta: a ogni nuova apertura si rimette il PIN
+  // Sessione: resta valida 5 minuti dall'ultimo uso, anche se il telefono spegne lo schermo o chiude l'app.
+  // Oltre i 5 minuti si rimette il PIN, ma si resta sulla pagina dove si era (niente ritorno alla home).
+  const BLOCCO_MIN = 5, CHIAVE_5 = 'gid_sess5';
   const SESS = {
-    get: () => { try { return sessionStorage.getItem(CHIAVE); } catch (e) { return SESS.m; } },
-    set: (id) => { SESS.m = id; try { sessionStorage.setItem(CHIAVE, id); } catch (e) {} },
-    del: () => { SESS.m = null; try { sessionStorage.removeItem(CHIAVE); } catch (e) {} },
-    m: null
+    m: null,
+    get: () => SESS.m,
+    set: (id) => { SESS.m = id; SESS.tocca(true); try { sessionStorage.setItem(CHIAVE, id); } catch (e) {} },
+    del: () => { SESS.m = null; try { sessionStorage.removeItem(CHIAVE); localStorage.removeItem(CHIAVE_5); } catch (e) {} },
+    ultimo: 0,
+    // segna "adesso lo sto usando" (al massimo ogni 20 secondi, o subito se forza)
+    tocca: (forza) => { const t = Date.now(); if (!SESS.m || (!forza && t - SESS.ultimo < 20000)) return; SESS.ultimo = t; try { localStorage.setItem(CHIAVE_5, JSON.stringify({ id: SESS.m, t })); } catch (e) {} }
   };
   try { localStorage.removeItem(CHIAVE); } catch (e) {}   // le vecchie sessioni "per sempre" non valgono più
-  // se l'app resta in sottofondo più di 5 minuti, al ritorno chiede di nuovo il PIN
-  const BLOCCO_MIN = 5;
-  let nascostaDa = 0;
+  // all'apertura: se l'ultimo uso è di meno di 5 minuti fa si rientra senza PIN
+  try {
+    const x = JSON.parse(localStorage.getItem(CHIAVE_5) || 'null');
+    if (x?.id && Date.now() - x.t < BLOCCO_MIN * 60000) { SESS.m = x.id; try { sessionStorage.setItem(CHIAVE, x.id); } catch (e) {} } else localStorage.removeItem(CHIAVE_5);
+  } catch (e) {}
+  ['pointerdown', 'keydown', 'scroll'].forEach((t) => window.addEventListener(t, () => SESS.tocca(), { passive: true, capture: true }));
+  window.addEventListener('pagehide', () => SESS.tocca(true));
+  let nascostaDa = 0, bloccatoDa = null;
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) { nascostaDa = Date.now(); return; }
-    if (nascostaDa && SESS.get() && Date.now() - nascostaDa > BLOCCO_MIN * 60000) {
-      registra('uscita', 'Blocco automatico (app in sottofondo)'); SESS.del(); document.querySelectorAll('.modal-ov').forEach((m) => m.remove());
-      document.body.classList.remove('modal-aperto'); location.hash = '#/'; App.ridisegna();
-    }
+    if (document.hidden) { nascostaDa = Date.now(); SESS.tocca(true); return; }
+    if (nascostaDa && SESS.get() && !bloccatoDa && Date.now() - nascostaDa > BLOCCO_MIN * 60000) blocca();
     nascostaDa = 0;
   });
+  // blocco: il PIN si chiede sopra la pagina, che resta com'era (anche un controllo a metà)
+  function blocca() {
+    bloccatoDa = SESS.get(); registra('uscita', 'Blocco automatico (app in sottofondo)');
+    try { localStorage.removeItem(CHIAVE_5); } catch (e) {}
+    const ov = document.createElement('div'); ov.className = 'blocco-ov'; ov.id = 'bloccoOv';
+    document.body.appendChild(ov); schermata(ov, S);
+  }
   let S = null;
 
   const hash = async (salt, x) => {
@@ -89,7 +103,7 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO' };
+  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO', promemoria: 'Promemoria' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
@@ -140,6 +154,11 @@ window.UT = (function () {
       if (!solaLettura()) return true;
       if (col === 'utenti') return doc?.id === attuale()?.id; // RU può solo aggiornare il proprio profilo (PIN, firma)
       if (col === 'invii') return true;                         // RU invia i documenti ai clienti
+      if (col === 'promemoria') {                               // RU segna come fatto un promemoria, nient'altro
+        const prima = (S?.promemoria || []).find((x) => x.id === doc?.id); if (!prima) return false;
+        const libere = ['fatto', 'fattoIl', 'fattoDa', 'fattoNome', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando'];
+        return [...new Set([...Object.keys(prima), ...Object.keys(doc)])].every((k) => libere.includes(k) || JSON.stringify(prima[k]) === JSON.stringify(doc[k]));
+      }
       if (col === 'rapportini') {                               // ... e segna il rapportino come inviato, nient'altro
         const prima = (S?.rapportini || []).find((x) => x.id === doc?.id); if (!prima) return false;
         const libere = ['inviatoIl', 'inviatoA', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando'];
@@ -286,6 +305,14 @@ window.UT = (function () {
   }
 
   function entra(u, metodo, dev) {
+    // sblocco dopo i 5 minuti: la stessa persona torna esattamente dov'era; un'altra persona riparte dalla home
+    if (bloccatoDa) {
+      const prima = bloccatoDa; bloccatoDa = null;
+      document.getElementById('bloccoOv')?.remove(); document.body.classList.remove('fuori'); document.onkeydown = null; tentativi = 0;
+      if (prima.split('|')[0] === u.id) { SESS.set(dev ? u.id + '|dev' : prima); registra('accesso', `Sblocco con ${metodo}`); UI.toast('Bentornato ' + u.nome.split(' ')[0], 'ok'); App.ridisegnaSeServe?.(); return; }
+      SESS.set(u.id + (dev ? '|dev' : '')); registra('accesso', `Accesso con ${metodo}`); UI.toast('Ciao ' + u.nome.split(' ')[0], 'ok');
+      location.hash = '#/'; App.ridisegna(); return;
+    }
     SESS.set(u.id + (dev ? '|dev' : ''));
     document.body.classList.remove('fuori'); document.onkeydown = null; tentativi = 0;
     registra('accesso', `Accesso con ${metodo}`);
@@ -295,7 +322,9 @@ window.UT = (function () {
     let giaDetto = false; try { giaDetto = localStorage.getItem(kf) === UI.oggi(); localStorage.setItem(kf, UI.oggi()); } catch (e) {}
     if (!u.firma && ruoloDi(u) !== 'ru' && !giaDetto) setTimeout(() => UI.toast('Ricordati di salvare la tua firma nel profilo', ''), 2700);
     if (!u.pinHash) setTimeout(() => UI.toast('Scegli il tuo PIN nel profilo', ''), 2700);
-    location.hash = u.pinHash ? '#/' : '#/profilo'; App.ridisegna();
+    // si resta sulla pagina dove si era (es. app riaperta dopo più di 5 minuti)
+    if (!u.pinHash) location.hash = '#/profilo';
+    App.ridisegna();
   }
   function esci() { registra('uscita', 'Uscita dall\'app'); SESS.del(); location.hash = '#/'; App.ridisegna(); }
 

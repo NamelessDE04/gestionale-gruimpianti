@@ -57,6 +57,11 @@ service cloud.firestore {
     match /invii/{id} {
       allow create: if legge();
     }
+    // promemoria dai rapportini (offerte da fare ecc.): anche Risorse Umane li segna come fatti
+    match /promemoria/{id} {
+      allow update: if legge() && request.resource.data.diff(resource.data).affectedKeys()
+        .hasOnly(['fatto', 'fattoIl', 'fattoDa', 'fattoNome', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando']);
+    }
     match /rapportini/{id} {
       allow update: if legge() && request.resource.data.diff(resource.data).affectedKeys()
         .hasOnly(['inviatoIl', 'inviatoA', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando']);

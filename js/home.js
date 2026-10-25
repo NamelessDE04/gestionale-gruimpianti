@@ -78,11 +78,13 @@ window.HOME = (function () {
       <section class="home">
         <!-- data e saluto ora stanno nella barra in alto -->
         ${UT.isMaster() && CONF.conta(S) ? `<a class="avviso-m st-b-scaduto" href="#/conflitti"><span class="av-ico">⚠️</span><span class="grow"><b>${CONF.conta(S)} ${CONF.conta(S) === 1 ? 'conflitto' : 'conflitti'} tra dispositivi</b><span>Due dispositivi offline hanno lavorato sugli stessi documenti: scegli cosa tenere</span></span>›</a>` : ''}
+        ${RAP.memoHome(S)}
         ${avvisiMezzi(S)}
         ${UT.puoInviare() && CLI.ordiniDaAggiornare(S).length ? `<a class="avviso-m st-b-scadenza" href="#/ordini"><span class="av-ico">🧾</span><span class="grow"><b>N° d'ordine ${UI.oggi().slice(0, 4)} da aggiornare: ${CLI.ordiniDaAggiornare(S).length} ${CLI.ordiniDaAggiornare(S).length === 1 ? 'sede' : 'sedi'}</b><span>Il codice del contratto di verifica cambia ogni anno: scrivilo o rimanda l'avviso</span></span>›</a>` : ''}
         <div class="tiles">${vociHome().map((c) => tile(c, badge(S, c))).join('')}</div>
         <p class="in-arrivo">In arrivo: ${caselle.filter((c) => !c.attiva).map((c) => c.titolo).join(' · ')}</p>
       </section>`;
+    RAP.collegaMemo(el, S);
   }
 
   // pagina "Schede di controllo": sceglie il tipo di controllo
