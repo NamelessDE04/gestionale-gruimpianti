@@ -1,5 +1,5 @@
 // ===== MODELLI DI ANAGRAFICA IMPIANTO =====
-// Ogni impianto ha un "tipo" (gru a ponte, gru a bandiera, seghetto… o uno creato da master/developer, es. muletto).
+// Ogni impianto ha un "tipo" (gru a ponte, gru a bandiera, seghetto… o uno creato da master/developer, es. sollevatore).
 // Il tipo decide quali tab e quali voci ha la scheda dell'impianto.
 // Salvati in impostazioni/modelliImpianto. Le gru continuano ad avere le loro tab fisse (sollevamento, carrello, ponte, elettrico);
 // le «sezioni» sono voci libere create qui.
@@ -13,7 +13,7 @@ window.MIMP = (function () {
     muletto: `<svg viewBox="0 0 40 40" aria-hidden="true"><path d="M8 30V15h10l4 7v8z" fill="#f2b705" stroke="#16324f" stroke-width="2"/><path d="M10 15V9h6v6" fill="none" stroke="#16324f" stroke-width="2"/><path d="M26 6v26M26 31h10" stroke="#16324f" stroke-width="3"/><circle cx="12" cy="32" r="3.5" fill="#16324f"/><circle cx="21" cy="32" r="3.5" fill="#16324f"/></svg>`,
     generico: `<svg viewBox="0 0 40 40" aria-hidden="true"><circle cx="20" cy="20" r="9" fill="#f2b705" stroke="#16324f" stroke-width="3"/><circle cx="20" cy="20" r="3.5" fill="#16324f"/><path d="M20 5v6M20 29v6M5 20h6M29 20h6M9.5 9.5l4 4M26.5 26.5l4 4M9.5 30.5l4-4M26.5 13.5l4-4" stroke="#16324f" stroke-width="3"/></svg>`
   };
-  const NOMI_ICONE = { ponte: 'Gru a ponte', bandiera: 'Bandiera', seghetto: 'Seghetto', muletto: 'Muletto', generico: 'Altro' };
+  const NOMI_ICONE = { ponte: 'Gru a ponte', bandiera: 'Bandiera', seghetto: 'Seghetto', muletto: 'Sollevatore', generico: 'Altro' };
   const TIPI_CAMPO = [['testo', 'Testo'], ['numero', 'Numero'], ['data', 'Data'], ['sino', 'Sì / No'], ['scelta', 'Scelta']];
 
   const c = (k, label, tipo = 'testo', x = {}) => ({ k, label, tipo, ...x });
@@ -87,7 +87,7 @@ window.MIMP = (function () {
     const ms = tutti(S);
     el.innerHTML = `
       <section class="cli mimp">
-        <div class="sez-head"><h1>Tipi di impianto ${info('Ogni impianto ha un tipo: decide quali tab e quali voci ha la sua scheda in anagrafica. Puoi cambiare le voci dei tipi che ci sono o crearne di nuovi (es. muletto, piattaforma). I tipi «Gru a ponte», «Gru a bandiera» e «Seghetto» non si possono eliminare.')}</h1></div>
+        <div class="sez-head"><h1>Tipi di impianto ${info('Ogni impianto ha un tipo: decide quali tab e quali voci ha la sua scheda in anagrafica. Puoi cambiare le voci dei tipi che ci sono o crearne di nuovi (es. sollevatore, piattaforma). I tipi «Gru a ponte», «Gru a bandiera» e «Seghetto» non si possono eliminare.')}</h1></div>
         <div class="elenco">
           ${ms.map((m) => { const n = S.impianti.filter((i) => di(S, i).id === m.id).length;
             return `<a class="riga imp-riga" href="#/impianti/modelli/${m.id}">
@@ -111,7 +111,7 @@ window.MIMP = (function () {
     el.innerHTML = `
       <form class="sg form card mimp-form" id="fM" novalidate>
         <h1>${orig ? 'Tipo: ' + esc(m.nome) : 'Nuovo tipo di impianto'}</h1>
-        <label>Nome *<input name="nome" data-libero value="${esc(m.nome)}" placeholder="es. Muletto"></label>
+        <label>Nome *<input name="nome" data-libero value="${esc(m.nome)}" placeholder="es. Sollevatore"></label>
         <div class="lab-blocco">Disegno</div>
         <div class="mimp-icone">${Object.keys(ICONE).map((k) => `<button type="button" class="mimp-ico ${m.icona === k ? 'on' : ''}" data-ico="${k}">${ICONE[k]}<span>${NOMI_ICONE[k]}</span></button>`).join('')}</div>
         <div class="lab-blocco">Tab fisse delle gru ${info('Sollevamento e carrello: paranchi con portata, fune, motori (con «Sostituisci» e storico). Ponte: traslazione del ponte. Impianto elettrico: alimentazione, pulsantiera, radiocomando.')}</div>
@@ -121,7 +121,7 @@ window.MIMP = (function () {
           <label class="check"><input type="checkbox" name="elettrico" ${m.elettrico ? 'checked' : ''}> Impianto elettrico gru</label>
           <label class="check"><input type="checkbox" name="scartamento" ${m.scartamento ? 'checked' : ''}> Scartamento (luce)</label>
         </div>
-        <label>Tipologie (una per riga) ${info('È il menu «Tipologia» quando si crea l\'impianto. Es. per un muletto: Elettrico, Diesel, Retrattile.')}<textarea name="tipologie" rows="4" data-libero>${esc(m.tipologie.join('\n'))}</textarea></label>
+        <label>Tipologie (una per riga) ${info('È il menu «Tipologia» quando si crea l\'impianto. Es. per un sollevatore: Elettrico, Diesel, Telescopico.')}<textarea name="tipologie" rows="4" data-libero>${esc(m.tipologie.join('\n'))}</textarea></label>
         ${schede.length ? `<label>Scheda di controllo da proporre ${info('Il modello di scheda di controllo che viene usato per gli impianti di questo tipo, se non ne scegli un altro sul singolo impianto.')}<select name="schedaCtr"><option value="">— automatico —</option>${schede.map((s) => `<option value="${esc(s.id)}" ${s.id === m.schedaCtr ? 'selected' : ''}>${esc(s.nome)}</option>`).join('')}</select></label>` : ''}
         <h2 class="sez-form">Voci della scheda ${info('Ogni sezione diventa una tab della scheda impianto. Per ogni voce scegli se è un testo, un numero (con l\'unità, es. mm), una data, un sì/no o una scelta da un elenco (scrivi le scelte separate da virgola).')}</h2>
         <div id="sezioni"></div>
