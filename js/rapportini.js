@@ -585,7 +585,7 @@ window.RAP = (function () {
       if (!navigator.onLine) return UI.toast('Serve internet per avere il numero', 'err');
       e.currentTarget.disabled = true; e.currentTarget.textContent = 'Assegno…';
       await assegnaNumeri(S);
-      if (!S.rapportini.find((x) => x.id === r.id)?.numero) { UI.toast('Il cloud non ha ancora risposto: riprovo da solo tra un minuto', 'err'); App.ridisegna(); }
+      if (!S.rapportini.find((x) => x.id === r.id)?.numero) { UI.toast('Numero non assegnato: ' + (motivi[r.id] || 'il cloud non ha risposto') + '. Riprovo da solo tra un minuto.', 'err'); App.ridisegna(); }
     });
     if (el.querySelector('#btnStampa')) el.querySelector('#btnStampa').onclick = () => {
       const t = document.title;
@@ -600,10 +600,20 @@ window.RAP = (function () {
   // Numero progressivo dal contatore unico del cloud. Si riprova da solo finché tutti i rapportini hanno il numero:
   // appena c'è rete, quando l'app torna in primo piano e ogni minuto (se ce n'è ancora qualcuno in attesa).
   // Lo fa qualsiasi dispositivo collegato (anche Risorse Umane, se le regole del cloud sono quelle aggiornate).
-  let ancora = false, tRiprova = null;
+  let ancora = false, tRiprova = null, tAvvio = 0;
+  const motivi = {};   // perché un rapportino non ha ancora il numero (per spiegarlo a chi tocca «Assegna adesso»)
+  const spiega = (e) => {
+    const t = String(e?.code || '') + ' ' + String(e?.message || e || '');
+    if (/permission/i.test(t)) return 'il cloud non dà il permesso a questo account: pubblica le regole nuove (Firebase › Firestore › Regole)';
+    if (/offline|unavailable|network|deadline|tempo/i.test(t)) return 'il cloud non risponde (rete assente o lenta)';
+    if (/non-sul-server/.test(t)) return 'il rapportino non è ancora arrivato al cloud (aspetto che parta dalla coda di questo dispositivo)';
+    return 'errore del cloud: ' + t.trim().slice(0, 120);
+  };
   async function assegnaNumeri(S) {
     if (Backend.mode !== 'cloud' || !Backend.assegnaNumero || !UT.attuale()) return;
-    if (assegnando) { ancora = true; return; }
+    // un tentativo rimasto appeso da più di 40 secondi non blocca i successivi
+    if (assegnando && Date.now() - tAvvio < 40000) { ancora = true; return; }
+    tAvvio = Date.now();
     const attesa = () => S.rapportini.filter((r) => !r.numero).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
     if (!attesa().length) return;
     if (!navigator.onLine) return riprova(S);
@@ -612,8 +622,11 @@ window.RAP = (function () {
       for (const r of attesa()) {
         const max = Math.max(0, ...S.rapportini.filter((x) => +x.anno === +r.anno).map((x) => +x.numero || 0));
         let n = null;
-        try { n = await Backend.assegnaNumero(r.anno, r.id, max); } catch (e) { console.warn('numero rapportino', e); }
-        if (n) { r.numero = n; UT.registra('modifica', `Rapportino ${n}/${r.anno}: numero assegnato`, { col: 'rapportini', docId: r.id }); }
+        try {
+          n = await Promise.race([Backend.assegnaNumero(r.anno, r.id, max), new Promise((ok, ko) => setTimeout(() => ko(new Error('tempo scaduto')), 30000))]);
+          if (!n) motivi[r.id] = spiega('non-sul-server');
+        } catch (e) { console.warn('numero rapportino', e); motivi[r.id] = spiega(e); }
+        if (n) { delete motivi[r.id]; r.numero = n; UT.registra('modifica', `Rapportino ${n}/${r.anno}: numero assegnato`, { col: 'rapportini', docId: r.id }); }
       }
     } finally { assegnando = false; }
     if (ancora) setTimeout(() => assegnaNumeri(S), 1500);
