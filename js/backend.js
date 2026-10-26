@@ -204,12 +204,20 @@
       // l'app riceve di nuovo gli aggiornamenti senza doverla ricaricare.
       subscribe(col, cb, errore) {
         let stop = null, attesa = 30000, finito = false, timer = null;
+        const K = 'gid_ultsrv_' + col;
         const apri = () => {
+          let primo = true;
           stop = db.collection(col).onSnapshot((s) => {
             attesa = 30000;
-            if (!s.metadata.fromCache) segnalaQuota(false);
-            // si pagano solo i documenti arrivati dal server (non quelli già in copia sul dispositivo)
-            if (!s.metadata.fromCache && !s.metadata.hasPendingWrites) conta('r', Math.max(1, s.docChanges().length));
+            if (!s.metadata.fromCache) {
+              segnalaQuota(false);
+              // Come conta Firebase: se l'ascolto di questa raccolta era fermo da più di 30 minuti, alla ripartenza
+              // fa pagare TUTTI i documenti (anche quelli già sul dispositivo); altrimenti solo quelli cambiati.
+              let ult = 0; try { ult = +localStorage.getItem(K) || 0; } catch (e) {}
+              const n = primo && Date.now() - ult > 30 * 60000 ? s.size : s.docChanges().length;
+              conta('r', Math.max(1, n)); primo = false;
+              try { localStorage.setItem(K, String(Date.now())); } catch (e) {}
+            }
             cb(s.docs.map(daDoc));
           }, (e) => {
             console.error(col, e);
@@ -222,7 +230,7 @@
         return () => { finito = true; clearTimeout(timer); stop && stop(); };
       },
       async save(col, doc) {
-        doc.aggiornato = new Date().toISOString(); conta('w');
+        doc.aggiornato = new Date().toISOString(); conta('w'); conta('r');   // + la lettura che fanno le regole di sicurezza per controllare il permesso
         // senza rete la scrittura resta in coda: non aspetto la conferma del server
         await attendi(db.collection(col).doc(doc.id).set(codifica(doc)), 'salvataggio ' + col);
         return doc;

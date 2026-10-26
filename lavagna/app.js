@@ -244,9 +244,13 @@ async function firebaseBackend(cfg) {
     toast('Errore di sincronizzazione: ' + (err.code || err.message));
   };
   // se il cloud interrompe l'ascolto (limite finito, rete) lo riapro da solo dopo un po'
-  const ascolta = (ref, opz, avanti, errore) => {
+  // (conta anche le letture come Firebase: dopo più di 30 minuti di pausa, alla ripartenza paga tutti i documenti)
+  const ascolta = (ref, opz, avanti, errore, nome = '') => {
     let stop = null, attesa = 30000, finito = false, t = null;
-    const apri = () => { stop = opz ? f.onSnapshot(ref, opz, s => { attesa = 30000; quotaDetta = false; avanti(s); }, e => fallito(e)) : f.onSnapshot(ref, s => { attesa = 30000; avanti(s); }, e => fallito(e)); };
+    const K = 'lav_ultsrv_' + nome;
+    const segna = s => { if (s.metadata.fromCache || !nome) return; let u = 0; try { u = +localStorage.getItem(K) || 0; } catch {} if (primo && Date.now() - u > 1800000) s.__tutti = true; primo = false; try { localStorage.setItem(K, String(Date.now())); } catch {} };
+    let primo = true;
+    const apri = () => { primo = true; stop = opz ? f.onSnapshot(ref, opz, s => { attesa = 30000; quotaDetta = false; segna(s); avanti(s); }, e => fallito(e)) : f.onSnapshot(ref, s => { attesa = 30000; segna(s); avanti(s); }, e => fallito(e)); };
     const fallito = e => { errore(e); if (finito || e.code === 'permission-denied') return; clearTimeout(t); t = setTimeout(apri, attesa); attesa = Math.min(attesa * 2, 600000); };
     apri();
     return () => { finito = true; clearTimeout(t); stop && stop(); };
@@ -255,7 +259,7 @@ async function firebaseBackend(cfg) {
   const giornoFb = () => { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()); } catch { return new Date().toISOString().slice(0, 10); } };
   const sosp = { r: 0, w: 0, d: 0 };
   const conta = (k, n = 1) => { sosp[k] += n; };
-  const contaSnap = snap => { if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites) conta('r', Math.max(1, snap.docChanges().length)); };
+  const contaSnap = snap => { if (!snap.metadata.fromCache && !snap.metadata.hasPendingWrites) conta('r', Math.max(1, snap.__tutti ? snap.size : snap.docChanges().length)); };
   async function versa() {
     const u = auth.currentUser; if (!u || !navigator.onLine) return;
     const { r, w, d } = sosp; if (!r && !w && !d) return;
@@ -292,20 +296,20 @@ async function firebaseBackend(cfg) {
     logout() { return a.signOut(auth); },
     // anagrafiche del gestionale (clienti/sedi, utenti, mezzi)
     subscribeGest(cb) {
-      return ['clienti', 'utenti', 'mezzi'].map(k => ascolta(f.collection(fdb, k), null, snap => cb(k, toList(snap)), onErr));
+      return ['clienti', 'utenti', 'mezzi'].map(k => ascolta(f.collection(fdb, k), null, snap => cb(k, toList(snap)), onErr, 'g_' + k));
     },
     subscribe(col, cb) {
       return ascolta(f.collection(fdb, C(col)), { includeMetadataChanges: true },
-        snap => { report(snap); cb(toList(snap)); }, onErr);
+        snap => { report(snap); cb(toList(snap)); }, onErr, col);
     },
     subscribeEvents(s, e, cb) {
       const q = f.query(f.collection(fdb, C('events')), f.where('date', '>=', s), f.where('date', '<=', e));
       return ascolta(q, { includeMetadataChanges: true },
-        snap => { report(snap); cb(toList(snap)); }, onErr);
+        snap => { report(snap); cb(toList(snap)); }, onErr, 'mese_' + s);
     },
     subscribeUnsigned(cb) {
       const q = f.query(f.collection(fdb, C('events')), f.where('unsigned', '==', true));
-      return ascolta(q, null, snap => cb(toList(snap)), err => console.error(err));
+      return ascolta(q, null, snap => cb(toList(snap)), err => console.error(err), 'nonfirmati');
     },
     save(col, obj) { conta('w'); return f.setDoc(f.doc(fdb, C(col), obj.id), strip(obj)); },
     async remove(col, id) {
