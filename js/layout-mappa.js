@@ -1,10 +1,12 @@
-// ===== CAPANNONI DALLA MAPPA (OpenStreetMap) =====
-// Dall'indirizzo della sede trovo gli edifici disegnati su OpenStreetMap: tocchi quelli che sono i capannoni
-// e diventano capannoni del layout con le misure vere in metri (il rettangolo che li contiene, già raddrizzato).
-// Servizi gratuiti, senza chiave: Nominatim (indirizzo → coordinate), Overpass (edifici), tile della mappa OSM.
+// ===== CAPANNONI DALLA FOTO SATELLITARE =====
+// Si apre la foto dall'alto della sede (foto satellitari Esri World Imagery, gratuite, senza chiavi),
+// si gira la foto finché i tetti sono dritti e si disegnano col dito i capannoni sopra.
+// Nel layout arrivano con le misure vere in metri (la scala della foto è nota).
+// L'indirizzo → coordinate lo trova Nominatim (OpenStreetMap), solo per centrare la foto.
 window.LAYMAP = (function () {
   const { esc } = UI;
-  const Z = 18, T = 256;   // livello di zoom della mappa sotto e grandezza delle tessere
+  const Z = 18, T = 256;
+  const TILE = (x, y) => `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${Z}/${y}/${x}`;
   const px = (lon, lat) => {
     const n = T * 2 ** Z, s = Math.sin((lat * Math.PI) / 180);
     return [((lon + 180) / 360) * n, (0.5 - Math.log((1 + s) / (1 - s)) / (4 * Math.PI)) * n];
@@ -17,84 +19,130 @@ window.LAYMAP = (function () {
     const j = await r.json(); if (!j.length) return null;
     return { lat: +j[0].lat, lon: +j[0].lon, nome: j[0].display_name };
   }
-  async function edifici(lat, lon, raggio = 350) {
-    const q = `[out:json][timeout:25];way["building"](around:${raggio},${lat},${lon});out geom;`;
-    const r = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: 'data=' + encodeURIComponent(q), headers: { 'Content-Type': 'application/x-www-form-urlencoded' } });
-    if (!r.ok) throw new Error('edifici');
-    const j = await r.json();
-    return (j.elements || []).filter((e) => e.geometry && e.geometry.length > 3).map((e) => ({ id: e.id, nome: e.tags?.name || '', pts: e.geometry.map((g) => px(g.lon, g.lat)) }));
-  }
-  const area = (p) => Math.abs(p.reduce((a, q, i) => { const r = p[(i + 1) % p.length]; return a + q[0] * r[1] - r[0] * q[1]; }, 0)) / 2;
-  const dentro = (p, [x, y]) => { let c = false; for (let i = 0, j = p.length - 1; i < p.length; j = i++) { const [xi, yi] = p[i], [xj, yj] = p[j]; if ((yi > y) !== (yj > y) && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) c = !c; } return c; };
-  // direzione principale dell'edificio: quella del lato più lungo
-  function angolo(p) {
-    let best = 0, ang = 0;
-    p.forEach((q, i) => { const r = p[(i + 1) % p.length], l = Math.hypot(r[0] - q[0], r[1] - q[1]); if (l > best) { best = l; ang = Math.atan2(r[1] - q[1], r[0] - q[0]); } });
-    // riporto tra -45° e 45°: i capannoni restano "dritti" (lati orizzontali e verticali)
-    while (ang > Math.PI / 4) ang -= Math.PI / 2;
-    while (ang < -Math.PI / 4) ang += Math.PI / 2;
-    return ang;
-  }
-  // edifici scelti → rettangoli in metri, tutti raddrizzati con lo stesso angolo (quello del più grande)
-  function rettangoli(scelti, lat) {
-    const big = scelti.slice().sort((a, b) => area(b.pts) - area(a.pts))[0], a = -angolo(big.pts), m = metriPerPx(lat);
-    const ruota = ([x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
-    const box = scelti.map((b) => { const r = b.pts.map(ruota), xs = r.map((q) => q[0]), ys = r.map((q) => q[1]);
-      return { x: Math.min(...xs) * m, y: Math.min(...ys) * m, w: (Math.max(...xs) - Math.min(...xs)) * m, h: (Math.max(...ys) - Math.min(...ys)) * m, nome: b.nome }; });
-    const x0 = Math.min(...box.map((b) => b.x)), y0 = Math.min(...box.map((b) => b.y)), r1 = (v) => Math.round(v * 10) / 10;
-    return box.map((b) => ({ x: r1(b.x - x0), y: r1(b.y - y0), w: r1(b.w), h: r1(b.h), nome: b.nome }));
-  }
 
-  // finestra: cerco, mostro la mappa con gli edifici, li scegli col dito
   function apri(indirizzo, onScelti) {
-    const ov = document.createElement('div'); ov.className = 'modal-ov';
+    const ov = document.createElement('div'); ov.className = 'modal-ov lm-ov';
     ov.innerHTML = `<div class="modal largo lm">
-      <div class="modal-head"><h2>Capannoni dalla mappa</h2>${UI.info('Cerco l\'indirizzo della sede e mostro gli edifici disegnati su OpenStreetMap. Tocca i capannoni (diventano gialli) e premi «Aggiungi»: nel layout arrivano con le misure vere, raddrizzati. Le forme a L diventano il rettangolo che le contiene. Campate, gru e il resto si sistemano come sempre.')}<button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+      <div class="modal-head"><h2>Capannoni dalla foto</h2>${UI.info('1) Cerca la sede. 2) Con «↻» gira la foto finché i capannoni sono dritti. 3) Tocca «▭ Disegna» e tira un rettangolo sopra ogni capannone, da un angolo all\'angolo opposto (puoi spostarlo e allargarlo dal quadratino blu). 4) «Aggiungi»: nel layout arrivano con le misure vere. Per spostare la foto usa «✋ Sposta»; per ingrandire + e −, la rotellina o due dita.')}<button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
       <div class="lm-corpo">
         <div class="lm-cerca"><input id="lmQ" data-libero value="${esc(indirizzo)}" placeholder="Indirizzo della sede"><button type="button" class="btn small" id="lmVai">Cerca</button></div>
+        <div class="lm-strum">
+          <span class="lm-modi"><button type="button" class="chip-s on" data-modo="sposta">✋ Sposta</button><button type="button" class="chip-s" data-modo="disegna">▭ Disegna</button></span>
+          <span class="lm-gira"><button type="button" class="btn ghost small" data-gira="-5" aria-label="Gira a sinistra">↺</button><b id="lmAng">0°</b><button type="button" class="btn ghost small" data-gira="5" aria-label="Gira a destra">↻</button><button type="button" class="btn ghost small" data-gira="-1" aria-label="Un grado a sinistra">‹</button><button type="button" class="btn ghost small" data-gira="1" aria-label="Un grado a destra">›</button></span>
+          <span class="lm-zoom"><button type="button" class="btn ghost small" data-zoom="1.4" aria-label="Ingrandisci">+</button><button type="button" class="btn ghost small" data-zoom="0.7" aria-label="Rimpicciolisci">−</button></span>
+        </div>
         <div class="lm-mappa" id="lmMappa"><p class="muted small">Cerco…</p></div>
-        <p class="muted small lm-stato" id="lmStato"></p>
-        <p class="lm-copy">Mappa e edifici © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a></p>
+        <div class="lm-sotto"><span class="muted small" id="lmStato"></span><button type="button" class="btn ghost small danger" id="lmTogli" hidden>🗑 Togli il rettangolo scelto</button></div>
+        <p class="lm-copy">Foto © Esri, Maxar, Earthstar Geographics · indirizzi © OpenStreetMap</p>
       </div>
       <div class="modal-foot"><span class="grow"></span><button type="button" class="btn ghost" data-annulla>Annulla</button><button type="button" class="btn" id="lmOk" disabled>Aggiungi</button></div>
     </div>`;
     document.body.appendChild(ov); document.body.classList.add('modal-aperto');
     const chiudi = () => { ov.remove(); document.body.classList.remove('modal-aperto'); };
     ov.querySelector('.modal-x').onclick = chiudi; ov.querySelector('[data-annulla]').onclick = chiudi;
-    const box = ov.querySelector('#lmMappa'), stato = ov.querySelector('#lmStato'), ok = ov.querySelector('#lmOk');
-    let lista = [], scelti = new Set(), lat = 45;
-    const aggiornaOk = () => { ok.disabled = !scelti.size; ok.textContent = scelti.size ? `Aggiungi ${scelti.size} ${scelti.size === 1 ? 'capannone' : 'capannoni'}` : 'Aggiungi'; };
+    const box = ov.querySelector('#lmMappa'), stato = ov.querySelector('#lmStato'), ok = ov.querySelector('#lmOk'), togli = ov.querySelector('#lmTogli');
+
+    // le coordinate "del mondo" sono numeri enormi (decine di milioni): l'SVG le disegna male,
+    // quindi lavoro relativo a un'origine O vicina alla sede
+    let O = [0, 0], C = null, lat = 45, ang = 0, vb = null, modo = 'sposta', rett = [], scelto = -1, svg = null, gFoto = null, gRett = null;
+    const caricate = new Set();
+    const aggiornaOk = () => { ok.disabled = !rett.length; ok.textContent = rett.length ? `Aggiungi ${rett.length} ${rett.length === 1 ? 'capannone' : 'capannoni'}` : 'Aggiungi'; togli.hidden = scelto < 0; };
+    const misura = (r) => `${Math.round(r.w * metriPerPx(lat))} × ${Math.round(r.h * metriPerPx(lat))} m`;
+
     async function cerca() {
-      box.innerHTML = '<p class="muted small">Cerco l\'indirizzo…</p>'; stato.textContent = ''; scelti = new Set(); aggiornaOk();
+      box.innerHTML = '<p class="muted small">Cerco l\'indirizzo…</p>';
       try {
         const g = await geocodifica(ov.querySelector('#lmQ').value.trim());
         if (!g) { box.innerHTML = '<p class="nessuno">Indirizzo non trovato: prova a scriverlo diverso (via, numero, città).</p>'; return; }
-        lat = g.lat; box.innerHTML = '<p class="muted small">Cerco gli edifici intorno…</p>';
-        lista = await edifici(g.lat, g.lon);
-        if (!lista.length) { box.innerHTML = '<p class="nessuno">Qui su OpenStreetMap non ci sono edifici disegnati.</p>'; return; }
-        const c = px(g.lon, g.lat);
-        // preseleziono l'edificio sull'indirizzo (o il più vicino)
-        const su = lista.find((b) => dentro(b.pts, c)) || lista.slice().sort((a, b) => Math.hypot(...[0, 1].map((k) => a.pts[0][k] - c[k])) - Math.hypot(...[0, 1].map((k) => b.pts[0][k] - c[k])))[0];
-        if (su) scelti.add(su.id);
-        disegna(c); aggiornaOk();
-        stato.textContent = `${lista.length} edifici trovati intorno a: ${g.nome}`;
-      } catch (e) { box.innerHTML = '<p class="nessuno">Servizio della mappa non raggiungibile. Controlla la connessione e riprova.</p>'; }
+        lat = g.lat; const w0 = px(g.lon, g.lat); O = [Math.floor(w0[0] / T) * T, Math.floor(w0[1] / T) * T]; C = [w0[0] - O[0], w0[1] - O[1]]; rett = []; scelto = -1; ang = 0; caricate.clear();
+        const w = 900; vb = { x: C[0] - w / 2, y: C[1] - w / 2, w, h: w };
+        monta(); stato.textContent = g.nome; aggiornaOk();
+      } catch (e) { box.innerHTML = '<p class="nessuno">Servizio non raggiungibile. Controlla la connessione e riprova.</p>'; }
     }
-    function disegna(c) {
-      const tutti = lista.flatMap((b) => b.pts), xs = tutti.map((q) => q[0]), ys = tutti.map((q) => q[1]);
-      const x0 = Math.min(...xs, c[0]) - 30, y0 = Math.min(...ys, c[1]) - 30, x1 = Math.max(...xs, c[0]) + 30, y1 = Math.max(...ys, c[1]) + 30;
-      let tess = '';
-      for (let tx = Math.floor(x0 / T); tx <= Math.floor(x1 / T); tx++) for (let ty = Math.floor(y0 / T); ty <= Math.floor(y1 / T); ty++)
-        tess += `<image href="https://tile.openstreetmap.org/${Z}/${tx}/${ty}.png" x="${tx * T}" y="${ty * T}" width="${T}" height="${T}" opacity="0.55"/>`;
-      box.innerHTML = `<svg viewBox="${x0} ${y0} ${x1 - x0} ${y1 - y0}" xmlns="http://www.w3.org/2000/svg">${tess}
-        ${lista.map((b) => `<polygon data-b="${b.id}" points="${b.pts.map((q) => q.join(',')).join(' ')}" class="${scelti.has(b.id) ? 'on' : ''}"/>`).join('')}
-        <circle cx="${c[0]}" cy="${c[1]}" r="5" fill="#d6453d" stroke="#fff" stroke-width="2"/></svg>`;
-      box.querySelectorAll('[data-b]').forEach((pg) => (pg.onclick = () => { const id = +pg.dataset.b; scelti.has(id) ? scelti.delete(id) : scelti.add(id); pg.classList.toggle('on', scelti.has(id)); aggiornaOk(); }));
+    function monta() {
+      box.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="xMidYMid slice"><g id="lmFoto"></g><g id="lmRett"></g></svg>`;
+      svg = box.querySelector('svg'); gFoto = svg.querySelector('#lmFoto'); gRett = svg.querySelector('#lmRett');
+      vista(); collega();
     }
+    // tessere della foto che servono per la parte visibile (anche girata)
+    function tessere() {
+      const r = Math.hypot(vb.w, vb.h) / 2 + T, cx = vb.x + vb.w / 2, cy = vb.y + vb.h / 2;
+      let n = 0;
+      const ox = O[0] / T, oy = O[1] / T;
+      for (let tx = Math.floor((cx - r) / T); tx <= Math.floor((cx + r) / T); tx++) for (let ty = Math.floor((cy - r) / T); ty <= Math.floor((cy + r) / T); ty++) {
+        const k = tx + ':' + ty; if (caricate.has(k) || caricate.size > 600) continue;
+        caricate.add(k); n++;
+        const im = document.createElementNS('http://www.w3.org/2000/svg', 'image');
+        im.setAttribute('href', TILE(tx + ox, ty + oy)); im.setAttribute('x', tx * T); im.setAttribute('y', ty * T); im.setAttribute('width', T + 0.6); im.setAttribute('height', T + 0.6);
+        gFoto.appendChild(im);
+      }
+      return n;
+    }
+    function vista() {
+      svg.setAttribute('viewBox', `${vb.x} ${vb.y} ${vb.w} ${vb.h}`);
+      gFoto.setAttribute('transform', `rotate(${ang} ${C[0]} ${C[1]})`);
+      tessere(); disegnaRett();
+      ov.querySelector('#lmAng').textContent = ang + '°';
+    }
+    function disegnaRett() {
+      const k = vb.w / 300;   // spessori che restano uguali sullo schermo
+      gRett.innerHTML = rett.map((r, i) => `<g data-r="${i}"><rect x="${r.x}" y="${r.y}" width="${r.w}" height="${r.h}" fill="rgba(242,183,5,${i === scelto ? 0.35 : 0.22})" stroke="${i === scelto ? '#1f5fbf' : '#f2b705'}" stroke-width="${k * 1.2}"/>
+        <text x="${r.x + r.w / 2}" y="${r.y + r.h / 2}" font-size="${k * 7}" text-anchor="middle" dominant-baseline="middle" fill="#fff" stroke="#000" stroke-width="${k * 0.6}" paint-order="stroke" font-weight="700" font-family="Arial">${misura(r)}</text>
+        ${i === scelto ? `<rect data-h="${i}" x="${r.x + r.w - k * 6}" y="${r.y + r.h - k * 6}" width="${k * 12}" height="${k * 12}" fill="#1f5fbf" stroke="#fff" stroke-width="${k}"/>` : ''}</g>`).join('');
+    }
+    const punto = (ev) => { const p = svg.createSVGPoint(); p.x = ev.clientX; p.y = ev.clientY; const q = p.matrixTransform(svg.getScreenCTM().inverse()); return [q.x, q.y]; };
+    function zoom(f, centro) {
+      const nw = Math.min(3000, Math.max(80, vb.w / f));   // da ~35 m a ~1,3 km di larghezza
+      const g = nw / vb.w, [cx, cy] = centro || [vb.x + vb.w / 2, vb.y + vb.h / 2];
+      vb = { x: cx - (cx - vb.x) * g, y: cy - (cy - vb.y) * g, w: vb.w * g, h: vb.h * g }; vista();
+    }
+    function collega() {
+      const dita = new Map(); let gesto = null;
+      svg.addEventListener('wheel', (e) => { e.preventDefault(); zoom(e.deltaY < 0 ? 1.15 : 1 / 1.15, punto(e)); }, { passive: false });
+      svg.addEventListener('pointerdown', (e) => {
+        svg.setPointerCapture(e.pointerId); dita.set(e.pointerId, [e.clientX, e.clientY]);
+        if (dita.size === 2) { if (gesto?.tipo === 'nuovo') { rett.splice(gesto.i, 1); scelto = -1; disegnaRett(); aggiornaOk(); }
+          const [a, b] = [...dita.values()]; gesto = { tipo: 'pinch', d0: Math.hypot(a[0] - b[0], a[1] - b[1]), vb0: { ...vb } }; return; }
+        const p = punto(e), h = e.target.closest('[data-h]'), gr = e.target.closest('[data-r]');
+        if (modo === 'disegna' && h) { gesto = { tipo: 'allarga', i: +h.dataset.h, p0: p, r0: { ...rett[+h.dataset.h] } }; return; }
+        if (modo === 'disegna' && gr) { scelto = +gr.dataset.r; gesto = { tipo: 'muovi', i: scelto, p0: p, r0: { ...rett[scelto] } }; disegnaRett(); aggiornaOk(); return; }
+        if (modo === 'disegna') { rett.push({ x: p[0], y: p[1], w: 0, h: 0 }); scelto = rett.length - 1; gesto = { tipo: 'nuovo', i: scelto, p0: p }; return; }
+        if (gr) { scelto = +gr.dataset.r; disegnaRett(); aggiornaOk(); }
+        gesto = { tipo: 'sposta', c0: [e.clientX, e.clientY], vb0: { ...vb }, sc: vb.w / svg.getBoundingClientRect().width };
+      });
+      svg.addEventListener('pointermove', (e) => {
+        if (!dita.has(e.pointerId) || !gesto) return;
+        dita.set(e.pointerId, [e.clientX, e.clientY]);
+        if (gesto.tipo === 'pinch' && dita.size === 2) {
+          const [a, b] = [...dita.values()], d = Math.hypot(a[0] - b[0], a[1] - b[1]);
+          vb = { ...gesto.vb0 }; zoom(d / gesto.d0); return;
+        }
+        if (gesto.tipo === 'sposta') { vb = { ...gesto.vb0, x: gesto.vb0.x - (e.clientX - gesto.c0[0]) * gesto.sc, y: gesto.vb0.y - (e.clientY - gesto.c0[1]) * gesto.sc }; vista(); return; }
+        const p = punto(e), r = rett[gesto.i];
+        if (gesto.tipo === 'nuovo') { r.x = Math.min(p[0], gesto.p0[0]); r.y = Math.min(p[1], gesto.p0[1]); r.w = Math.abs(p[0] - gesto.p0[0]); r.h = Math.abs(p[1] - gesto.p0[1]); }
+        if (gesto.tipo === 'muovi') { r.x = gesto.r0.x + p[0] - gesto.p0[0]; r.y = gesto.r0.y + p[1] - gesto.p0[1]; }
+        if (gesto.tipo === 'allarga') { r.w = Math.max(4, gesto.r0.w + p[0] - gesto.p0[0]); r.h = Math.max(4, gesto.r0.h + p[1] - gesto.p0[1]); }
+        disegnaRett();
+      });
+      const su = (e) => {
+        dita.delete(e.pointerId);
+        if (gesto?.tipo === 'nuovo') { const r = rett[gesto.i]; if (r.w < 8 || r.h < 8) { rett.splice(gesto.i, 1); scelto = -1; } disegnaRett(); aggiornaOk(); }
+        if (!dita.size) gesto = null;
+      };
+      svg.addEventListener('pointerup', su); svg.addEventListener('pointercancel', su);
+    }
+    ov.querySelectorAll('[data-modo]').forEach((b) => (b.onclick = () => { modo = b.dataset.modo; ov.querySelectorAll('[data-modo]').forEach((x) => x.classList.toggle('on', x === b)); box.classList.toggle('disegno', modo === 'disegna'); }));
+    ov.querySelectorAll('[data-gira]').forEach((b) => (b.onclick = () => { if (!svg) return; ang = Math.max(-90, Math.min(90, ang + +b.dataset.gira)); vista(); }));
+    ov.querySelectorAll('[data-zoom]').forEach((b) => (b.onclick = () => svg && zoom(+b.dataset.zoom)));
+    togli.onclick = () => { if (scelto >= 0) { rett.splice(scelto, 1); scelto = -1; disegnaRett(); aggiornaOk(); } };
     ov.querySelector('#lmVai').onclick = cerca;
     ov.querySelector('#lmQ').onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); cerca(); } };
-    ok.onclick = () => { const r = rettangoli(lista.filter((b) => scelti.has(b.id)), lat); chiudi(); onScelti(r); };
+    ok.onclick = () => {
+      const m = metriPerPx(lat), x0 = Math.min(...rett.map((r) => r.x)), y0 = Math.min(...rett.map((r) => r.y)), r1 = (v) => Math.round(v * 10) / 10;
+      const out = rett.map((r) => ({ x: r1((r.x - x0) * m), y: r1((r.y - y0) * m), w: r1(r.w * m), h: r1(r.h * m), nome: '' }));
+      chiudi(); onScelti(out);
+    };
     if (indirizzo) cerca(); else box.innerHTML = '<p class="muted small">Scrivi l\'indirizzo e tocca «Cerca».</p>';
   }
-  return { apri, rettangoli, px };
+  return { apri, px };
 })();

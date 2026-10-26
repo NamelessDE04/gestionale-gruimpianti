@@ -294,7 +294,7 @@ window.LAY = (function () {
         ${modifica ? `
         <div class="card lay-pal no-print">
           <div class="lay-pal-tit">Aggiungi ${UI.info('Componi la pianta come vuoi: anche più capannoni, girati o collegati da un corridoio. Non servono misure: trascina per spostare e usa il quadratino blu nell\'angolo per allargare o stringere. Toccando un capannone puoi cambiare il numero di campate e girarle.')}</div>
-          <div class="lay-pal-voci">${Object.entries(TIPI).map(([k, t]) => `<button type="button" class="chip-s" data-add="${k}">${t.ico} ${t.nome}</button>`).join('')}<button type="button" class="chip-s chip-mappa" id="btnMappa">🛰️ Capannoni dalla mappa</button></div>
+          <div class="lay-pal-voci">${Object.entries(TIPI).map(([k, t]) => `<button type="button" class="chip-s" data-add="${k}">${t.ico} ${t.nome}</button>`).join('')}<button type="button" class="chip-s chip-mappa" id="btnMappa">🛰️ Capannoni dalla foto satellitare</button></div>
           <div class="lay-pal-tit">Impianti da posizionare ${UI.info('Solo gli impianti dell\'anagrafica di questa sede. I carriponte si allineano da soli alla campata in cui li metti.')}</div>
           <div class="lay-pal-voci" id="impFuori"></div>
         </div>` : ''}
@@ -389,7 +389,7 @@ window.LAY = (function () {
         rett.forEach((r) => L.elementi.push({ id: uid(), tipo: 'capannone', x: r.x + dx, y: r.y + dy, w: r.w, h: r.h, n: Math.max(1, Math.round(Math.min(r.w, r.h) / 25)), or: r.w >= r.h ? 'o' : 'v', testo: (r.nome || '').toUpperCase() }));
         if (vuoto) L.u = Math.round(unitaCalcolata(L) * 1000) / 1000;
         scelto = null; ridisegna(); proprieta(); salva();
-        UI.toast(`✓ ${rett.length} ${rett.length === 1 ? 'capannone aggiunto' : 'capannoni aggiunti'} con le misure vere · campate da controllare`, 'ok');
+        UI.toast(`✓ ${rett.length} ${rett.length === 1 ? 'capannone aggiunto' : 'capannoni aggiunti'} con le misure vere · controlla le campate`, 'ok');
       });
       el.querySelector('#btnFine').onclick = () => { clearTimeout(timer); UI.salva('layouts', L).finally(() => { delete inModifica[sedeId]; App.ridisegna(); }); };
     }
