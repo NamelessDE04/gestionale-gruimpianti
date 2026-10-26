@@ -1566,21 +1566,14 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
 .sg-tit-riga .d { min-width: 0; overflow-wrap: anywhere; }
 .sg-titoli .pill { white-space: nowrap; }
 #boxTitolo .check span { min-width: 0; }
-/* capannoni dalla foto satellitare */
-.lm .lm-corpo { padding: 10px 14px; display: block; }
+/* capannoni dalla mappa */
+.lm .lm-corpo { padding: 12px 16px; display: block; }
 .lm-cerca { display: flex; gap: 6px; margin-bottom: 8px; }
 .lm-cerca input { flex: 1; min-width: 0; }
-.lm-strum { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; margin-bottom: 8px; }
-.lm-strum > span { display: flex; gap: 4px; align-items: center; }
-.lm-strum .chip-s.on { background: #16324f; color: #fff; border-color: #16324f; }
-.lm-gira b { min-width: 34px; text-align: center; }
-.lm-mappa { height: min(58vh, 520px); border: 1px solid var(--bordo, #d7dee6); border-radius: 10px; overflow: hidden; background: #2b2f33; display: flex; align-items: center; justify-content: center; touch-action: none; }
-.lm-mappa > p { color: #fff; }
-.lm-mappa svg { width: 100%; height: 100%; display: block; cursor: grab; touch-action: none; user-select: none; }
-.lm-mappa.disegno svg { cursor: crosshair; }
-.lm-sotto { display: flex; gap: 8px; align-items: center; justify-content: space-between; margin-top: 6px; flex-wrap: wrap; }
-.lm-sotto .muted { min-width: 0; overflow-wrap: anywhere; flex: 1; }
-.lm-copy { font-size: 11px; color: #6a7381; margin: 4px 0 0; }
+.lm-mappa { height: min(60vh, 480px); border: 1px solid var(--bordo, #d7dee6); border-radius: 10px; overflow: hidden; background: #eef1f4; display: flex; align-items: center; justify-content: center; }
+.lm-mappa svg { width: 100%; height: 100%; display: block; }
+.lm-mappa polygon { fill: rgba(31, 95, 191, .18); stroke: #1f5fbf; stroke-width: 1.5; cursor: pointer; }
+.lm-mappa polygon.on { fill: rgba(242, 183, 5, .65); stroke: #8a6a00; stroke-width: 2.5; }
+.lm-stato { margin: 6px 0 0; overflow-wrap: anywhere; }
+.lm-copy { font-size: 11px; color: #6a7381; margin: 2px 0 0; }
 .chip-mappa { border-color: #1f5fbf !important; color: #1f5fbf; font-weight: 700; }
-@media (max-width: 560px) { .lm-ov .modal.lm { width: 100%; max-width: none; height: 100%; max-height: none; border-radius: 0; display: flex; flex-direction: column; }
-  .lm-ov .lm-corpo { flex: 1; overflow: auto; } .lm-mappa { height: 52vh; } }
