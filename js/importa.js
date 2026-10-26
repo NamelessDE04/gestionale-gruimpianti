@@ -50,6 +50,12 @@ window.IMPORTA = (function () {
           if (!Object.keys(righe).length) return;
           out.giri.push({ id: uid(), sedeId: sd.id, clienteId: doc.id, anno, slot, data: gi.data || '', tecnici: [], tecnico: gi.tecnico || '', righe, noteGenerali: gi.noteGenerali || '', firmaTecnico: null });
         });
+        // sottoganci composti: se la prima riga (senza dimensioni) non ha mai il giudizio e gli altri componenti sì,
+        // è solo il nome dell'insieme (es. TIRANTE 2 BRACCI) → resta come titolo, senza giudizio
+        out.sottoganci.filter((x) => x.sedeId === sd.id && x.parti.length > 1 && !x.parti[0].dimensioni).forEach((x) => {
+          const r = out.giri.filter((gi) => gi.sedeId === sd.id).map((gi) => gi.righe[x.id]).filter(Boolean);
+          if (r.length && r.every((y) => !y.codici[0]) && r.some((y) => y.codici.slice(1).some(Boolean))) x.primaTitolo = true;
+        });
         // attrezzi sottogancio dei controlli approfonditi (pinze/ganci a C, magneti) con i loro controlli
         (si.attrezzi || []).forEach((ai) => {
           const stesso = (x) => x.sedeId === sd.id && x.tipo === ai.tipo && ((ai.nFabbrica && norm(x.nFabbrica) === norm(ai.nFabbrica)) || (ai.nInterno && norm(x.nInterno) === norm(ai.nInterno)) || (ai.matricola && norm(x.matricola) === norm(ai.matricola)));

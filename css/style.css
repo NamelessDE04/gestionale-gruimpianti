@@ -1560,3 +1560,9 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
   .mimp-campo [data-o], .mimp-campo [data-u][hidden] + [data-o] { grid-column: 2 / 4; }
   .mimp-campo [data-u][hidden] + [data-o][hidden] { display: none; }
 }
+/* righe titolo dei sottoganci composti */
+.sg-tit-riga { cursor: pointer; align-items: flex-start; }
+.sg-tit-riga input { width: 22px; height: 22px; flex-shrink: 0; margin-top: 2px; }
+.sg-tit-riga .d { min-width: 0; overflow-wrap: anywhere; }
+.sg-titoli .pill { white-space: nowrap; }
+#boxTitolo .check span { min-width: 0; }

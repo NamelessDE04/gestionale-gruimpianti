@@ -40,7 +40,7 @@ window.SGStampa = (function () {
       const fisse = i === 0 ? `<td${rs} data-adatta="0.4" data-righe="2">${esc(sg.numero)}</td>` : '';
       const fisse2 = i === 0 ? `<td${rs} data-adatta="0.4" data-righe="2">${esc(sg.portata)}</td><td${rs} data-adatta="0.4" data-righe="2">${esc(sg.ubicazione)}</td><td${rs} data-adatta="0.4" data-righe="2">${esc(sg.certificato)}</td>` : '';
       const cod = giri.map((g) => {
-        const c = g?.righe[sg.id]?.codici[i] || '';
+        const c = SG.conGiudizio(sg, i) ? g?.righe[sg.id]?.codici[i] || '' : '';   // riga titolo: niente giudizio
         return `<td class="${({ D: 'p-esD', DE: 'p-esDE', E: 'p-esE' })[c] || ''}">${esc(c)}</td>`;
       }).join('');
       return `<tr style="height:${H_R}mm" class="${i < n - 1 ? 'p-sub' : ''}">${fisse}<td data-adatta="0.4" data-righe="2">${esc(p.denominazione)}</td><td data-adatta="0.4" data-righe="2">${esc(p.dimensioni)}</td>${fisse2}

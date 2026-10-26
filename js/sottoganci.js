@@ -52,6 +52,14 @@ window.SG = (function () {
     .filter((sd) => sd.cartellaSottoganci || S.sottoganci.some((x) => x.sedeId === sd.id))
     .map((sd) => cliente(S, sd.id)))
     .sort((a, b) => nomeCliente(a).localeCompare(nomeCliente(b)));
+  // sottogancio composto (es. TIRANTE 2 BRACCI + fune + campanella): la prima riga può essere solo il nome
+  // dell'insieme, come titolo. Quella riga non riceve giudizi: si giudicano solo i componenti sotto.
+  const conGiudizio = (s, i) => !(s.primaTitolo && i === 0 && s.parti.length > 1);
+  const idxG = (s) => s.parti.map((_, i) => i).filter((i) => conGiudizio(s, i));
+  // proposta automatica: prima riga senza dimensioni che nei controlli è rimasta vuota mentre gli altri componenti avevano il giudizio
+  const sembraTitolo = (S, s) => s.parti.length > 1 && !String(s.parti[0].dimensioni || '').trim()
+    && S.giriSottoganci.some((g) => g.sedeId === s.sedeId && g.righe[s.id] && !g.righe[s.id].codici[0] && g.righe[s.id].codici.slice(1).some(Boolean));
+  const daSistemare = (S, cliId) => S.sottoganci.filter((s) => s.sedeId === cliId && s.primaTitolo === undefined && sembraTitolo(S, s));
   const nomeCliente = (c) => (c ? `${c.nome}${c.localita ? ' ' + c.localita : ''}` : '(cliente)');
   const giriDi = (S, cliId, anno) => S.giriSottoganci.filter((g) => g.sedeId === cliId && (anno == null || g.anno === anno));
   const slotGiri = (S, cliId, anno) => SLOT.map((s) => giriDi(S, cliId, anno).find((g) => g.slot === s.n) || null);
@@ -172,6 +180,7 @@ window.SG = (function () {
           ${UI.menu([
             UT.puoInviare() && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
             { t: '⚙ Titolo dell\'elenco', href: `#/sottoganci/cartella/${cliId}` },
+            UT.isMaster() && { t: '🏷 Righe titolo dei sottoganci composti', href: `#/sottoganci/c/${cliId}/titoli` },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` },
             UT.isMaster() && { t: '🗑 Elimina cartella', id: 'btnEliminaCart', cls: 'txt-ko' }
           ])}
@@ -180,6 +189,7 @@ window.SG = (function () {
           ${SLOT.map((s, i) => { const ok = sl[i], sel = prossimo && prossimo.n === s.n;
             return `<button type="button" class="${ok ? 'fatta' : ''} ${ok && aperto(ok) ? 'in-corso' : ''} ${sel ? 'scelta' : ''}" style="--c:${s.col}" data-sceglif="${s.n}">${ok ? (aperto(ok) ? '⏸' : '✓') + ' ' : ''}${s.nome}${ok && !aperto(ok) ? ' ' + dataBreve(ok.data).replace(/\/\d+$/, '') : ''}</button>`; }).join('')}
         </div>
+        ${UT.isMaster() && daSistemare(S, cliId).length ? `<a class="avviso-m st-b-scadenza" href="#/sottoganci/c/${cliId}/titoli"><span class="av-ico">🏷</span><span class="grow"><b>${daSistemare(S, cliId).length} sottoganci composti da sistemare</b><span>La prima riga sembra solo il nome dell'insieme (es. tirante): va tenuta come titolo, senza giudizio</span></span>›</a>` : ''}
         ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ ${giaFatta ? 'Rivedi o correggi' : inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${inCorso ? ` · ${Object.values(inCorso.righe).reduce((n, r) => n + r.codici.filter(Boolean).length, 0)} giudizi già dati` : giaFatta ? ' · già fatto il ' + dataBreve(sl[prossimo.n - 1].data) : ''}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
         ${!UT.solaLettura() ? `<a class="btn ghost sg2-nuovo" href="#/sottoganci/c/${cliId}/nuovo">＋ Aggiungi sottogancio</a>` : ''}
@@ -189,9 +199,10 @@ window.SG = (function () {
           ${items.length ? items.map((s) => `
             <a class="sg2-riga ${s.dismesso ? 'dismesso' : ''}" href="#/sottoganci/s/${s.id}">
               <span class="n">${esc(s.numero)}</span>
-              <span class="d">${esc(s.parti[0].denominazione)}${s.parti.length > 1 ? ` <small class="muted">+ ${s.parti.length - 1} comp.</small>` : ''}
+              <span class="d">${esc(s.parti[0].denominazione)}${s.parti.length > 1 ? ` <small class="muted">${s.primaTitolo ? '' : '+ '}${s.parti.length - 1} comp.</small>` : ''}
                 <small>${[s.parti[0].dimensioni, s.portata, s.ubicazione, t && s.certificato && 'cert. ' + s.certificato].filter(Boolean).map(esc).join(' · ')}</small></span>
-              <span class="es">${sl.map((g, i) => g?.righe[s.id] ? `<em class="${classeCod(g.righe[s.id].codici[0])}" style="--c:${SLOT[i].col}">${esc(g.righe[s.id].codici.filter(Boolean).join('/'))}</em>` : '').join('')}</span>
+              <span class="es">${sl.map((g, i) => { const r = g?.righe[s.id]; if (!r) return ''; const cc = idxG(s).map((k) => r.codici[k]).filter(Boolean);
+                return `<em class="${classeCod(cc[0])}" style="--c:${SLOT[i].col}">${esc(cc.join('/'))}</em>`; }).join('')}</span>
             </a>`).join('') : `<p class="nessuno">${tutti.length ? 'Nessun sottogancio trovato.' : 'Nessun sottogancio. Aggiungi il primo con «＋ Aggiungi sottogancio».'}</p>`}
         </div>
         <p class="legenda-app">${CODICI.map(([k, l]) => `<span><em class="${classeCod(k)}">${esc(k)}</em> ${l}</span>`).join('')}</p>
@@ -306,6 +317,7 @@ window.SG = (function () {
         <p class="muted small">Se è un insieme (es. tirante + campanella + ganci), aggiungi una riga per ogni componente: ognuno avrà il suo esito.</p>
         <div id="parti"></div>
         <button type="button" class="btn ghost small" id="btnParte">+ Aggiungi componente</button>
+        <div class="checks" id="boxTitolo"><label class="check"><input type="checkbox" name="primaTitolo" ${s.primaTitolo ? 'checked' : ''}> <span>La prima riga è solo il <b>nome dell'insieme</b> (es. TIRANTE 2 BRACCI): fa da titolo e non riceve giudizi</span></label></div>
         <div class="checks"><label class="check"><input type="checkbox" name="dismesso" ${s.dismesso ? 'checked' : ''}> Eliminato / non più in uso (resta negli elenchi degli anni in cui è stato controllato)</label></div>
         <div class="azioni-form">
           ${id ? '<button type="button" class="btn danger ghost" id="btnElimina">Elimina</button>' : ''}
@@ -328,6 +340,7 @@ window.SG = (function () {
           ${s.parti.length > 1 ? `<button type="button" class="btn ghost small danger" data-rm="${i}" aria-label="Togli componente">×</button>` : ''}
         </div>`).join('');
       box.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { leggiParti(); s.parti.splice(+b.dataset.rm, 1); disegna(); }));
+      el.querySelector('#boxTitolo').hidden = s.parti.length < 2;
     };
     disegna();
     el.querySelector('#btnParte').onclick = () => { leggiParti(); s.parti.push({ denominazione: '', dimensioni: '' }); disegna(); };
@@ -348,7 +361,9 @@ window.SG = (function () {
           await UI.salva('giriSottoganci', g);
         }
       }
-      Object.assign(s, { numero, portata: f.portata.value.trim(), ubicazione: f.ubicazione.value.trim(), certificato: f.certificato.value.trim(), dismesso: f.dismesso.checked });
+      Object.assign(s, { numero, portata: f.portata.value.trim(), ubicazione: f.ubicazione.value.trim(), certificato: f.certificato.value.trim(), dismesso: f.dismesso.checked,
+        primaTitolo: s.parti.length > 1 && f.primaTitolo.checked });
+      if (s.primaTitolo && !orig?.primaTitolo) await togliGiudiziTitolo(S, [s]);
       await UI.salva('sottoganci', s); UI.toast('Sottogancio salvato', 'ok');
       location.hash = '#/sottoganci/c/' + s.sedeId;
     };
@@ -386,17 +401,19 @@ window.SG = (function () {
         const pr = precedente?.righe[s.id];
         g.righe[s.id] = { codici: s.parti.map(() => ''), note: s.parti.map((_, i) => pr?.note?.[i] || '') };
       }
+      if (!conGiudizio(s, 0)) g.righe[s.id].codici[0] = '';   // la riga titolo non ha giudizio
     });
     // elenco "piatto": una voce per ogni componente
-    const voci = items.flatMap((s) => s.parti.map((p, pi) => ({ s, p, pi, key: s.id + ':' + pi })));
+    const voci = items.flatMap((s) => s.parti.map((p, pi) => ({ s, p, pi, key: s.id + ':' + pi })).filter((v) => conGiudizio(s, v.pi)));
     // componente eliminato («\») in un controllo prima, nello stesso anno: resta «\» e non si cambia più
     const giriAnnoPrima = giriDi(S, cliId, anno).filter((x) => x.id !== g.id && x.slot < slotN).sort((a, b) => a.slot - b.slot);
     voci.forEach((v) => { const x = giriAnnoPrima.find((y) => y.righe[v.s.id]?.codici[v.pi] === '\\'); if (x) { v.elim = x; g.righe[v.s.id].codici[v.pi] = '\\'; } });
     const msgElim = (v) => `<div class="sg2-elim">\\ eliminato il ${esc(dataBreve(v.elim.data))} (fascetta ${esc(SLOT[v.elim.slot - 1].nome)}) · non si può cambiare</div>`;
     // un sottogancio è "fatto" quando tutti i suoi componenti hanno il giudizio
-    const completo = (s) => s.parti.every((_, i) => g.righe[s.id].codici[i]);
+    const completo = (s) => idxG(s).every((i) => g.righe[s.id].codici[i]);
     const fatti = () => items.filter(completo).length;
-    const sub = (v) => [v.p.dimensioni, v.pi === 0 && v.s.portata, v.pi === 0 && v.s.ubicazione, v.s.parti.length > 1 && `componente ${v.pi + 1} di ${v.s.parti.length}`].filter(Boolean).map(esc).join(' · ');
+    const sub = (v) => { const ix = idxG(v.s), pos = ix.indexOf(v.pi), uno = v.s.parti.length === 1;
+      return [v.p.dimensioni, uno && v.s.portata, uno && v.s.ubicazione, ix.length > 1 && `componente ${pos + 1} di ${ix.length}`].filter(Boolean).map(esc).join(' · '); };
     const prima = (v) => precedente?.righe[v.s.id]?.codici[v.pi] || '';
     // ultimi controlli fatti prima di questo (al massimo 3), per la vista "una alla volta"
     const giriPrima = giriDi(S, cliId).filter((x) => x.id !== g.id && (x.anno < anno || (x.anno === anno && x.slot < slotN)))
@@ -425,7 +442,7 @@ window.SG = (function () {
           ${items.map((s) => `<div class="sg2-grp ${s.parti.length > 1 ? 'multi' : ''}" data-g="${s.id}">
             ${s.parti.length > 1 ? `<button type="button" class="sg2-grp-h" data-gh>
               <b class="n">${esc(s.numero)}</b>
-              <span class="d">${esc(s.parti[0].denominazione)}<small>${[s.parti.length + ' componenti', s.portata, s.ubicazione].filter(Boolean).map(esc).join(' · ')}</small></span>
+              <span class="d">${esc(s.parti[0].denominazione)}<small>${[idxG(s).length + (idxG(s).length === 1 ? ' componente' : ' componenti'), s.portata, s.ubicazione].filter(Boolean).map(esc).join(' · ')}</small></span>
               <span class="sg2-grp-st" data-gst></span><span class="sg2-grp-fr">▸</span></button>` : ''}
             <div class="sg2-grp-b">
           ${voci.filter((v) => v.s === s).map((v) => `
@@ -476,8 +493,8 @@ window.SG = (function () {
     };
     const statoGruppo = (s) => {
       const gr = gruppo(s.id), st = gr.querySelector('[data-gst]'); if (!st) return;
-      const n = s.parti.filter((_, i) => g.righe[s.id].codici[i]).length;
-      st.textContent = n === s.parti.length ? '✓' : `${n}/${s.parti.length}`; st.classList.toggle('ok', n === s.parti.length);
+      const ix = idxG(s), n = ix.filter((i) => g.righe[s.id].codici[i]).length;
+      st.textContent = n === ix.length ? '✓' : `${n}/${ix.length}`; st.classList.toggle('ok', n === ix.length);
     };
     const aggiorna = () => {
       const n = fatti(); el.querySelector('#nFatti').textContent = n;
@@ -667,6 +684,54 @@ window.SG = (function () {
   }
 
 
+  // toglie i giudizi dati per sbaglio alla riga titolo, in tutti i controlli di quei sottoganci
+  async function togliGiudiziTitolo(S, lista) {
+    let n = 0;
+    for (const g of S.giriSottoganci) {
+      let cambiato = false;
+      lista.forEach((s) => { const r = g.righe[s.id]; if (r && r.codici[0]) { r.codici[0] = ''; cambiato = true; n++; } });
+      if (cambiato) await UI.salva('giriSottoganci', g);
+    }
+    return n;
+  }
+
+  // pagina per sistemare in un colpo solo i sottoganci composti di una cartella
+  function paginaTitoli(el, S, cliId) {
+    const c = cliente(S, cliId);
+    if (!c) { el.innerHTML = '<p class="nessuno">Cliente non trovato.</p>'; return { titolo: 'Sottoganci', indietro: '#/sottoganci' }; }
+    const lista = S.sottoganci.filter((s) => s.sedeId === cliId && s.parti.length > 1).sort(ordinaNum);
+    const spunta = (s) => (s.primaTitolo === undefined ? sembraTitolo(S, s) : !!s.primaTitolo);
+    el.innerHTML = `
+      <section class="sg sg2 sg-titoli">
+        <div class="card"><h1>Righe titolo · ${esc(nomeCliente(c))}</h1>
+          <p class="muted small">Spunta i sottoganci in cui la <b>prima riga è solo il nome dell'insieme</b> (es. TIRANTE 2 BRACCI con sotto fune e campanella): quella riga resta sull'elenco come titolo ma non riceve giudizi. Quelli segnati «consigliato» li ho riconosciuti dai controlli già fatti (prima riga senza dimensioni e sempre senza giudizio).
+          ${UI.info('Salvando, i giudizi dati per sbaglio alla riga titolo vengono tolti da tutti i controlli. I giudizi dei componenti non cambiano.')}</p>
+          <div class="azioni-form"><button type="button" class="btn ghost small" id="tTutti">Spunta i consigliati</button><button type="button" class="btn ghost small" id="tNessuno">Togli tutte le spunte</button></div>
+        </div>
+        <div class="sg2-lista">${lista.map((s) => `
+          <label class="sg2-riga sg-tit-riga"><input type="checkbox" data-sid="${s.id}" ${spunta(s) ? 'checked' : ''}>
+            <span class="n">${esc(s.numero)}</span>
+            <span class="d"><b>${esc(s.parti[0].denominazione)}</b>${sembraTitolo(S, s) && s.primaTitolo === undefined ? ' <span class="pill st-scadenza">consigliato</span>' : ''}
+              <small>sotto: ${s.parti.slice(1).map((p) => esc(p.denominazione)).join(' · ')}</small></span></label>`).join('') || '<p class="nessuno">Nessun sottogancio composto in questa cartella.</p>'}</div>
+        ${lista.length ? `<div class="azioni-form sticky"><a class="btn ghost" href="#/sottoganci/c/${cliId}">Annulla</a><span class="grow"></span><button class="btn big" id="tSalva">Salva</button></div>` : ''}
+      </section>`;
+    el.querySelector('#tTutti')?.addEventListener('click', () => el.querySelectorAll('[data-sid]').forEach((x) => { const s = lista.find((y) => y.id === x.dataset.sid); if (sembraTitolo(S, s)) x.checked = true; }));
+    el.querySelector('#tNessuno')?.addEventListener('click', () => el.querySelectorAll('[data-sid]').forEach((x) => (x.checked = false)));
+    el.querySelector('#tSalva')?.addEventListener('click', async () => {
+      const nuovi = [];
+      for (const x of el.querySelectorAll('[data-sid]')) {
+        const s = lista.find((y) => y.id === x.dataset.sid);
+        if (s.primaTitolo === x.checked) continue;
+        const d = { ...JSON.parse(JSON.stringify(s)), primaTitolo: x.checked };
+        await UI.salva('sottoganci', d); if (x.checked) nuovi.push(d);
+      }
+      const tolti = await togliGiudiziTitolo(S, nuovi);
+      UI.toast(`✓ Salvato${tolti ? ` · tolti ${tolti} giudizi dalle righe titolo` : ''}`, 'ok');
+      location.hash = '#/sottoganci/c/' + cliId;
+    });
+    return { titolo: 'Righe titolo', indietro: '#/sottoganci/c/' + cliId, live: false };
+  }
+
   function route(el, S, parti, query) {
     const [, a, b, cmd, x, y] = parti;
     if (!a) return cartelle(el, S);
@@ -676,9 +741,10 @@ window.SG = (function () {
     if (a === 'c' && cmd === 'nuovo') return formSottogancio(el, S, null, b);
     if (a === 'c' && cmd === 'giro') return formGiro(el, S, b, +x, +y);
     if (a === 'c' && cmd === 'stampa') return SGStampa.render(el, S, b, +x);
+    if (a === 'c' && cmd === 'titoli') return UT.isMaster() ? paginaTitoli(el, S, b) : cartella(el, S, b, query);
     if (a === 'c') return cartella(el, S, b, query);
     return cartelle(el, S);
   }
 
-  return { SLOT, CODICI, route, cartelleDi, riepilogo, elenco, slotGiri, noteDi, cliente, dataBreve, nomeCliente };
+  return { SLOT, CODICI, route, cartelleDi, riepilogo, elenco, slotGiri, noteDi, cliente, dataBreve, nomeCliente, conGiudizio };
 })();
