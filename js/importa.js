@@ -159,7 +159,7 @@ window.IMPORTA = (function () {
       <section class="cli">
         <div class="sez-head"><h1>Importa dati ${UI.info('Carica il file .json che ti ho preparato. Prima di salvare vedi cosa verrà aggiunto. I clienti già presenti (stessa ragione sociale) vengono completati e non duplicati; le sedi vengono riconosciute dalla sigla o dal nome. Non viene cancellato niente.')}</h1></div>
         <div class="card form">
-          <label>File da importare (.json)<input type="file" id="fImp" accept=".json,application/json"></label>
+          <label>File da importare (.json)<input type="file" id="fImp"></label>
           <div id="anteprima"></div>
         </div>
         ${(() => { const d = doppi(S); return d.via.length || d.restano ? `<div class="card form">
@@ -181,6 +181,21 @@ window.IMPORTA = (function () {
       const file = e.target.files[0]; if (!file) return;
       let dati;
       try { dati = JSON.parse(await file.text()); } catch (er) { return UI.toast('Il file non è valido', 'err'); }
+      // file di un layout (es. preparato da un PDF): chiedo di quale sede è e lo carico lì
+      if (dati.formato === 'gid-layout') {
+        const sedi = CTR.sediConImpianti(S).map(({ c, s }) => ({ id: s.id, nome: CTR.nomeSede(c, s) }));
+        const parole = String(dati.titolo || '').toUpperCase().split(/[^A-Z0-9]+/).filter((w) => w.length > 2);
+        const punti = (x) => parole.filter((w) => x.nome.toUpperCase().includes(w)).length;
+        const meglio = sedi.slice().sort((a, b) => punti(b) - punti(a))[0];
+        return UI.modal({
+          titolo: 'Layout · di quale sede?', testoSalva: 'Avanti',
+          infoTxt: 'Questo file è un layout (capannoni e posizione delle gru). Scegli la sede: poi ti chiedo se mettere solo le gru nel tuo disegno o sostituirlo, e prima salvo una copia del layout di adesso.',
+          valori: { sede: meglio && punti(meglio) ? meglio.nome : '' },
+          campi: [{ k: 'sede', label: 'Sede', tipo: 'select', opzioni: sedi.map((x) => x.nome) }],
+          onSalva: (v) => { const sd = sedi.find((x) => x.nome.toUpperCase() === String(v.sede).toUpperCase()); if (!sd) { UI.toast('Scegli la sede', 'err'); return false; }
+            setTimeout(() => LAY.applica(S, sd.id, dati, () => (location.hash = '#/layout/s/' + sd.id)), 50); }
+        });
+      }
       if (dati.tipo !== 'gestionale-gruimpianti-import') return UI.toast('Questo file non è un file di importazione del gestionale', 'err');
       const p = piano(S, dati), box = el.querySelector('#anteprima');
       box.innerHTML = `

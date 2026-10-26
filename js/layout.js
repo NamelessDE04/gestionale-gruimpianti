@@ -524,7 +524,7 @@ window.LAY = (function () {
       });
     }
 
-    el.querySelector('#btnCarica')?.addEventListener('click', () => caricaDaFile(S, sedeId, c, L, salvato, imp));
+    el.querySelector('#btnCarica')?.addEventListener('click', () => caricaDaFile(S, sedeId));
     el.querySelector('#btnRipristina')?.addEventListener('click', async () => {
       const cp = docDi(S, sedeId + COPIA);
       if (!UI.conferma(`Rimettere il layout com'era il ${UI.fmt(cp.copiaDel || '')}?\n\nIl layout di adesso diventa la nuova copia: puoi sempre tornare indietro.`)) return;
@@ -568,12 +568,24 @@ window.LAY = (function () {
   const bbox = (els) => { const cs = els.filter((e) => e.tipo === 'capannone'); if (!cs.length) return null;
     const x0 = Math.min(...cs.map((c) => c.x)), y0 = Math.min(...cs.map((c) => c.y));
     return { x: x0, y: y0, w: Math.max(...cs.map((c) => c.x + c.w)) - x0, h: Math.max(...cs.map((c) => c.y + c.h)) - y0 }; };
-  function caricaDaFile(S, sedeId, cli, L, salvato, imp) {
-    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+  function caricaDaFile(S, sedeId) {
+    // nessun filtro sul tipo: telefoni e tablet spesso non riconoscono i .json e li mostrano grigi
+    const inp = document.createElement('input'); inp.type = 'file'; inp.hidden = true; document.body.appendChild(inp);
     inp.onchange = async () => {
-      const f = inp.files[0]; if (!f) return;
-      let D; try { D = JSON.parse(await f.text()); } catch (e) { return UI.toast('File non leggibile', 'err'); }
+      const f = inp.files[0]; inp.remove(); if (!f) return;
+      let D; try { D = JSON.parse(await f.text()); } catch (e) { return UI.toast('File non leggibile: deve essere il file .json del layout', 'err'); }
       if (D.formato !== 'gid-layout' || !Array.isArray(D.impianti)) return UI.toast('Questo file non è un layout', 'err');
+      applica(S, sedeId, D);
+    };
+    inp.click();
+  }
+  // mostra cosa ha trovato e carica il layout D nella sede (anche dalla pagina «Importa»)
+  function applica(S, sedeId, D, dopo) {
+    const { c: cli } = CTR.trovaSede(S, sedeId);
+    const salvato = docDi(S, sedeId);
+    const L = aggiorna(salvato ? JSON.parse(JSON.stringify(salvato)) : nuovo(sedeId, cli?.id));
+    const imp = S.impianti.filter((i) => i.sedeId === sedeId && !i.dismesso);
+    {
       const { out, mancano } = abbina(imp, D.impianti);
       const haDisegno = !!(salvato && bbox(L.elementi));
       UI.modal({
@@ -608,10 +620,10 @@ window.LAY = (function () {
           });
           await UI.salva('layouts', N);
           UI.toast(`✓ Layout caricato: ${out.length} impianti al loro posto${mancano.length ? ` · ${mancano.length} non trovati` : ''}`, 'ok');
+          if (dopo) dopo();
         }
       });
-    };
-    inp.click();
+    }
   }
 
   function route(el, S, parti, query) {
@@ -619,5 +631,5 @@ window.LAY = (function () {
     if (parti[1] === 's' && parti[2]) return pianta(el, S, parti[2], ctr);
     return elenco(el, S, ctr);
   }
-  return { route, disegna };
+  return { route, disegna, applica };
 })();
