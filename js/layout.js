@@ -380,7 +380,7 @@ window.LAY = (function () {
       // capannoni presi da OpenStreetMap con le misure vere
       el.querySelector('#btnMappa').onclick = () => LAYMAP.apri(CLI.indirizzo ? CLI.indirizzo(s) : '', async (rett) => {
         if (!rett.length) return;
-        if (salvato) { try { await UI.salva('layouts', { ...JSON.parse(JSON.stringify(salvato)), id: sedeId + COPIA, copiaDi: sedeId, copiaDel: UI.oggi(), sedeId: '' }); } catch (e) {} }
+        if (salvato) { try { await UI.salva('layouts', copiaDiSicurezza(S, sedeId, salvato)); } catch (e) {} }
         // layout ancora "vuoto" (solo il capannone di partenza): lo sostituisco; altrimenti li metto sotto al disegno
         const vuoto = !L.impianti.length && L.elementi.length === 1 && L.elementi[0].tipo === 'capannone' && L.elementi[0].w === 100 && L.elementi[0].h === 70;
         let dy = 0, dx = 0;
@@ -530,8 +530,10 @@ window.LAY = (function () {
       if (!UI.conferma(`Rimettere il layout com'era il ${UI.fmt(cp.copiaDel || '')}?\n\nIl layout di adesso diventa la nuova copia: puoi sempre tornare indietro.`)) return;
       const ora = salvato ? JSON.parse(JSON.stringify(salvato)) : null;
       const vecchio = JSON.parse(JSON.stringify(cp)); delete vecchio.copiaDi; delete vecchio.copiaDel; vecchio.id = sedeId; vecchio.sedeId = sedeId;
+      // la versione rimessa "discende" da quella di adesso: è una modifica fatta qui, non un conflitto
+      vecchio._rev = salvato?._rev; vecchio._storia = salvato?._storia || [];
       await UI.salva('layouts', vecchio);
-      if (ora) await UI.salva('layouts', { ...ora, id: sedeId + COPIA, copiaDi: sedeId, copiaDel: UI.oggi(), sedeId: '' });
+      if (ora) await UI.salva('layouts', copiaDiSicurezza(S, sedeId, ora));
       UI.toast('Layout di prima rimesso', 'ok');
     });
     const entra = () => { inModifica[sedeId] = true; App.ridisegna(); };
@@ -551,6 +553,11 @@ window.LAY = (function () {
   // Il file contiene capannoni, corsie, zone e la posizione di ogni impianto indicato con la sua sigla (es. GB17, SF6, CP16).
   // Prima di toccare il layout ne salvo una copia (id sede + COPIA), che si rimette dal menu.
   const COPIA = '~copia';
+  // copia del layout di adesso (quella vecchia viene sostituita, continuando la sua storia)
+  const copiaDiSicurezza = (S, sedeId, L) => {
+    const c = { ...JSON.parse(JSON.stringify(L)), id: sedeId + COPIA, copiaDi: sedeId, copiaDel: UI.oggi(), sedeId: '' }, prima = docDi(S, sedeId + COPIA);
+    c._rev = prima?._rev; c._storia = prima?._storia || []; return c;
+  };
   const normSigla = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
   const cifre = (t) => (String(t || '').match(/\d+/g) || []).join('/');
   function abbina(imp, voci) {
@@ -599,7 +606,7 @@ window.LAY = (function () {
         ],
         onSalva: async (v) => {
           const soloGru = /solo le gru/.test(v.modo || '');
-          if (salvato) await UI.salva('layouts', { ...JSON.parse(JSON.stringify(salvato)), id: sedeId + COPIA, copiaDi: sedeId, copiaDel: UI.oggi(), sedeId: '' });
+          if (salvato) await UI.salva('layouts', copiaDiSicurezza(S, sedeId, salvato));
           const N = JSON.parse(JSON.stringify(salvato || nuovo(sedeId, cli.id)));
           aggiorna(N);
           let mappa = (x, y) => [x, y], k = 1;

@@ -39,6 +39,7 @@ window.CONF = (function () {
     dopo.forEach((n) => {
       const o = vecchi.get(n.id);
       if (!o || !o._rev || !n._rev || o._rev === n._rev) return;
+      if (o.copiaDi || n.copiaDi) return;   // copie di sicurezza (es. layout di prima): non sono lavoro di nessuno
       if ((n._storia || []).includes(o._rev)) return;   // normale: la nuova discende da quella che avevo
       if ((o._storia || []).includes(n._rev)) return;   // ritorno a una versione precedente (salvataggio rifiutato)
       conflitto(col, o, n);
@@ -51,6 +52,7 @@ window.CONF = (function () {
   async function conflitto(col, perso, attuale) {
     const chiave = `${col}__${perso.id}__${perso._rev}`;
     if (inCorso.has(chiave)) return; inCorso.add(chiave);
+    if (uguali(perso, attuale)) return;   // stesso contenuto: niente da scegliere
     try {
       if (col === 'schedeControllo') {
         const m = unisciSchede(attuale, perso);
@@ -104,7 +106,11 @@ window.CONF = (function () {
     S.giriSottoganci.forEach((x) => { const k = `${x.sedeId}|${x.anno}|${x.slot}`; g.set(k, [...(g.get(k) || []), x]); });
     return [...g.values()].filter((l) => l.length > 1);
   };
-  const conta = (S) => S.conflitti.length + doppioniSottoganci(S).length;
+  // conflitti che non servono più: copie di sicurezza, o la versione "persa" è uguale a quella attuale
+  const inutile = (S, c) => String(c.docId || '').endsWith('~copia') || c.perso?.copiaDi
+    || (() => { const cor = (S[c.col] || []).find((x) => x.id === c.docId); return cor && c.perso && uguali(c.perso, cor); })();
+  const validi = (S) => S.conflitti.filter((c) => !inutile(S, c));
+  const conta = (S) => validi(S).length + doppioniSottoganci(S).length;
 
   // ---------- pagina del Master ----------
   const quando = (t) => (t ? `${fmt(t.slice(0, 10))} ${t.slice(11, 16)}` : '—');
@@ -185,7 +191,9 @@ window.CONF = (function () {
 
   function pagina(el, S) {
     if (!UT.isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master gestisce i conflitti.</p>'; return { titolo: 'Conflitti', indietro: '#/' }; }
-    const lista = [...S.conflitti].sort((a, b) => (b.rilevato || '').localeCompare(a.rilevato || ''));
+    // pulizia: tolgo da soli quelli inutili
+    S.conflitti.filter((c) => inutile(S, c)).forEach((c) => Backend.remove('conflitti', c.id).catch(() => {}));
+    const lista = validi(S).sort((a, b) => (b.rilevato || '').localeCompare(a.rilevato || ''));
     const doppi = doppioniSottoganci(S);
     el.innerHTML = `
       <section class="cli">
