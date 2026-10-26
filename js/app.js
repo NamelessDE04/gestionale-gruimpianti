@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.65';
+  const VERSIONE = '0.42.66';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -173,6 +173,44 @@ window.App = (function () {
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
     }
+    controllaVersione();
+    setInterval(controllaVersione, 10 * 60 * 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) controllaVersione(); });
+  }
+
+  // ---------- c'è una versione più nuova? ----------
+  // Leggo la versione pubblicata (dentro sw.js, sempre dalla rete) e se è più nuova di quella che sto usando
+  // mostro a tutti un avviso con il pulsante «Aggiorna».
+  const piuNuova = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
+  let ultimoControllo = 0;
+  async function controllaVersione() {
+    if (!location.protocol.startsWith('http') || Date.now() - ultimoControllo < 60000) return;
+    ultimoControllo = Date.now();
+    try {
+      const r = await fetch('sw.js?c=' + Date.now(), { cache: 'no-store' });
+      const m = (await r.text()).match(/VERSIONE\s*=\s*'([\d.]+)'/);
+      if (m && piuNuova(m[1], VERSIONE)) mostraAggiorna(m[1]);
+    } catch (e) { /* senza rete: riprovo dopo */ }
+  }
+  function mostraAggiorna(nuova) {
+    let b = document.getElementById('avvisoAgg');
+    if (!b) { b = document.createElement('div'); b.id = 'avvisoAgg'; b.setAttribute('role', 'status'); document.body.appendChild(b); }
+    b.innerHTML = `<span class="agg-ico">⬆️</span><span class="agg-txt"><b>È uscita una versione nuova dell'app</b><small>Tu hai la ${VERSIONE}, la nuova è la ${nuova}</small></span><button type="button" class="btn agg-btn">Aggiorna</button>`;
+    b.querySelector('.agg-btn').onclick = () => aggiornaOra(nuova);
+  }
+  async function aggiornaOra(nuova) {
+    // prima salvo quello che si sta compilando (come quando si esce da una pagina)
+    if (uscita) { try { uscita(); } catch (e) {} }
+    if (daSalvare() && !UI.conferma('Stai compilando qualcosa che non è ancora salvato. Aggiornare lo stesso?\n\nQuello che non è salvato andrà perso.')) return;
+    const b = document.getElementById('avvisoAgg'); if (b) b.querySelector('.agg-btn').textContent = 'Aggiorno…';
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration();
+      if (reg) await reg.update().catch(() => {});
+      if (window.caches) for (const k of await caches.keys()) if (!k.startsWith('lavagna')) await caches.delete(k);
+    } catch (e) {}
+    guardia = null;
+    // ricarico la pagina chiedendo i file nuovi
+    location.replace(location.pathname + '?agg=' + encodeURIComponent(nuova) + location.hash);
   }
 
 

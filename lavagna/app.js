@@ -1807,6 +1807,8 @@ async function init() {
   attachLog(db);
   db.onStatus(setStatus);
   if ('serviceWorker' in navigator) navigator.serviceWorker.register('./sw.js').catch(() => {});
+  controllaVersione(); setInterval(controllaVersione, 10 * 60 * 1000);
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) controllaVersione(); });
 
   if (db.mode === 'local') {
     $('#localBanner').hidden = false;
@@ -1834,3 +1836,34 @@ async function init() {
   });
 }
 init();
+
+/* ============================================================
+   VERSIONE NUOVA: avviso a tutti con il pulsante «Aggiorna»
+   (la versione pubblicata è il numero della cache in sw.js, quella in uso è il ?v= di app.js)
+   ============================================================ */
+var ultimoControlloVer = 0;   // var: la funzione può essere chiamata prima di questa riga
+async function controllaVersione() {
+  if (!location.protocol.startsWith('http') || Date.now() - ultimoControlloVer < 60000) return;
+  ultimoControlloVer = Date.now();
+  const mia = +((document.querySelector('script[src*="app.js?v="]')?.getAttribute('src') || '').match(/v=(\d+)/) || [])[1] || 0;
+  try {
+    const t = await (await fetch('./sw.js?c=' + Date.now(), { cache: 'no-store' })).text();
+    const nuova = +(t.match(/lavagna-v(\d+)/) || [])[1] || 0;
+    if (mia && nuova > mia) mostraAggiorna();
+  } catch (e) { /* senza rete */ }
+}
+function mostraAggiorna() {
+  if (document.getElementById('avvisoAgg')) return;
+  const b = document.createElement('div'); b.id = 'avvisoAgg'; b.setAttribute('role', 'status');
+  b.innerHTML = '<span class="agg-ico">⬆️</span><span class="agg-txt"><b>È uscita una versione nuova della lavagna</b><small>Tocca «Aggiorna» per usarla</small></span><button type="button" class="agg-btn">Aggiorna</button>';
+  document.body.appendChild(b);
+  b.querySelector('.agg-btn').onclick = async () => {
+    b.querySelector('.agg-btn').textContent = 'Aggiorno…';
+    try {
+      const reg = await navigator.serviceWorker?.getRegistration('./');
+      if (reg) await reg.update().catch(() => {});
+      if (window.caches) for (const k of await caches.keys()) if (k.startsWith('lavagna')) await caches.delete(k);
+    } catch (e) {}
+    location.replace(location.pathname + '?agg=' + Date.now() + location.hash);
+  };
+}

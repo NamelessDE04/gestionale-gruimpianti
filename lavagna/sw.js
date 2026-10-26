@@ -1,6 +1,6 @@
 // Service worker: l'app si apre anche senza rete.
 // Quando modifichi i file dell'app, aumenta il numero di versione qui sotto.
-const CACHE = 'lavagna-v38';
+const CACHE = 'lavagna-v39';
 const ASSETS = [
   './', './index.html', './style.css', './app.js', './config.js', './manifest.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/maskable-192.png', './icons/maskable-512.png', './icons/apple-touch-icon.png', './icons/favicon-64.png', './logo.png', '../js/pdf.js'
