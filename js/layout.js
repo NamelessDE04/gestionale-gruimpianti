@@ -143,6 +143,13 @@ window.LAY = (function () {
       for (let q = 1; q < n; q++) lin += e.or === 'o'
         ? `<line x1="0" y1="${(e.h * q) / n}" x2="${e.w}" y2="${(e.h * q) / n}" stroke="#111" stroke-width="${u * 0.12}"/>`
         : `<line x1="${(e.w * q) / n}" y1="0" x2="${(e.w * q) / n}" y2="${e.h}" stroke="#111" stroke-width="${u * 0.12}"/>`;
+      if (Array.isArray(e.forma) && e.forma.length > 2) {
+        // forma vera del capannone (es. a L): le campate si vedono solo dentro
+        const pts = e.forma.map(([a, b]) => `${a * e.w},${b * e.h}`).join(' ');
+        return `${apri()}<clipPath id="cp-${e.id}"><polygon points="${pts}"/></clipPath><rect x="0" y="0" width="${e.w}" height="${e.h}" fill="#fff" fill-opacity="0"/>
+          <polygon points="${pts}" fill="#fff"/><g clip-path="url(#cp-${e.id})">${lin}</g><polygon points="${pts}" fill="none" stroke="#111" stroke-width="${u * 0.2}" stroke-linejoin="round"/>
+          ${t ? `<text x="${e.w / 2}" y="${-u * 0.7}" font-size="${u * 1.5}" font-weight="700" text-anchor="middle" fill="#5b6b7d">${t}</text>` : ''}${maniglia(e, u, opz)}</g>`;
+      }
       return `${apri()}<rect x="0" y="0" width="${e.w}" height="${e.h}" fill="#fff" stroke="#111" stroke-width="${u * 0.2}"/>${lin}
         ${t ? `<text x="${e.w / 2}" y="${-u * 0.7}" font-size="${u * 1.5}" font-weight="700" text-anchor="middle" fill="#5b6b7d">${t}</text>` : ''}${maniglia(e, u, opz)}</g>`;
     }
@@ -386,7 +393,7 @@ window.LAY = (function () {
         let dy = 0, dx = 0;
         if (vuoto) L.elementi = [];
         else { const b = L.elementi.map((e) => e.y + (+e.h || 0)); dy = Math.max(0, ...b) + unita(L) * 10; dx = Math.min(...L.elementi.map((e) => e.x), 0); }
-        rett.forEach((r) => L.elementi.push({ id: uid(), tipo: 'capannone', x: r.x + dx, y: r.y + dy, w: r.w, h: r.h, n: Math.max(1, Math.round(Math.min(r.w, r.h) / 25)), or: r.w >= r.h ? 'o' : 'v', testo: (r.nome || '').toUpperCase() }));
+        rett.forEach((r) => L.elementi.push({ id: uid(), tipo: 'capannone', x: r.x + dx, y: r.y + dy, w: r.w, h: r.h, n: Math.max(1, Math.round(Math.min(r.w, r.h) / 25)), or: r.w >= r.h ? 'o' : 'v', testo: (r.nome || '').toUpperCase(), ...(r.forma ? { forma: r.forma } : {}) }));
         if (vuoto) L.u = Math.round(unitaCalcolata(L) * 1000) / 1000;
         scelto = null; ridisegna(); proprieta(); salva();
         UI.toast(`✓ ${rett.length} ${rett.length === 1 ? 'capannone aggiunto' : 'capannoni aggiunti'} con le misure vere · campate da controllare`, 'ok');
@@ -425,7 +432,8 @@ window.LAY = (function () {
           <div class="lay-prop-campi">
             ${conTesto ? `<label>${e.tipo === 'capannone' ? 'Nome (facoltativo)' : 'Testo'}<input id="pTesto" value="${esc(e.testo || '')}" autocomplete="off"></label>` : ''}
             ${e.tipo === 'capannone' ? `<div class="lay-campate"><span>Campate</span><button type="button" class="btn ghost small" id="pMeno">−</button><b>${e.n}</b><button type="button" class="btn ghost small" id="pPiu">+</button></div>
-              <button type="button" class="btn ghost small" id="pGira">${e.or === 'o' ? '⇆ Campate verticali' : '⇅ Campate orizzontali'}</button>` : ''}
+              <button type="button" class="btn ghost small" id="pGira">${e.or === 'o' ? '⇆ Campate verticali' : '⇅ Campate orizzontali'}</button>
+              ${Array.isArray(e.forma) ? '<button type="button" class="btn ghost small" id="pRett">▭ Rendi rettangolare</button>' : ''}` : ''}
             ${e.tipo === 'testo' ? `<div class="lay-campate"><span>Grandezza</span><button type="button" class="btn ghost small" id="pAmeno" aria-label="Più piccola">A−</button><b>${Math.round((+e.s || 1) * 100)}%</b><button type="button" class="btn ghost small" id="pApiu" aria-label="Più grande">A+</button></div>` : ''}
             ${ruota ? '<button type="button" class="btn ghost small" id="pRuota">↻ Ruota</button>' : ''}
             ${e.tipo === 'testo' ? `<span class="lay-colori">${['#1f5fbf', '#2e9e5b', '#d6453d', '#111111'].map((cc) => `<button type="button" class="lay-col" data-col="${cc}" style="background:${cc}" aria-label="colore"></button>`).join('')}</span>` : ''}
@@ -433,6 +441,7 @@ window.LAY = (function () {
         p.querySelector('#pTesto')?.addEventListener('input', (ev) => { e.testo = ev.target.value.toUpperCase(); ridisegna(); salva(); });
         p.querySelector('#pMeno')?.addEventListener('click', () => { e.n = Math.max(1, (+e.n || 1) - 1); ridisegna(); proprieta(); salva(); });
         p.querySelector('#pPiu')?.addEventListener('click', () => { e.n = Math.min(30, (+e.n || 1) + 1); ridisegna(); proprieta(); salva(); });
+        p.querySelector('#pRett')?.addEventListener('click', () => { delete e.forma; ridisegna(); proprieta(); salva(); });
         p.querySelector('#pGira')?.addEventListener('click', () => { e.or = e.or === 'o' ? 'v' : 'o'; ridisegna(); proprieta(); salva(); });
         const grand = (f) => { e.s = Math.round(Math.min(4, Math.max(0.3, (+e.s || 1) * f)) * 100) / 100; ridisegna(); proprieta(); salva(); };
         p.querySelector('#pAmeno')?.addEventListener('click', () => grand(1 / 1.2));
@@ -449,6 +458,7 @@ window.LAY = (function () {
             });
             dentroImp.forEach(gira);
             [e.w, e.h] = [e.h, e.w]; e.x = cx - e.w / 2; e.y = cy - e.h / 2; e.or = e.or === 'o' ? 'v' : 'o';
+            if (Array.isArray(e.forma)) e.forma = e.forma.map(([a, b]) => [Math.round((1 - b) * 1000) / 1000, a]);
           } else if (RIDIM.includes(e.tipo)) { const cx = e.x + e.w / 2, cy = e.y + e.h / 2; [e.w, e.h] = [e.h, e.w]; e.x = cx - e.w / 2; e.y = cy - e.h / 2; }
           else e.rot = ((+e.rot || 0) + (e.tipo === 'testo' ? 90 : 45)) % 360;   // scritte di 90°, frecce e simboli di 45°
           ridisegna(); salva();

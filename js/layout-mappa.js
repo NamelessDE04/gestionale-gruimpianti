@@ -39,17 +39,24 @@ window.LAYMAP = (function () {
   function rettangoli(scelti, lat) {
     const big = scelti.slice().sort((a, b) => area(b.pts) - area(a.pts))[0], a = -angolo(big.pts), m = metriPerPx(lat);
     const ruota = ([x, y]) => [x * Math.cos(a) - y * Math.sin(a), x * Math.sin(a) + y * Math.cos(a)];
-    const box = scelti.map((b) => { const r = b.pts.map(ruota), xs = r.map((q) => q[0]), ys = r.map((q) => q[1]);
-      return { x: Math.min(...xs) * m, y: Math.min(...ys) * m, w: (Math.max(...xs) - Math.min(...xs)) * m, h: (Math.max(...ys) - Math.min(...ys)) * m, nome: b.nome }; });
+    const box = scelti.map((b) => {
+      let r = b.pts.map(ruota);
+      if (r.length > 1 && Math.hypot(r[0][0] - r[r.length - 1][0], r[0][1] - r[r.length - 1][1]) < 1e-6) r = r.slice(0, -1);   // l'ultimo punto ripete il primo
+      const xs = r.map((q) => q[0]), ys = r.map((q) => q[1]), mx = Math.min(...xs), my = Math.min(...ys), w = Math.max(...xs) - mx, h = Math.max(...ys) - my;
+      // la forma vera: punti da 0 a 1 dentro il rettangolo che la contiene (così segue anche allargamenti e rotazioni)
+      const forma = r.map(([x, y]) => [Math.round(((x - mx) / w) * 1000) / 1000, Math.round(((y - my) / h) * 1000) / 1000]);
+      const rett = forma.length === 4 && forma.every(([u, v]) => (u < 0.02 || u > 0.98) && (v < 0.02 || v > 0.98));
+      return { x: mx * m, y: my * m, w: w * m, h: h * m, nome: b.nome, forma: rett ? null : forma };
+    });
     const x0 = Math.min(...box.map((b) => b.x)), y0 = Math.min(...box.map((b) => b.y)), r1 = (v) => Math.round(v * 10) / 10;
-    return box.map((b) => ({ x: r1(b.x - x0), y: r1(b.y - y0), w: r1(b.w), h: r1(b.h), nome: b.nome }));
+    return box.map((b) => ({ x: r1(b.x - x0), y: r1(b.y - y0), w: r1(b.w), h: r1(b.h), nome: b.nome, forma: b.forma }));
   }
 
   // finestra: cerco, mostro la mappa con gli edifici, li scegli col dito
   function apri(indirizzo, onScelti) {
     const ov = document.createElement('div'); ov.className = 'modal-ov';
     ov.innerHTML = `<div class="modal largo lm">
-      <div class="modal-head"><h2>Capannoni dalla mappa</h2>${UI.info('Cerco l\'indirizzo della sede e mostro gli edifici disegnati su OpenStreetMap. Tocca i capannoni (diventano gialli) e premi «Aggiungi»: nel layout arrivano con le misure vere, raddrizzati. Le forme a L diventano il rettangolo che le contiene. Campate, gru e il resto si sistemano come sempre.')}<button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+      <div class="modal-head"><h2>Capannoni dalla mappa</h2>${UI.info('Cerco l\'indirizzo della sede e mostro gli edifici disegnati su OpenStreetMap. Tocca i capannoni (diventano gialli) e premi «Aggiungi»: nel layout arrivano con le misure vere, raddrizzati. La forma resta quella vera (anche a L). Campate, gru e il resto si sistemano come sempre.')}<button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
       <div class="lm-corpo">
         <div class="lm-cerca"><input id="lmQ" data-libero value="${esc(indirizzo)}" placeholder="Indirizzo della sede"><button type="button" class="btn small" id="lmVai">Cerca</button></div>
         <div class="lm-mappa" id="lmMappa"><p class="muted small">Cerco…</p></div>
