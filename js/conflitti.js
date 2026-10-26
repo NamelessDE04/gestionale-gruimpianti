@@ -232,10 +232,11 @@ window.CONF = (function () {
 
   const apri = (col, d) => ({ schedeControllo: `#/controlli/i/${d.impiantoId}/${d.anno}`, rapportini: `#/rapportini/r/${d.id}`, giriSottoganci: `#/sottoganci/c/${d.sedeId}`, sottoganci: `#/sottoganci/c/${d.sedeId}`, clienti: `#/clienti/${d.id}`, impianti: `#/impianti/i/${d.id}`, mezzi: `#/mezzi/${d.id}` }[col] || '#/');
 
+  const giaTolti = new Set();
   function pagina(el, S) {
     if (!UT.isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master gestisce i conflitti.</p>'; return { titolo: 'Conflitti', indietro: '#/' }; }
     // pulizia: tolgo da soli quelli inutili
-    S.conflitti.filter((c) => inutile(S, c)).forEach((c) => Backend.remove('conflitti', c.id).catch(() => {}));
+    S.conflitti.filter((c) => inutile(S, c) && !giaTolti.has(c.id)).forEach((c) => { giaTolti.add(c.id); Backend.remove('conflitti', c.id).catch(() => giaTolti.delete(c.id)); });
     const lista = validi(S).sort((a, b) => (b.rilevato || '').localeCompare(a.rilevato || ''));
     const doppi = doppioniSottoganci(S);
     el.innerHTML = `

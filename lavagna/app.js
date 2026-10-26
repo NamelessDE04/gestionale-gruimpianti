@@ -235,11 +235,21 @@ async function firebaseBackend(cfg) {
   let statusCb = () => {};
   let deniedCb = () => {};
   const report = snap => statusCb(snap.metadata.fromCache || !navigator.onLine ? 'offline' : 'online');
+  let quotaDetta = false;
   const onErr = err => {
     console.error(err);
     statusCb('error');
     if (err.code === 'permission-denied') { deniedCb(); return; }
+    if (err.code === 'resource-exhausted') { if (!quotaDetta) { quotaDetta = true; toast('Limite giornaliero gratuito di Firebase finito: le modifiche restano su questo dispositivo e partono dopo le 9:00'); } return; }
     toast('Errore di sincronizzazione: ' + (err.code || err.message));
+  };
+  // se il cloud interrompe l'ascolto (limite finito, rete) lo riapro da solo dopo un po'
+  const ascolta = (ref, opz, avanti, errore) => {
+    let stop = null, attesa = 30000, finito = false, t = null;
+    const apri = () => { stop = opz ? f.onSnapshot(ref, opz, s => { attesa = 30000; quotaDetta = false; avanti(s); }, e => fallito(e)) : f.onSnapshot(ref, s => { attesa = 30000; avanti(s); }, e => fallito(e)); };
+    const fallito = e => { errore(e); if (finito || e.code === 'permission-denied') return; clearTimeout(t); t = setTimeout(apri, attesa); attesa = Math.min(attesa * 2, 600000); };
+    apri();
+    return () => { finito = true; clearTimeout(t); stop && stop(); };
   };
   // contatore dei consumi (come nel gestionale): finisce nello stesso documento "consumi" del giorno di Firebase
   const giornoFb = () => { try { return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Los_Angeles' }).format(new Date()); } catch { return new Date().toISOString().slice(0, 10); } };
@@ -282,20 +292,20 @@ async function firebaseBackend(cfg) {
     logout() { return a.signOut(auth); },
     // anagrafiche del gestionale (clienti/sedi, utenti, mezzi)
     subscribeGest(cb) {
-      return ['clienti', 'utenti', 'mezzi'].map(k => f.onSnapshot(f.collection(fdb, k), snap => cb(k, toList(snap)), onErr));
+      return ['clienti', 'utenti', 'mezzi'].map(k => ascolta(f.collection(fdb, k), null, snap => cb(k, toList(snap)), onErr));
     },
     subscribe(col, cb) {
-      return f.onSnapshot(f.collection(fdb, C(col)), { includeMetadataChanges: true },
+      return ascolta(f.collection(fdb, C(col)), { includeMetadataChanges: true },
         snap => { report(snap); cb(toList(snap)); }, onErr);
     },
     subscribeEvents(s, e, cb) {
       const q = f.query(f.collection(fdb, C('events')), f.where('date', '>=', s), f.where('date', '<=', e));
-      return f.onSnapshot(q, { includeMetadataChanges: true },
+      return ascolta(q, { includeMetadataChanges: true },
         snap => { report(snap); cb(toList(snap)); }, onErr);
     },
     subscribeUnsigned(cb) {
       const q = f.query(f.collection(fdb, C('events')), f.where('unsigned', '==', true));
-      return f.onSnapshot(q, snap => cb(toList(snap)), err => console.error(err));
+      return ascolta(q, null, snap => cb(toList(snap)), err => console.error(err));
     },
     save(col, obj) { conta('w'); return f.setDoc(f.doc(fdb, C(col), obj.id), strip(obj)); },
     async remove(col, id) {

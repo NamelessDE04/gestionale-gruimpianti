@@ -604,6 +604,7 @@ window.RAP = (function () {
   const motivi = {};   // perché un rapportino non ha ancora il numero (per spiegarlo a chi tocca «Assegna adesso»)
   const spiega = (e) => {
     const t = String(e?.code || '') + ' ' + String(e?.message || e || '');
+    if (/resource-exhausted|quota/i.test(t)) return 'è finito il limite giornaliero gratuito di Firebase (letture/scritture): riparte da solo dopo le 9:00 di mattina';
     if (/permission/i.test(t)) return 'il cloud non dà il permesso a questo account: pubblica le regole nuove (Firebase › Firestore › Regole)';
     if (/offline|unavailable|network|deadline|tempo/i.test(t)) return 'il cloud non risponde (rete assente o lenta)';
     if (/non-sul-server/.test(t)) return 'il rapportino non è ancora arrivato al cloud (aspetto che parta dalla coda di questo dispositivo)';

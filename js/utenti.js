@@ -139,8 +139,15 @@ window.UT = (function () {
     return `${tipo} ${os} · ${br}${app ? ' · app installata' : ''}`;
   }
   const dispOra = () => ({ id: idDisp(), desc: descDisp(), nome: (() => { try { return CONF.nomeDisp(); } catch (e) { return ''; } })(), account: (() => { try { return Backend.account?.() || ''; } catch (e) { return ''; } })() });
+  const ultimeVoci = new Map();   // documento → quando l'ho registrato l'ultima volta
   function registra(azione, testo, extra = {}) {
     const u = attuale() || extra.utente;
+    // stesso documento, stessa azione, stessa persona entro 3 minuti: è lo stesso lavoro (salvataggi automatici, trascinamenti nel layout)
+    if (extra.docId && azione === 'modifica') {
+      const k = `${extra.col}|${extra.docId}|${u?.id || ''}`, ora = Date.now();
+      if (ora - (ultimeVoci.get(k) || 0) < 180000) return;
+      ultimeVoci.set(k, ora);
+    }
     const voce = { id: uid(), t: new Date().toISOString(), uid: u?.id || '', nome: u?.nome || extra.nome || '—', azione, testo, ...(extra.col ? { col: extra.col, docId: extra.docId } : {}), ...(/^accesso/.test(azione) ? { disp: dispOra() } : {}) };
     try { Backend.append('log', voce, 10000); } catch (e) { /* registro pieno: non blocco il lavoro */ }
   }

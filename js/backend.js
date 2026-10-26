@@ -117,12 +117,15 @@
     // Se il server la rifiuta (es. permessi) dopo che ho smesso di aspettare, lo dico lo stesso.
     const attendi = async (p, cosa) => {
       let finito = false, scaduto = false;
-      const segnala = (e) => { console.error(cosa, e); if (scaduto) try { UI.toast(/permission/i.test(String(e?.code || e?.message || '')) ? 'Il cloud ha rifiutato una modifica: questo account non ha il permesso' : 'Una modifica non è arrivata al cloud: riprova', 'err'); } catch (x) {} };
+      const segnala = (e) => { console.error(cosa, e); if (/resource-exhausted|quota/i.test(String(e?.code || e?.message))) segnalaQuota(true); if (scaduto) try { UI.toast(/permission/i.test(String(e?.code || e?.message || '')) ? 'Il cloud ha rifiutato una modifica: questo account non ha il permesso' : 'Una modifica non è arrivata al cloud: riprova', 'err'); } catch (x) {} };
       const vero = p.then(() => { finito = true; }, (e) => { finito = true; segnala(e); throw e; });
       if (!navigator.onLine) { vero.catch(() => {}); return; }
       await Promise.race([vero, new Promise((ok) => setTimeout(ok, 6000))]);
       if (!finito) { scaduto = true; vero.catch(() => {}); }
     };
+    // limite giornaliero gratuito di Firebase finito: l'app lo dice chiaramente (le modifiche restano in coda sul dispositivo)
+    let quotaFinita = false;
+    const segnalaQuota = (si) => { if (si === quotaFinita) return; quotaFinita = si; try { window.dispatchEvent(new CustomEvent('gid-quota', { detail: si })); } catch (e) {} };
     const scriviMolti = async (col, docs) => {
       conta('w', docs.length);
       for (const pezzo of aPezzi(docs, 400)) {
@@ -196,12 +199,27 @@
       async elencoRuoli() { const q = await db.collection('ruoli').get(); conta('r', Math.max(1, q.size)); return q.docs.map((d) => ({ email: d.id, ...d.data() })); },
       // quanti documenti ci sono davvero sul server (per capire se il cloud è vuoto)
       async contaServer(col) { const q = await db.collection(col).limit(1).get({ source: 'server' }); conta('r'); return q.size; },
+      // ascolto continuo di una raccolta. Se il cloud la interrompe (limite giornaliero finito, permessi, rete)
+      // l'ascolto si ferma per sempre: allora lo riapro da solo dopo un po', così quando il cloud torna disponibile
+      // l'app riceve di nuovo gli aggiornamenti senza doverla ricaricare.
       subscribe(col, cb, errore) {
-        return db.collection(col).onSnapshot((s) => {
-          // si pagano solo i documenti arrivati dal server (non quelli già in copia sul dispositivo)
-          if (!s.metadata.fromCache && !s.metadata.hasPendingWrites) conta('r', Math.max(1, s.docChanges().length));
-          cb(s.docs.map(daDoc));
-        }, (e) => { console.error(col, e); errore && errore(e); });
+        let stop = null, attesa = 30000, finito = false, timer = null;
+        const apri = () => {
+          stop = db.collection(col).onSnapshot((s) => {
+            attesa = 30000;
+            if (!s.metadata.fromCache) segnalaQuota(false);
+            // si pagano solo i documenti arrivati dal server (non quelli già in copia sul dispositivo)
+            if (!s.metadata.fromCache && !s.metadata.hasPendingWrites) conta('r', Math.max(1, s.docChanges().length));
+            cb(s.docs.map(daDoc));
+          }, (e) => {
+            console.error(col, e);
+            if (/resource-exhausted|quota/i.test(String(e?.code || e?.message))) segnalaQuota(true);
+            errore && errore(e);
+            if (!finito) { clearTimeout(timer); timer = setTimeout(apri, attesa); attesa = Math.min(attesa * 2, 10 * 60000); }
+          });
+        };
+        apri();
+        return () => { finito = true; clearTimeout(timer); stop && stop(); };
       },
       async save(col, doc) {
         doc.aggiornato = new Date().toISOString(); conta('w');
@@ -244,13 +262,24 @@
         for (const pezzo of aPezzi(r.docs, 400)) { const b = db.batch(); pezzo.forEach((d) => b.delete(db.collection(col).doc(d.id))); await b.commit(); }
       },
       async leggiTutti(col) {
-        let q = db.collection(col);
-        if (col === 'log') q = q.orderBy('t', 'desc').limit(10000);
-        const r = await q.get(); conta('r', Math.max(1, r.size));
+        if (col === 'log') {
+          // il registro è grande (migliaia di voci): dal server prendo solo quelle nuove dall'ultima volta,
+          // le altre sono già nella copia sul dispositivo (che non costa letture)
+          let vecchie = [];
+          try { vecchie = (await db.collection('log').orderBy('t', 'desc').limit(10000).get({ source: 'cache' })).docs.map(daDoc); } catch (e) {}
+          const ultimo = vecchie.length ? vecchie[0].t : '';
+          const q = ultimo ? db.collection('log').where('t', '>', ultimo).orderBy('t', 'desc').limit(10000) : db.collection('log').orderBy('t', 'desc').limit(10000);
+          const r = await q.get(); conta('r', Math.max(1, r.size));
+          const nuove = r.docs.map(daDoc), visti = new Set(nuove.map((x) => x.id));
+          return [...nuove, ...vecchie.filter((x) => !visti.has(x.id))].sort((a, b) => (b.t || '').localeCompare(a.t || '')).slice(0, 10000);
+        }
+        const r = await db.collection(col).get(); conta('r', Math.max(1, r.size));
         return r.docs.map(daDoc);
       },
       // consumi: quelli di oggi di questo dispositivo e gli ultimi giorni di tutti (dal cloud)
       giornoFirebase: giornoFb,
+      quotaFinita: () => quotaFinita,
+      segnalaQuota: (si) => segnalaQuota(si),
       consumiDispositivo() { try { return JSON.parse(localStorage.getItem('gid_cons_' + giornoFb()) || '{"r":0,"w":0,"d":0}'); } catch (e) { return { r: 0, w: 0, d: 0 }; } },
       async consumiCloud(giorni = 30) {
         await versaConsumi();

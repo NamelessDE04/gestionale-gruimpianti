@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.72';
+  const VERSIONE = '0.42.73';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -161,7 +161,17 @@ window.App = (function () {
       localStorage.setItem('gid_demo__dativer', VERSIONE_AZZERAMENTO);
     }
     let avvisato = false;
-    const erroreDati = () => { if (!avvisato) { avvisato = true; UI.toast('Il cloud ha rifiutato la lettura: controlla le regole di Firebase', 'err'); } };
+    const erroreDati = (e) => {
+      if (/resource-exhausted|quota/i.test(String(e?.code || e?.message))) return;   // lo dice già l'avviso in alto
+      if (!avvisato) { avvisato = true; UI.toast('Il cloud ha rifiutato la lettura: controlla le regole di Firebase', 'err'); }
+    };
+    // limite giornaliero gratuito di Firebase finito: avviso fisso finché il cloud non torna a rispondere
+    window.addEventListener('gid-quota', (ev) => {
+      let b = document.getElementById('avvisoQuota');
+      if (!ev.detail) { b?.remove(); return; }
+      if (!b) { b = document.createElement('div'); b.id = 'avvisoQuota'; b.setAttribute('role', 'alert'); document.body.prepend(b); }
+      b.innerHTML = '<b>⚠️ Limite giornaliero gratuito di Firebase finito</b><span>Puoi continuare a lavorare: quello che salvi resta su questo dispositivo e parte da solo quando il limite si azzera (alle 9:00 di mattina). Fino ad allora gli altri dispositivi non vedono le modifiche e i numeri dei rapportini restano «in arrivo».</span>';
+    });
     COLLEZIONI.forEach((c) => { Backend.subscribe(c, aggiornaDati(c), erroreDati); pronti++; });
     window.addEventListener('hashchange', () => {
       // uscita da una pagina con modifiche non salvate (freccia dell'app, gesto indietro del telefono, link): chiedo prima
