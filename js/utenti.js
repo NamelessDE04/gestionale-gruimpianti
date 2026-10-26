@@ -168,7 +168,8 @@ window.UT = (function () {
     };
     Backend.save = async (col, doc) => {
       if (!permesso(col, doc)) { UI.toast('Accesso in sola lettura: non puoi modificare', 'err'); throw new Error('sola lettura'); }
-      const nuovo = !(S?.[col] || []).some((x) => x.id === doc.id);
+      const attuale = (S?.[col] || []).find((x) => x.id === doc.id), nuovo = !attuale;
+      try { CONF.primaDiSalvare(col, doc, attuale); } catch (e) { console.error('versioni', e); }
       CONF.marca(col, doc);   // nuova versione (serve a riconoscere i conflitti tra dispositivi offline)
       const r = await o.save(col, doc);
       registra(nuovo ? 'creazione' : 'modifica', descrivi(col, doc), { col, docId: doc.id });

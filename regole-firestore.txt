@@ -64,7 +64,13 @@ service cloud.firestore {
     }
     match /rapportini/{id} {
       allow update: if legge() && request.resource.data.diff(resource.data).affectedKeys()
-        .hasOnly(['inviatoIl', 'inviatoA', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando']);
+        .hasOnly(['inviatoIl', 'inviatoA', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando', 'numero', 'numeroInAttesa']);
+    }
+    // contatore dei numeri dei rapportini: lo aggiorna chiunque sia entrato (anche Risorse Umane),
+    // così il numero arriva anche quando è aperto solo il PC dell'ufficio
+    match /contatori/{id} {
+      allow read: if legge();
+      allow write: if legge() && id.matches('^rapportini-[0-9]{4}$');
     }
 
     // tutto il resto (clienti, impianti, controlli, sottoganci, mezzi, rapportini, collaudi, invii, impostazioni, lavagna)

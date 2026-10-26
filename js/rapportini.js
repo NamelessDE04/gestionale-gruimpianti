@@ -504,7 +504,7 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="stampa-recap">
         <div class="azioni-lista no-print">
-          ${!UT.puoInviare() ? '' : r.numero ? '<button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>' : '<span class="pill st-ko">⏳ Numero in arrivo: si assegna da solo appena c\'è internet</span>'}
+          ${!UT.puoInviare() ? '' : r.numero ? '<button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>' : `<span class="pill st-ko">⏳ Numero in arrivo</span><button type="button" class="btn ghost small" id="btnNumero">↻ Assegna adesso</button>${info('Il numero lo dà il contatore unico del cloud, così due tablet non danno mai lo stesso numero. Si assegna da solo appena il rapportino è arrivato al cloud; se resta «in arrivo», tocca «Assegna adesso». Senza internet bisogna aspettare che torni la rete.')}`}
           <a class="btn ghost" href="#/rapportini/r/${r.id}/modifica">${firmato(r) ? '✏️ Modifica' : '✍️ Completa e firma'}</a>
           <a class="btn ghost" href="#/rapportini">Elenco</a>
           ${r.inviatoIl ? `<span class="muted small">✉️ inviato il ${fmt(r.inviatoIl.slice(0, 10))}</span>` : ''}
@@ -581,6 +581,12 @@ window.RAP = (function () {
       const scala = () => { const w = foglio.parentElement.clientWidth; if (w < 50) return; foglio.style.zoom = Math.min(1, (w - 4) / foglio.offsetWidth).toFixed(3); };
       scala(); window.addEventListener('resize', scala);
     }
+    el.querySelector('#btnNumero')?.addEventListener('click', async (e) => {
+      if (!navigator.onLine) return UI.toast('Serve internet per avere il numero', 'err');
+      e.currentTarget.disabled = true; e.currentTarget.textContent = 'Assegno…';
+      await assegnaNumeri(S);
+      if (!S.rapportini.find((x) => x.id === r.id)?.numero) { UI.toast('Il cloud non ha ancora risposto: riprovo da solo tra un minuto', 'err'); App.ridisegna(); }
+    });
     if (el.querySelector('#btnStampa')) el.querySelector('#btnStampa').onclick = () => {
       const t = document.title;
       document.title = `Rapportino_${r.numero}-${r.anno}_${c ? CLI.nome(c) : ''}`.replace(/[^\w\-]+/g, '_');
@@ -591,20 +597,30 @@ window.RAP = (function () {
 
   // assegna il numero ai rapportini creati senza rete (uno alla volta, in ordine di creazione)
   let assegnando = false;
+  // Numero progressivo dal contatore unico del cloud. Si riprova da solo finché tutti i rapportini hanno il numero:
+  // appena c'è rete, quando l'app torna in primo piano e ogni minuto (se ce n'è ancora qualcuno in attesa).
+  // Lo fa qualsiasi dispositivo collegato (anche Risorse Umane, se le regole del cloud sono quelle aggiornate).
+  let ancora = false, tRiprova = null;
   async function assegnaNumeri(S) {
-    if (assegnando || Backend.mode !== 'cloud' || !navigator.onLine || !Backend.assegnaNumero) return;
-    const attesa = S.rapportini.filter((r) => !r.numero).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
-    if (!attesa.length) return;
-    assegnando = true;
+    if (Backend.mode !== 'cloud' || !Backend.assegnaNumero || !UT.attuale()) return;
+    if (assegnando) { ancora = true; return; }
+    const attesa = () => S.rapportini.filter((r) => !r.numero).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
+    if (!attesa().length) return;
+    if (!navigator.onLine) return riprova(S);
+    assegnando = true; ancora = false;
     try {
-      for (const r of attesa) {
+      for (const r of attesa()) {
         const max = Math.max(0, ...S.rapportini.filter((x) => +x.anno === +r.anno).map((x) => +x.numero || 0));
-        const n = await Backend.assegnaNumero(r.anno, r.id, max);
+        let n = null;
+        try { n = await Backend.assegnaNumero(r.anno, r.id, max); } catch (e) { console.warn('numero rapportino', e); }
         if (n) { r.numero = n; UT.registra('modifica', `Rapportino ${n}/${r.anno}: numero assegnato`, { col: 'rapportini', docId: r.id }); }
       }
-    } catch (e) { console.warn('numeri rapportini', e); }
-    assegnando = false;
+    } finally { assegnando = false; }
+    if (ancora) setTimeout(() => assegnaNumeri(S), 1500);
+    else if (attesa().length) riprova(S);
   }
+  function riprova(S) { clearTimeout(tRiprova); tRiprova = setTimeout(() => assegnaNumeri(S), 60000); }
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && window.App?.dati) assegnaNumeri(App.dati()); });
 
   function route(el, S, parti, query) {
     if (parti[1] === 'nuovo') return form(el, S, null, query);

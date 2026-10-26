@@ -16,19 +16,58 @@ window.CONF = (function () {
     const io = UT.attuale();
     return 'DISPOSITIVO DI ' + (io ? UT.breve(io) : (Backend.account() || '').split('@')[0].toUpperCase());
   };
-  const unione = (...liste) => [...new Set(liste.flat().filter(Boolean))].slice(-60);
+  const STORIA = 150;   // quante versioni precedenti ricorda ogni documento
+  const unione = (...liste) => [...new Set(liste.flat().filter(Boolean))].slice(-STORIA);
+
+  // ---------- versioni fatte da QUESTO dispositivo ----------
+  // Un conflitto vero c'è solo se una versione fatta qui (magari senza rete) viene scavalcata da una
+  // che non la contiene. Le versioni arrivate dagli altri, per quanto vecchie, non sono mai un conflitto.
+  // Le ricordo anche dopo aver chiuso l'app (le modifiche fatte offline restano in coda finché torna la rete).
+  const KMIE = 'gid_mierev';
+  let mie = new Map();
+  try { mie = new Map(JSON.parse(localStorage.getItem(KMIE) || '[]')); } catch (e) {}
+  let tSalvaMie = null;
+  const ricordaMia = (rev) => {
+    mie.set(rev, Date.now());
+    if (mie.size > 3000) mie = new Map([...mie].sort((a, b) => a[1] - b[1]).slice(-2500));
+    clearTimeout(tSalvaMie); tSalvaMie = setTimeout(() => { try { localStorage.setItem(KMIE, JSON.stringify([...mie])); } catch (e) {} }, 300);
+  };
+  const mia = (rev) => !!rev && mie.has(rev);
+  // da quando questo dispositivo ricorda le sue versioni (prima di allora: mie se fatte con lo stesso nome dispositivo)
+  let ricordaDa = ''; try { ricordaDa = localStorage.getItem(KMIE + '_da') || ''; if (!ricordaDa) { ricordaDa = new Date().toISOString(); localStorage.setItem(KMIE + '_da', ricordaDa); } } catch (e) {}
+  const versioneMia = (d) => mia(d._rev) || (!!ricordaDa && (d._quando || '') < ricordaDa && d._disp === nomeDisp());
 
   // ---------- al salvataggio: nuova versione ----------
   function marca(col, doc) {
     if (SENZA_VERSIONI.has(col) || !doc) return doc;
     const io = UT.attuale(), prima = doc._rev;
-    doc._storia = unione(doc._storia || [], [prima]).slice(-40);
+    doc._storia = unione(doc._storia || [], [prima]);
     doc._base = prima || null;
-    doc._rev = uid();
+    doc._rev = uid(); ricordaMia(doc._rev);
     doc._da = io ? UT.breve(io) : '';
     doc._disp = nomeDisp();
     doc._quando = new Date().toISOString();
     return doc;
+  }
+
+  // ---------- prima di salvare ----------
+  // doc parte da una versione più vecchia di quella che c'è adesso (attuale):
+  //  - se tutte le versioni nel mezzo le ho fatte io (es. salvataggio automatico e poi «Concludi»), è solo il seguito: lo aggancio;
+  //  - se nel mezzo c'è una versione di un altro dispositivo, la sto scavalcando: la conservo tra i conflitti (o unisco le schede).
+  function primaDiSalvare(col, doc, attuale) {
+    if (SENZA_VERSIONI.has(col) || !doc || !attuale || !attuale._rev || doc._rev === attuale._rev || doc.copiaDi) return;
+    const st = attuale._storia || [], i = doc._rev ? st.indexOf(doc._rev) : -1;
+    const nelMezzo = i >= 0 ? [...st.slice(i + 1), attuale._rev] : [attuale._rev];
+    const altri = Backend.mode === 'cloud' && doc._rev && !nelMezzo.every(mia) && !versioneMia(attuale);
+    if (altri && !uguali(doc, attuale)) {
+      if (col === 'schedeControllo') {
+        const m = unisciSchede(doc, attuale);
+        if (m) { const meta = {}; META.forEach((k) => (meta[k] = doc[k])); Object.keys(doc).forEach((k) => delete doc[k]); Object.assign(doc, m, meta); }
+        else conflitto(col, JSON.parse(JSON.stringify(attuale)), { ...doc, _rev: '(questo salvataggio)' }, true);
+      } else conflitto(col, JSON.parse(JSON.stringify(attuale)), { ...doc, _rev: '(questo salvataggio)' }, true);
+    }
+    doc._storia = unione(doc._storia || [], st, [attuale._rev]);
+    doc._rev = attuale._rev;   // la nuova versione discenderà da quella attuale
   }
 
   // ---------- quando arrivano i dati dal cloud ----------
@@ -40,6 +79,8 @@ window.CONF = (function () {
       const o = vecchi.get(n.id);
       if (!o || !o._rev || !n._rev || o._rev === n._rev) return;
       if (o.copiaDi || n.copiaDi) return;   // copie di sicurezza (es. layout di prima): non sono lavoro di nessuno
+      if (!mia(o._rev)) return;             // quella che avevo arrivava da un altro dispositivo: la nuova la sostituisce e basta
+      if (mia(n._rev)) return;              // anche la nuova è mia (es. due salvataggi di fila)
       if ((n._storia || []).includes(o._rev)) return;   // normale: la nuova discende da quella che avevo
       if ((o._storia || []).includes(n._rev)) return;   // ritorno a una versione precedente (salvataggio rifiutato)
       conflitto(col, o, n);
@@ -47,14 +88,16 @@ window.CONF = (function () {
   }
 
   const pulito = (d) => { const c = JSON.parse(JSON.stringify(d)); META.forEach((k) => delete c[k]); return c; };
-  const uguali = (a, b) => JSON.stringify(pulito(a)) === JSON.stringify(pulito(b));
+  // confronto del contenuto che non dipende dall'ordine dei campi
+  const ordinato = (v) => (Array.isArray(v) ? v.map(ordinato) : v && typeof v === 'object' ? Object.keys(v).sort().reduce((o, k) => ((o[k] = ordinato(v[k])), o), {}) : v);
+  const uguali = (a, b) => JSON.stringify(ordinato(pulito(a))) === JSON.stringify(ordinato(pulito(b)));
 
-  async function conflitto(col, perso, attuale) {
+  async function conflitto(col, perso, attuale, dalSalvataggio) {
     const chiave = `${col}__${perso.id}__${perso._rev}`;
     if (inCorso.has(chiave)) return; inCorso.add(chiave);
     if (uguali(perso, attuale)) return;   // stesso contenuto: niente da scegliere
     try {
-      if (col === 'schedeControllo') {
+      if (col === 'schedeControllo' && !dalSalvataggio) {
         const m = unisciSchede(attuale, perso);
         if (m) {                                   // controlli diversi: si uniscono da soli
           if (!uguali(m, attuale)) {
@@ -66,7 +109,7 @@ window.CONF = (function () {
         }
       }
       await Backend.save('conflitti', {
-        id: chiave, col, docId: perso.id, perso, attuale: { rev: attuale._rev, da: attuale._da || '', disp: attuale._disp || '', quando: attuale._quando || attuale.aggiornato || '' },
+        id: chiave, col, docId: perso.id, perso, attuale: { rev: attuale._rev, da: dalSalvataggio ? (UT.breve(UT.attuale()) || '') : attuale._da || '', disp: dalSalvataggio ? nomeDisp() : attuale._disp || '', quando: dalSalvataggio ? new Date().toISOString() : attuale._quando || attuale.aggiornato || '' },
         rilevato: new Date().toISOString(), rilevatoDa: nomeDisp()
       });
     } catch (e) { console.error('conflitto', e); }
@@ -199,6 +242,7 @@ window.CONF = (function () {
       <section class="cli">
         <div class="sez-head"><h1>Conflitti tra dispositivi ${info('Succede quando due dispositivi senza rete modificano lo stesso documento: quando tornano online le versioni non coincidono. L\'app non butta via niente: qui scegli quale versione tenere. Con «⇆ Confronta le due versioni» le vedi affiancate, solo con quello che cambia. Le schede di controllo con controlli diversi si uniscono da sole e non compaiono qui.')}</h1></div>
         ${!lista.length && !doppi.length ? '<p class="nessuno">✅ Nessun conflitto. Tutti i dispositivi sono d\'accordo.</p>' : ''}
+        ${lista.length > 1 ? `<div class="azioni-form"><span class="grow"></span><button type="button" class="btn ghost" id="btnTieniTutti">✓ Tieni l'attuale per tutti (${lista.length})</button></div>` : ''}
         ${lista.map((c) => {
           const cor = (S[c.col] || []).find((x) => x.id === c.docId);
           const titolo = UT.descrivi(c.col, cor || c.perso);
@@ -230,6 +274,11 @@ window.CONF = (function () {
     const trova = (id) => S.conflitti.find((x) => x.id === id);
     const chiudi = async (c, testo) => { await Backend.remove('conflitti', c.id); UT.registra('modifica', `Conflitto risolto (${testo}): ${UT.descrivi(c.col, c.perso)}`); };
     el.querySelectorAll('[data-confronta]').forEach((b) => (b.onclick = () => { const c = trova(b.dataset.confronta); confronta(c, (S[c.col] || []).find((x) => x.id === c.docId), S); }));
+    el.querySelector('#btnTieniTutti')?.addEventListener('click', async () => {
+      if (!UI.conferma(`Tenere la versione attuale per tutti i ${lista.length} conflitti?\n\nLe altre versioni vengono scartate.`)) return;
+      for (const c of lista) await chiudi(c, 'tenuta la versione attuale (tutti)');
+      UI.toast('Tenute tutte le versioni attuali', 'ok');
+    });
     el.querySelectorAll('[data-tieni]').forEach((b) => (b.onclick = async () => { await chiudi(trova(b.dataset.tieni), 'tenuta la versione attuale'); UI.toast('Tenuta la versione attuale', 'ok'); }));
     el.querySelectorAll('[data-altra]').forEach((b) => (b.onclick = async () => {
       const c = trova(b.dataset.altra), cor = (S[c.col] || []).find((x) => x.id === c.docId);
@@ -258,5 +307,5 @@ window.CONF = (function () {
     return `<div class="avviso-altro">⚠️ ${esc(cosa)} è già stato compilato da <b>${esc(meta._da || '—')}</b> su <b>${esc(meta._disp)}</b> il ${quando(meta._quando)}. Se lo salvi, aggiorni quello.</div>`;
   }
 
-  return { marca, verifica, conta, pagina, avvisoAltro, nomeDisp, unisciSchede };
+  return { marca, verifica, primaDiSalvare, mia, conta, pagina, avvisoAltro, nomeDisp, unisciSchede };
 })();

@@ -112,6 +112,17 @@
     setInterval(versaConsumi, 5 * 60 * 1000);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') versaConsumi(); });
 
+    // Attesa della conferma del server: con rete lenta o "finta" (wifi senza internet) non blocco l'app.
+    // La scrittura resta comunque in coda sul dispositivo e parte da sola appena la rete funziona.
+    // Se il server la rifiuta (es. permessi) dopo che ho smesso di aspettare, lo dico lo stesso.
+    const attendi = async (p, cosa) => {
+      let finito = false, scaduto = false;
+      const segnala = (e) => { console.error(cosa, e); if (scaduto) try { UI.toast(/permission/i.test(String(e?.code || e?.message || '')) ? 'Il cloud ha rifiutato una modifica: questo account non ha il permesso' : 'Una modifica non è arrivata al cloud: riprova', 'err'); } catch (x) {} };
+      const vero = p.then(() => { finito = true; }, (e) => { finito = true; segnala(e); throw e; });
+      if (!navigator.onLine) { vero.catch(() => {}); return; }
+      await Promise.race([vero, new Promise((ok) => setTimeout(ok, 6000))]);
+      if (!finito) { scaduto = true; vero.catch(() => {}); }
+    };
     const scriviMolti = async (col, docs) => {
       conta('w', docs.length);
       for (const pezzo of aPezzi(docs, 400)) {
@@ -195,8 +206,7 @@
       async save(col, doc) {
         doc.aggiornato = new Date().toISOString(); conta('w');
         // senza rete la scrittura resta in coda: non aspetto la conferma del server
-        const p = db.collection(col).doc(doc.id).set(codifica(doc));
-        if (navigator.onLine) await p; else p.catch((e) => console.error(e));
+        await attendi(db.collection(col).doc(doc.id).set(codifica(doc)), 'salvataggio ' + col);
         return doc;
       },
       async saveMany(col, docs) {
@@ -207,6 +217,8 @@
       // numero progressivo del rapportino assegnato dal cloud (contatore unico per anno, mai doppio)
       async assegnaNumero(anno, id, maxNoto) {
         const cRef = db.collection('contatori').doc('rapportini-' + anno), rRef = db.collection('rapportini').doc(id);
+        // il rapportino deve essere già sul server (se è stato scritto da poco o senza rete, aspetto che parta)
+        try { await Promise.race([db.waitForPendingWrites(), new Promise((ok) => setTimeout(ok, 8000))]); } catch (e) {}
         conta('r', 2); conta('w', 2);
         return db.runTransaction(async (t) => {
           const c = await t.get(cRef), r = await t.get(rRef);
@@ -222,9 +234,9 @@
       // cancella più documenti insieme (a blocchi di 400)
       async removeMany(col, ids) {
         conta('d', ids.length);
-        for (const pezzo of aPezzi(ids, 400)) { const b = db.batch(); pezzo.forEach((id) => b.delete(db.collection(col).doc(id))); const p = b.commit(); if (navigator.onLine) await p; else p.catch((e) => console.error(e)); }
+        for (const pezzo of aPezzi(ids, 400)) { const b = db.batch(); pezzo.forEach((id) => b.delete(db.collection(col).doc(id))); await attendi(b.commit(), 'cancellazione ' + col); }
       },
-      async remove(col, id) { conta('d'); const p = db.collection(col).doc(id).delete(); if (navigator.onLine) await p; },
+      async remove(col, id) { conta('d'); await attendi(db.collection(col).doc(id).delete(), 'cancellazione ' + col); },
       append(col, doc) { conta('w'); db.collection(col).doc(doc.id).set(codifica(doc)).catch(() => {}); },
       // cancella tutti i documenti di una raccolta (a blocchi di 400)
       async svuota(col) {
