@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.61';
+  const VERSIONE = '0.42.62';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -19,7 +19,44 @@ window.App = (function () {
   const daSalvare = () => { try { return !!(guardia && guardia()); } catch (e) { return false; } };
   window.addEventListener('beforeunload', (e) => { if (daSalvare()) { e.preventDefault(); e.returnValue = ''; } });
 
+  // Se stai scrivendo in una casella (es. ricerca cliente) e la pagina si ridisegna, la casella NON deve sparire
+  // dal documento nemmeno per un attimo: su tablet Windows (e su alcuni Android) la tastiera virtuale si chiude
+  // appena la casella perde il fuoco e non si riapre da sola. Allora la pagina, invece di riscrivere tutto,
+  // sostituisce tutto TRANNE la casella (e i contenitori che la tengono), che resta al suo posto con il testo e il cursore.
+  const chiaveCampo = (x) => (x.id ? '#' + CSS.escape(x.id) : x.dataset.f ? `[data-f="${CSS.escape(x.dataset.f)}"]` : x.name ? `[name="${CSS.escape(x.name)}"]` : '');
+  let hashDisegnato = null;
+  function innestaHtml(root, html, tieni, k) {
+    const tpl = document.createElement('template'); tpl.innerHTML = html;
+    const N = tpl.content, nuovo = N.querySelector(k);
+    const catena = (x, stop) => { const c = []; while (x && x !== stop) { c.push(x); x = x.parentNode; } return x === stop ? c : null; };
+    const ca = catena(tieni, root), cb = nuovo && catena(nuovo, N);
+    if (!ca || !cb || ca.length !== cb.length || ca.some((a, i) => a.tagName !== cb[i].tagName) || nuovo.type !== tieni.type) { root.innerHTML = html; return; }
+    let pa = root, pb = N;
+    for (let i = ca.length - 1; i >= 0; i--) {
+      const a = ca[i], b = cb[i];
+      [...pa.childNodes].forEach((x) => x !== a && x.remove());
+      let prima = true;
+      [...pb.childNodes].forEach((x) => { if (x === b) { prima = false; return; } if (prima) pa.insertBefore(x, a); else pa.appendChild(x); });
+      // attributi aggiornati (il valore scritto e il cursore della casella restano)
+      [...a.attributes].forEach((at) => { if (!b.hasAttribute(at.name) && at.name !== 'value') a.removeAttribute(at.name); });
+      [...b.attributes].forEach((at) => { if (at.name !== 'value' && a.getAttribute(at.name) !== at.value) a.setAttribute(at.name, at.value); });
+      pa = a; pb = b;
+    }
+  }
   function ridisegna() {
+    const att = document.activeElement;
+    const tieni = att && el.contains(att) && (att.tagName === 'TEXTAREA' || (att.tagName === 'INPUT' && /^(text|search|tel|email|number|url)$/.test(att.type))) ? att : null;
+    const k = tieni ? chiaveCampo(tieni) : '';
+    const stessaPagina = location.hash === hashDisegnato; hashDisegnato = location.hash;   // cambiando pagina si riparte da zero
+    if (!tieni || !k || !stessaPagina) return ridisegnaPagina(el);
+    // la pagina riceve il contenitore "vero", solo la scrittura di innerHTML passa da innestaHtml
+    const P = new Proxy(el, {
+      get: (t, p) => { const v = Reflect.get(t, p); return typeof v === 'function' ? v.bind(t) : v; },
+      set: (t, p, v) => { if (p === 'innerHTML' && t.contains(tieni)) innestaHtml(t, String(v), tieni, k); else t[p] = v; return true; }
+    });
+    return ridisegnaPagina(P);
+  }
+  function ridisegnaPagina(el) {
     guardia = null; uscita = null;
     const [path, qs] = (location.hash.replace(/^#\/?/, '') || '').split('?');
     const parti = path.split('/').filter(Boolean);
