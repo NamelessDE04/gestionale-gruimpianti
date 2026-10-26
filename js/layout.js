@@ -24,7 +24,8 @@ window.LAY = (function () {
   const tipoIco = (i) => (i && window.MIMP ? MIMP.di(App.dati(), i).icona : '');
   const eBandiera = (i) => tipoIco(i) === 'bandiera' || /bandiera/i.test(i?.tipologia || '');
   // famiglie di impianti per il filtro e per il simbolo nel layout
-  const FAMIGLIE = { carroponte: 'Carriponte', bandiera: 'Gru a bandiera', pinza: 'Pinze', seghetto: 'Seghetti' };
+  const FAMIGLIE = { carroponte: 'Carriponte', bandiera: 'Gru a bandiera', rotaia: 'Monorotaie', pinza: 'Pinze', seghetto: 'Seghetti' };
+  const NOME_SIMBOLO = { carroponte: 'Carroponte', bandiera: 'Gru a bandiera', rotaia: 'Monorotaia / paranco su binario', pinza: 'Pinza', seghetto: 'Seghetto' };
   const famiglia = (i) => { const t = i?.tipologia || '', k = tipoIco(i); if (k === 'bandiera' || k === 'seghetto') return k; return /bandiera/i.test(t) ? 'bandiera' : /pinz/i.test(t) ? 'pinza' : /seghett/i.test(t) ? 'seghetto' : 'carroponte'; };
   // nel layout il simbolo si può cambiare a mano (p.fam), altrimenti segue la tipologia
   const famigliaIn = (L, i) => (L.impianti.find((p) => p.impId === i.id)?.fam) || famiglia(i);
@@ -183,6 +184,14 @@ window.LAY = (function () {
     const col = st === 'fatto' ? '#2e9e5b' : st === 'dafare' ? '#e07a1f' : '#f2b705';
     const nome = esc(sigla(i));
     const fam = p.fam || famiglia(i);
+    if (fam === 'rotaia') {
+      // monorotaia / paranco su binario: una barra lunga «len», orizzontale o girata
+      const len = +p.len || u * 14, t = u * 0.9, r = +p.rot || 0, vert = r % 180 === 90;
+      return `<g class="lay-drag lay-imp${sel(opz, k)} st-${st}" data-k="${k}" transform="translate(${p.x} ${p.y})">
+        <g transform="rotate(${r})"><rect x="${-len / 2 - u * 0.6}" y="${-u * 2.2}" width="${len + u * 1.2}" height="${u * 4.4}" fill="#fff" fill-opacity="0"/>
+        <rect x="${-len / 2}" y="${-t / 2}" width="${len}" height="${t}" rx="${t / 3}" fill="${st ? col : '#dbe6f3'}" stroke="#1f3f66" stroke-width="${u * 0.18}"/></g>
+        <text x="${vert ? u * 1.2 : 0}" y="${vert ? -len / 2 + u * 1.6 : -t - u * 0.5}" font-size="${u * 2 * Math.max(0.6, +L.scala || 1)}" text-anchor="${vert ? 'start' : 'middle'}" font-weight="700" fill="#111">${nome}</text></g>`;
+    }
     if (fam !== 'carroponte') {
       const sc = +L.scala || 1, s = u * 1.6 * sc, k2 = Math.max(0.6, sc);
       const ico = fam === 'bandiera'
@@ -276,6 +285,8 @@ window.LAY = (function () {
           ${UI.menu([
             !modifica && puoModificare && { t: '✏️ Modifica layout', id: 'btnMod' },
             UT.puoInviare() && !modifica && salvato && { t: '🖨️ Stampa', id: 'btnStampa' },
+            !modifica && puoModificare && { t: '📥 Carica layout da file', id: 'btnCarica' },
+            !modifica && puoModificare && docDi(S, sedeId + COPIA) && { t: `↩ Rimetti il layout di prima (copia del ${UI.fmt(docDi(S, sedeId + COPIA).copiaDel || '')})`, id: 'btnRipristina' },
             ctr ? { t: '☰ Controlli: vista elenco', href: '#/controlli/s/' + sedeId } : { t: '✅ Controlli di questa sede', href: '#/layout/s/' + sedeId + '?ctr=1' },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.id}` }
           ])}
@@ -377,15 +388,19 @@ window.LAY = (function () {
       if (tipo === 'imp') {
         const i = imp.find((x) => x.id === id);
         p.innerHTML = `<div class="lay-prop-riga"><b>${esc(i ? sigla(i) : '')}</b><span class="grow">${esc(i ? IMP.titolo(i) : '')}</span>
-          ${i ? `<label class="lay-sim">Simbolo<select id="pSimbolo">${Object.keys(FAMIGLIE).map((k) => `<option value="${k}" ${famigliaIn(L, i) === k ? 'selected' : ''}>${{ carroponte: 'Carroponte', bandiera: 'Gru a bandiera', pinza: 'Pinza', seghetto: 'Seghetto' }[k]}${k === famiglia(i) ? ' (dalla tipologia)' : ''}</option>`).join('')}</select></label>` : ''}
+          ${i ? `<label class="lay-sim">Simbolo<select id="pSimbolo">${Object.keys(FAMIGLIE).map((k) => `<option value="${k}" ${famigliaIn(L, i) === k ? 'selected' : ''}>${NOME_SIMBOLO[k]}${k === famiglia(i) ? ' (dalla tipologia)' : ''}</option>`).join('')}</select></label>` : ''}
           ${i && famigliaIn(L, i) !== 'carroponte' ? '<button type="button" class="btn ghost small" id="pRuotaImp">↻ Ruota</button>' : ''}
+          ${i && famigliaIn(L, i) === 'rotaia' ? '<button type="button" class="btn ghost small" id="pCorta" aria-label="Più corta">− corta</button><button type="button" class="btn ghost small" id="pLunga" aria-label="Più lunga">+ lunga</button>' : ''}
           <button type="button" class="btn ghost small danger" id="pTogli">Togli dal layout</button><button type="button" class="btn ghost small" id="pChiudi">Fatto</button></div>`;
         p.querySelector('#pSimbolo')?.addEventListener('change', (e) => {
           const q = L.impianti.find((x) => x.impId === id); if (!q) return;
           if (e.target.value === famiglia(i)) delete q.fam; else q.fam = e.target.value;
           ridisegna(); proprieta(); salva();
         });
-        p.querySelector('#pRuotaImp')?.addEventListener('click', () => { const q = L.impianti.find((x) => x.impId === id); q.rot = ((+q.rot || 0) + 45) % 360; ridisegna(); salva(); });
+        p.querySelector('#pRuotaImp')?.addEventListener('click', () => { const q = L.impianti.find((x) => x.impId === id); q.rot = ((+q.rot || 0) + (famigliaIn(L, i) === 'rotaia' ? 90 : 45)) % 360; ridisegna(); salva(); });
+        const lungh = (f) => { const q = L.impianti.find((x) => x.impId === id); q.len = Math.round(Math.max(unita(L) * 3, (+q.len || unita(L) * 14) * f) * 10) / 10; ridisegna(); salva(); };
+        p.querySelector('#pCorta')?.addEventListener('click', () => lungh(1 / 1.2));
+        p.querySelector('#pLunga')?.addEventListener('click', () => lungh(1.2));
         p.querySelector('#pTogli').onclick = () => { L.impianti = L.impianti.filter((x) => x.impId !== id); scelto = null; ridisegna(); proprieta(); salva(); };
       } else {
         const e = L.elementi.find((x) => x.id === id); if (!e) { p.hidden = true; return; }
@@ -495,6 +510,16 @@ window.LAY = (function () {
       });
     }
 
+    el.querySelector('#btnCarica')?.addEventListener('click', () => caricaDaFile(S, sedeId, c, L, salvato, imp));
+    el.querySelector('#btnRipristina')?.addEventListener('click', async () => {
+      const cp = docDi(S, sedeId + COPIA);
+      if (!UI.conferma(`Rimettere il layout com'era il ${UI.fmt(cp.copiaDel || '')}?\n\nIl layout di adesso diventa la nuova copia: puoi sempre tornare indietro.`)) return;
+      const ora = salvato ? JSON.parse(JSON.stringify(salvato)) : null;
+      const vecchio = JSON.parse(JSON.stringify(cp)); delete vecchio.copiaDi; delete vecchio.copiaDel; vecchio.id = sedeId; vecchio.sedeId = sedeId;
+      await UI.salva('layouts', vecchio);
+      if (ora) await UI.salva('layouts', { ...ora, id: sedeId + COPIA, copiaDi: sedeId, copiaDel: UI.oggi(), sedeId: '' });
+      UI.toast('Layout di prima rimesso', 'ok');
+    });
     const entra = () => { inModifica[sedeId] = true; App.ridisegna(); };
     el.querySelector('#btnMod')?.addEventListener('click', entra);
     el.querySelector('#btnMod2')?.addEventListener('click', entra);
@@ -506,6 +531,73 @@ window.LAY = (function () {
     if (modifica) collegaModifica();
     ridisegna();
     return { titolo: modifica ? 'Modifica layout' : (ctr ? 'Controlli · layout' : 'Layout'), indietro, live: !modifica };
+  }
+
+  // ---------- layout da file (preparato da un PDF / disegno esistente) ----------
+  // Il file contiene capannoni, corsie, zone e la posizione di ogni impianto indicato con la sua sigla (es. GB17, SF6, CP16).
+  // Prima di toccare il layout ne salvo una copia (id sede + COPIA), che si rimette dal menu.
+  const COPIA = '~copia';
+  const normSigla = (t) => String(t || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const cifre = (t) => (String(t || '').match(/\d+/g) || []).join('/');
+  function abbina(imp, voci) {
+    const usati = new Set(), out = [], mancano = [];
+    // 1) stessa sigla (GB17 = GB 17 = gb-17)  2) stesso numero (17 = GB17) se non è ambiguo
+    const trova = (v) => {
+      const n = normSigla(v.sigla), d = cifre(v.sigla);
+      let i = imp.find((x) => !usati.has(x.id) && normSigla(x.numeroInterno) === n);
+      if (!i && d) { const cand = imp.filter((x) => !usati.has(x.id) && cifre(x.numeroInterno) === d); if (cand.length === 1) i = cand[0]; }
+      return i;
+    };
+    voci.forEach((v) => { const i = trova(v); if (i) { usati.add(i.id); out.push({ v, i }); } else mancano.push(v.sigla); });
+    return { out, mancano };
+  }
+  const bbox = (els) => { const cs = els.filter((e) => e.tipo === 'capannone'); if (!cs.length) return null;
+    const x0 = Math.min(...cs.map((c) => c.x)), y0 = Math.min(...cs.map((c) => c.y));
+    return { x: x0, y: y0, w: Math.max(...cs.map((c) => c.x + c.w)) - x0, h: Math.max(...cs.map((c) => c.y + c.h)) - y0 }; };
+  function caricaDaFile(S, sedeId, cli, L, salvato, imp) {
+    const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.json,application/json';
+    inp.onchange = async () => {
+      const f = inp.files[0]; if (!f) return;
+      let D; try { D = JSON.parse(await f.text()); } catch (e) { return UI.toast('File non leggibile', 'err'); }
+      if (D.formato !== 'gid-layout' || !Array.isArray(D.impianti)) return UI.toast('Questo file non è un layout', 'err');
+      const { out, mancano } = abbina(imp, D.impianti);
+      const haDisegno = !!(salvato && bbox(L.elementi));
+      UI.modal({
+        titolo: 'Carica layout' + (D.titolo ? ' · ' + D.titolo : ''), testoSalva: 'Carica',
+        infoTxt: 'Prima di cambiare qualcosa salvo una copia del layout di adesso: se il risultato non ti piace, nel menu ⋯ trovi «↩ Rimetti il layout di prima».',
+        valori: { modo: haDisegno ? 'Metto solo le gru nel mio disegno' : 'Sostituisco tutto con il disegno del file' },
+        campi: [
+          { tipo: 'titolo', label: `Trovati ${out.length} impianti su ${D.impianti.length}` },
+          ...(mancano.length ? [{ tipo: 'titolo', label: 'Non trovati in anagrafica (restano fuori): ' + mancano.join(', ') }] : []),
+          { k: 'modo', label: 'Cosa faccio?', tipo: 'select', opzioni: haDisegno ? ['Metto solo le gru nel mio disegno', 'Sostituisco tutto con il disegno del file'] : ['Sostituisco tutto con il disegno del file'] }
+        ],
+        onSalva: async (v) => {
+          const soloGru = /solo le gru/.test(v.modo || '');
+          if (salvato) await UI.salva('layouts', { ...JSON.parse(JSON.stringify(salvato)), id: sedeId + COPIA, copiaDi: sedeId, copiaDel: UI.oggi(), sedeId: '' });
+          const N = JSON.parse(JSON.stringify(salvato || nuovo(sedeId, cli.id)));
+          aggiorna(N);
+          let mappa = (x, y) => [x, y], k = 1;
+          if (soloGru) {
+            // le posizioni del file vengono "stirate" sui capannoni che hai disegnato tu
+            const a = bbox(N.elementi), b = bbox(D.elementi || []) || { x: 0, y: 0, w: 1, h: 1 };
+            mappa = (x, y) => [a.x + (x - b.x) * a.w / b.w, a.y + (y - b.y) * a.h / b.h]; k = Math.min(a.w / b.w, a.h / b.h);
+          } else {
+            N.elementi = (D.elementi || []).map((e) => ({ ...e, id: uid() }));
+            if (D.u) N.u = D.u; if (D.scala) N.scala = D.scala;
+          }
+          const r = (q) => Math.round(q * 10) / 10;
+          out.forEach(({ v, i }) => {
+            const [x, y] = mappa(v.x, v.y);
+            const pos = { impId: i.id, x: r(x), y: r(y), ...(v.fam ? { fam: v.fam } : {}), ...(v.rot ? { rot: v.rot } : {}), ...(v.len ? { len: r(v.len * k) } : {}) };
+            const q = N.impianti.findIndex((p) => p.impId === i.id);
+            if (q >= 0) N.impianti[q] = pos; else N.impianti.push(pos);
+          });
+          await UI.salva('layouts', N);
+          UI.toast(`✓ Layout caricato: ${out.length} impianti al loro posto${mancano.length ? ` · ${mancano.length} non trovati` : ''}`, 'ok');
+        }
+      });
+    };
+    inp.click();
   }
 
   function route(el, S, parti, query) {
