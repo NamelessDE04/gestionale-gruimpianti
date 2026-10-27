@@ -50,6 +50,7 @@
         localStorage.setItem(PREFIX + col, JSON.stringify(max && arr.length > max ? arr.slice(arr.length - max) : arr));
       },
       async leggiTutti(col) { return read(col); },
+      async cerca(col, campo, valore) { return read(col).filter((d) => d[campo] === valore); },
       async svuota(col) { write(col, []); },
       // solo per la demo
       isSeeded() { return localStorage.getItem(PREFIX + '_seed') === '1'; },
@@ -284,6 +285,8 @@
         const r = await db.collection(col).get(); conta('r', Math.max(1, r.size));
         return r.docs.map(daDoc);
       },
+      // documenti di una raccolta con un certo valore (es. le copie di sicurezza di una scheda), senza ascoltarla sempre
+      async cerca(col, campo, valore) { const r = await db.collection(col).where(campo, '==', valore).get(); conta('r', Math.max(1, r.size)); return r.docs.map(daDoc); },
       // consumi: quelli di oggi di questo dispositivo e gli ultimi giorni di tutti (dal cloud)
       giornoFirebase: giornoFb,
       quotaFinita: () => quotaFinita,
@@ -350,6 +353,7 @@
       async removeMany(col, ids) { ids.forEach((id) => ((ov[col] = ov[col] || {})[id] = null)); salvaOv(); avvisa(col); },
       append() { /* registro attività: in test non si scrive */ },
       async leggiTutti(col) { let l = []; try { l = await B.leggiTutti(col); } catch (e) { l = ultimi[col] || []; } return unisci(col, l); },
+      async cerca(col, campo, valore) { let l = []; try { l = await B.cerca(col, campo, valore); } catch (e) {} return unisci(col, l).filter((d) => d[campo] === valore); },
       async svuota(col) { (await this.leggiTutti(col)).forEach((d) => ((ov[col] = ov[col] || {})[d.id] = null)); salvaOv(); avvisa(col); },
       async assegnaNumero(anno, id, maxNoto) {
         const r = unisci('rapportini', ultimi.rapportini || []).find((x) => x.id === id); if (!r) return null;

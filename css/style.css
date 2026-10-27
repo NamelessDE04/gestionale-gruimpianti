@@ -1584,3 +1584,5 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
 /* gestione utenti: pulsante funzioni */
 .cli-riga .u-funz { flex-shrink: 0; margin-left: 6px; white-space: nowrap; }
 @media (max-width: 560px) { .cli-riga { flex-wrap: wrap; } .cli-riga .u-funz { margin-left: auto; } }
+.avviso-rec { border: 2px solid #e0b400; background: #fffbea; }
+.avviso-rec .rec-riga { display: flex; gap: 10px; align-items: center; padding: 8px 0; border-top: 1px dashed #e0c96a; min-width: 0; overflow-wrap: anywhere; }

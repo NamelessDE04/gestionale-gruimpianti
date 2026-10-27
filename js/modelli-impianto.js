@@ -69,7 +69,15 @@ window.MIMP = (function () {
     // un modello di base che manca (es. aggiunto in una versione nuova) torna disponibile
     return [...salv, ...BASE().filter((b) => !salv.some((x) => x.id === b.id))];
   };
-  async function salvaTutti(S, ms) {
+  // prima di salvare rileggo la lista dal cloud: i tipi che un altro dispositivo ha aggiunto e che io non conosco restano
+  async function salvaTutti(S, ms, tolti = []) {
+    if (Backend.mode === 'cloud' && navigator.onLine) {
+      try {
+        const c = ((await Backend.leggiTutti('impostazioni')).find((x) => x.id === 'modelliImpianto') || {}).modelli || [];
+        const ids = new Set(ms.map((m) => m.id));
+        ms = [...ms, ...c.filter((m) => !ids.has(m.id) && !tolti.includes(m.id))];
+      } catch (e) {}
+    }
     await UI.salva('impostazioni', { id: 'modelliImpianto', modelli: ms });
     S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliImpianto'), { id: 'modelliImpianto', modelli: ms }];
   }
@@ -203,7 +211,7 @@ window.MIMP = (function () {
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (uso) return UI.toast(`Ci sono ${uso} impianti di questo tipo: prima cambia il loro tipo`, 'err');
       if (!UI.conferma(`Eliminare il tipo «${m.nome}»?`)) return;
-      await salvaTutti(S, ms.filter((x) => x.id !== m.id)); sporco = false; location.hash = '#/impianti/modelli';
+      await salvaTutti(S, ms.filter((x) => x.id !== m.id), [m.id]); sporco = false; location.hash = '#/impianti/modelli';
     });
     return { titolo: orig ? m.nome : 'Nuovo tipo', indietro: '#/impianti/modelli', live: false };
   }

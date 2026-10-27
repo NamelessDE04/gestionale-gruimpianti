@@ -46,12 +46,31 @@ window.CTR = (function () {
 
   // ---------- dati ----------
   const modelli = (S) => (S.impostazioni.find((x) => x.id === 'modelliScheda') || {}).modelli || null;
+  // La lista dei modelli è UN solo documento: salvarla da un dispositivo che ha una copia vecchia (o vuota,
+  // es. appena installato o senza rete) cancellerebbe i modelli fatti dagli altri. Per questo:
+  //  - prima di scrivere rileggo la lista dal cloud e tengo i modelli che io non sto toccando;
+  //  - la lista di prima resta in una copia di sicurezza (modelliScheda~copia);
+  //  - i modelli di base si scrivono SOLO se il cloud conferma che non c'è ancora nessuna lista.
+  async function listaCloud() {
+    if (Backend.mode !== 'cloud' || !navigator.onLine) return undefined;
+    try { const d = (await Backend.leggiTutti('impostazioni')).find((x) => x.id === 'modelliScheda'); return d ? d.modelli || [] : null; } catch (e) { return undefined; }
+  }
+  async function scriviModelli(S, nuovi, tolti = []) {
+    const cloud = await listaCloud(), base = cloud || modelli(S) || [];
+    const ids = new Set(nuovi.map((m) => m.id)), via = new Set(tolti);
+    const finali = [...nuovi, ...base.filter((m) => !ids.has(m.id) && !via.has(m.id))];
+    if (base.length) { try { await UI.salva('impostazioni', { id: 'modelliScheda~copia', modelli: base, copiaDel: new Date().toISOString() }); } catch (e) {} }
+    await UI.salva('impostazioni', { id: 'modelliScheda', modelli: finali });
+    S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: finali }];
+    return finali;
+  }
   async function assicuraModelli(S) {
     if (modelli(S)) return modelli(S);
-    const m = MODELLI_BASE();
-    await UI.salva('impostazioni', { id: 'modelliScheda', modelli: m });
-    S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: m }];
-    return m;
+    const cloud = await listaCloud();
+    if (cloud && cloud.length) { S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: cloud }]; return cloud; }
+    // senza la certezza che nel cloud non ci sia niente, i modelli di base restano solo in memoria
+    if (Backend.mode === 'cloud' && cloud !== null) return MODELLI_BASE();   // undefined = il cloud non ha risposto
+    return scriviModelli(S, MODELLI_BASE());
   }
   // nuovo modello di scheda dalle voci date (es. quelle di una scheda importata); stesso nome = non si duplica
   async function aggiungiModello(S, nome, voci) {
@@ -59,8 +78,7 @@ window.CTR = (function () {
     nome = String(nome || '').trim(); if (!nome) return null;
     if (ms.some((m) => m.nome.toLowerCase() === nome.toLowerCase())) return false;
     const m = { id: uid(), nome, voci: voci.map((v) => ({ id: uid(), per: v.per || 'T', testo: String(v.testo || '').toUpperCase(), tipo: 'codice', ...(v.valore || v.tipo === 'misura' ? { valore: true, unita: v.unita || 'mm' } : {}) })) };
-    ms.push(m); await UI.salva('impostazioni', { id: 'modelliScheda', modelli: ms });
-    S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: ms }];
+    await scriviModelli(S, [...ms, m]);
     return m;
   }
   const modelloDi = (S, imp) => {
@@ -186,6 +204,8 @@ window.CTR = (function () {
           <h1>Controllo carriponte e gru a bandiera ${info('Qui trovi le sedi che hanno impianti. Ogni sede ha il suo piano dei controlli (in che mese si parte e quale controllo è l\'annuale). Le voci da controllare stanno nei «Modelli di scheda», uguali per tutti gli impianti dello stesso tipo.')}</h1>
           ${UT.solaLettura() || !UT.puo('ctr.modelli') ? '' : '<a class="btn ghost small" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
         </div>
+        ${(() => { const ms = modelli(S); if (!ms || !UT.puo('ctr.modelli')) return ''; const n = S.impianti.filter((i) => i.controllo?.modelloId && !ms.some((m) => m.id === i.controllo.modelloId)).length;
+          return n ? `<a class="avviso-m st-b-scaduto" href="#/controlli/modelli"><span class="av-ico">⚠️</span><span class="grow"><b>${n} gru usano un modello di scheda che non c'è più</b><span>Tocca per ricrearlo dalle voci delle loro schede</span></span>›</a>` : ''; })()}
         ${tutte.length ? `<input type="search" id="fCerca" class="cerca" placeholder="Cerca cliente, sede, città o sigla…" value="${esc(FILTRO.q)}" autocomplete="off">` : ''}
         ${tutte.length ? (lista.length ? '' : '<p class="nessuno">Nessuna sede trovata.</p>') : `<p class="nessuno">Nessun impianto inserito. Aggiungi prima gli impianti in <a class="link" href="#/impianti">Anagrafica impianti</a>.</p>`}
         <div class="cartelle">
@@ -335,6 +355,11 @@ window.CTR = (function () {
   // ---------- CAMBIO MODELLO DI SCHEDA PER LA SEDE (Master) ----------
   // le schede dell'anno già iniziate vengono «riformattate»: i giudizi restano sulle voci con lo stesso nome,
   // le osservazioni di voci che nel modello nuovo non ci sono vanno su NOTE GENERALI
+  // copia di sicurezza di una scheda prima di cambiarle le voci (raccolta «copie», che l'app non ascolta: non costa letture)
+  async function copiaScheda(sc, motivo) {
+    if (!sc) return;
+    try { await UI.salva('copie', { id: sc.id + '@' + Date.now().toString(36), col: 'schedeControllo', docId: sc.id, quando: new Date().toISOString(), motivo, da: UT.breve(UT.attuale()), doc: JSON.parse(JSON.stringify(sc)) }); } catch (e) { console.warn('copia scheda', e); }
+  }
   function rifaiScheda(sc, nuove) {
     const d = JSON.parse(JSON.stringify(sc)), voci = nuove.map((v) => ({ ...v })), perse = []; let aNg = 0;
     let ng = voci.find((v) => nvTesto(v.testo) === 'NOTEGENERALI');
@@ -384,7 +409,7 @@ window.CTR = (function () {
       const { m, gru, schede } = calcola();
       if (!UI.conferma(`Passare ${gru.length} gru al modello «${m.nome}»${schede.length ? ` e riformattare ${schede.length} schede del ${anno}` : ''}?`)) return;
       for (const i of gru) await UI.salva('impianti', { ...JSON.parse(JSON.stringify(i)), controllo: { modelloId: m.id, escluse: [] } });
-      for (const sc of schede) await UI.salva('schedeControllo', rifaiScheda(sc, m.voci).d);
+      for (const sc of schede) { await copiaScheda(sc, `prima del cambio al modello «${m.nome}»`); await UI.salva('schedeControllo', rifaiScheda(sc, m.voci).d); }
       UT.registra('modifica', `Modello scheda «${m.nome}» per ${gru.length} gru${schede.length ? `, ${schede.length} schede ${anno} riformattate` : ''}`);
       chiudi(); UI.toast(`Fatto: ${gru.length} gru col modello «${m.nome}»`, 'ok');
     };
@@ -410,6 +435,7 @@ window.CTR = (function () {
       const per = {}; lista.forEach(([id, n]) => (per[id] = [...(per[id] || []), +n]));
       for (const [id, ns] of Object.entries(per)) {
         const sc = JSON.parse(JSON.stringify(schedaDi(S, id, anno)));
+        await copiaScheda(sc, `prima di azzerare il ${ns.join('°, ')}° controllo`);
         // le annotazioni restano tutte (anche quelle nate in questi controlli); torna visibile quella «tolta» da qui
         ns.forEach((n) => { delete sc.visite[n]; (sc.osservazioni || []).forEach((o) => { if (o.tolta === n) delete o.tolta; }); });
         if (!Object.keys(sc.visite).length && !sc.noteInterne && !sc.osservazioni.length) await Backend.remove('schedeControllo', sc.id); else await UI.salva('schedeControllo', sc);
@@ -475,6 +501,7 @@ window.CTR = (function () {
             UT.puo('stampa') && { t: `🖨️ Stampa scheda ${anno}`, href: `#/controlli/i/${impId}/${anno}/stampa` },
             !UT.solaLettura() && UT.puo('ctr.voci') && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
             UT.puo('ctr.modelloSede') && sc && { t: '💾 Salva queste voci come modello', id: 'btnComeModello' },
+            UT.puo('ctr.modelloSede') && sc && { t: '🕘 Versioni di prima della scheda', id: 'btnCopie' },
             { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
           ])}
         </div>
@@ -494,6 +521,24 @@ window.CTR = (function () {
           ${UT.solaLettura() ? '' : '<div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnVecchieVia">🗑 Elimina</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnVecchieSposta">↧ Sposta nelle note Gru Impianti</button></div>'}</div>` : ''}
       </section>`;
     el.querySelector('#btnVoci')?.addEventListener('click', () => modaleVoci(S, i, anno));
+    el.querySelector('#btnCopie')?.addEventListener('click', async () => {
+      let copie = [];
+      try { copie = (await Backend.cerca('copie', 'docId', sc.id)).sort((a, b) => (b.quando || '').localeCompare(a.quando || '')); } catch (e) { return UI.toast('Serve internet per leggere le versioni di prima', 'err'); }
+      if (!copie.length) return UI.toast('Nessuna versione di prima salvata per questa scheda', 'ok');
+      const { ov, chiudi } = finestra(`Versioni di prima · scheda ${anno}`, `<p class="muted small">Prima di cambiare le voci di una scheda (cambio modello, voci tolte) l'app ne salva una copia. Rimettendo una versione, quella di adesso diventa a sua volta una copia.</p>
+        ${copie.map((c) => `<div class="rec-riga"><div class="grow"><b>${fmt(c.quando.slice(0, 10))} ${c.quando.slice(11, 16)}</b> · ${esc(c.da || '')}<br><small class="muted">${esc(c.motivo || '')} · ${(c.doc.voci || []).length} voci · ${Object.keys(c.doc.visite || {}).length} controlli</small></div><button class="btn small" data-rimetti="${esc(c.id)}">↺ Rimetti</button></div>`).join('')}`,
+        '<span class="grow"></span><button type="button" class="btn ghost" data-chiudi>Chiudi</button>', 'cm-modal');
+      ov.querySelectorAll('[data-rimetti]').forEach((b) => (b.onclick = async () => {
+        const c = copie.find((x) => x.id === b.dataset.rimetti);
+        if (!UI.conferma(`Rimettere la scheda com'era il ${fmt(c.quando.slice(0, 10))} (${(c.doc.voci || []).length} voci)?`)) return;
+        const attuale = schedaDi(S, i.id, anno);
+        await copiaScheda(attuale, 'prima di rimettere una versione di prima');
+        const d = JSON.parse(JSON.stringify(c.doc)); d._rev = attuale?._rev; d._storia = attuale?._storia || [];
+        await UI.salva('schedeControllo', d);
+        UT.registra('modifica', `Scheda ${anno} di ${IMP.titolo(i)}: rimessa la versione del ${fmt(c.quando.slice(0, 10))}`);
+        chiudi(); UI.toast('Versione rimessa', 'ok');
+      }));
+    });
     el.querySelector('#btnComeModello')?.addEventListener('click', () => UI.modal({
       titolo: 'Salva le voci come modello',
       infoTxt: `Le ${sc.voci.length} voci di questa scheda, così come sono, diventano un nuovo modello nella lista «Modelli di scheda». Poi lo puoi scegliere per gli altri impianti.`,
@@ -580,12 +625,14 @@ window.CTR = (function () {
           if (!scOra || !v.applica) return;
           const r = rifaiScheda(scOra, mod.voci), perse = r.perse.filter((t) => nvTesto(t) !== 'NOTEGENERALI');
           if (perse.length && !UI.conferma(`Nella scheda ${anno} queste voci non ci sono nel modello «${mod.nome}» e spariscono (con i loro giudizi):\n\n${perse.map((t) => '• ' + t).join('\n')}\n\nContinuare?`)) return;
+          await copiaScheda(scOra, `prima del cambio al modello «${mod.nome}»`);
           await UI.salva('schedeControllo', r.d);
           UT.registra('modifica', `Scheda ${anno} di ${IMP.titolo(i)} passata al modello «${mod.nome}»`);
         };
         if (sc && tolte.length) {
           const usate = tolte.filter((x) => Object.values(sc.visite || {}).some((vis) => (vis.esiti?.[x.id] || []).some(Boolean)));
           if (!UI.conferma(`Togliere ${tolte.length} ${tolte.length === 1 ? 'voce' : 'voci'} dalla scheda ${anno}?\n\n${tolte.map((x) => '• ' + x.testo).join('\n')}${usate.length ? `\n\n${usate.length} ${usate.length === 1 ? 'ha' : 'hanno'} già dei giudizi nei controlli fatti: si perdono.` : ''}`)) return false;
+          await copiaScheda(sc, `prima di togliere ${tolte.length} voci`);
           const d = JSON.parse(JSON.stringify(sc)), via = new Set(tolte.map((x) => x.id));
           d.voci = d.voci.filter((x) => !via.has(x.id));
           Object.values(d.visite || {}).forEach((vis) => { via.forEach((id) => { if (vis.esiti) delete vis.esiti[id]; if (vis.valori) delete vis.valori[id]; }); });
@@ -941,6 +988,7 @@ window.CTR = (function () {
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${n}° controllo ${anno} di questo impianto? Le osservazioni nate in questo controllo verranno tolte.`)) return;
       sporco = false;
+      if (esistente) await copiaScheda(esistente, `prima di eliminare il ${n}° controllo`);
       delete sc.visite[n]; sc.osservazioni = sc.osservazioni.filter((o) => o.visita !== n);
       if (!Object.keys(sc.visite).length) await Backend.remove('schedeControllo', sc.id); else await UI.salva('schedeControllo', sc);
       location.hash = '#/controlli/i/' + impId + '?anno=' + anno;
@@ -954,8 +1002,26 @@ window.CTR = (function () {
     const ms = await assicuraModelli(S);
     const m = ms.find((x) => x.id === modelloAperto) || ms[0]; modelloAperto = m.id;
     const uso = S.impianti.filter((i) => modelloDi(S, i).id === m.id).length;
+    // ---- recupero: modelli assegnati a delle gru ma spariti dalla lista ----
+    const mancanti = [...new Set(S.impianti.map((i) => i.controllo?.modelloId).filter((id) => id && !ms.some((x) => x.id === id)))].map((id) => {
+      const gru = S.impianti.filter((i) => i.controllo?.modelloId === id);
+      // le voci dalla scheda più recente di quelle gru (le schede tengono una copia delle voci del modello)
+      const sc = S.schedeControllo.filter((x) => gru.some((i) => i.id === x.impiantoId) && (x.voci || []).length)
+        .sort((a, b) => (b.anno - a.anno) || (Object.keys(b.visite || {}).length - Object.keys(a.visite || {}).length))[0];
+      const cli = sc ? trovaSede(S, sc.sedeId).c : null;
+      return { id, gru, sc, nome: cli ? CLI.nome(cli).split(/\s+/)[0] : 'RECUPERATO' };
+    });
+    const copia = (S.impostazioni.find((x) => x.id === 'modelliScheda~copia') || {});
+    const inCopia = (copia.modelli || []).filter((x) => !ms.some((y) => y.id === x.id));
     el.innerHTML = `
       <section class="sg">
+        ${mancanti.length || inCopia.length ? `<div class="card avviso-rec">
+          <h2>⚠️ Modelli da recuperare ${info('Questi modelli sono assegnati a delle gru ma non ci sono più nella lista (per esempio perché un dispositivo con una copia vecchia l\'ha salvata sopra). Si possono ricreare con le voci delle schede di quelle gru, che ne tengono una copia: le gru tornano subito al loro modello.')}</h2>
+          ${mancanti.map((x) => `<div class="rec-riga"><div class="grow"><b>${x.gru.length} gru</b> usano un modello che non c'è più <small class="muted">(es. ${x.gru.slice(0, 3).map((i) => esc(i.numeroInterno || IMP.titolo(i))).join(', ')})</small>
+            <br>${x.sc ? `si ricrea con le <b>${x.sc.voci.length} voci</b> della scheda ${x.sc.anno} di ${(() => { const g = S.impianti.find((i) => i.id === x.sc.impiantoId) || {}; return (g.numeroInterno ? 'N° ' + esc(g.numeroInterno) + ' ' : '') + esc(IMP.titolo(g)); })()}` : '<span class="txt-ko">nessuna scheda con le voci: va ricreato a mano</span>'}</div>
+            ${x.sc ? `<button class="btn small" data-ricrea="${x.id}">↺ Ricrea</button>` : ''}</div>`).join('')}
+          ${inCopia.length ? `<div class="rec-riga"><div class="grow">Nella copia di sicurezza del ${fmt((copia.copiaDel || '').slice(0, 10))} ci sono modelli che adesso mancano: <b>${inCopia.map((x) => esc(x.nome)).join(', ')}</b></div><button class="btn small" id="btnRecCopia">↺ Rimetti</button></div>` : ''}
+        </div>` : ''}
         <div class="sez-head"><h1>Modelli di scheda ${info('Un modello è l\'elenco delle voci di controllo, ognuna con la sua periodicità (TRIM, SEME, ANN). Vale per tutti gli impianti che lo usano: le gru a bandiera usano «Gru a bandiera», le altre «Carroponte». Le modifiche valgono per le schede nuove; quelle già iniziate restano come sono.')}</h1>
           <button class="btn ghost" id="btnNuovoMod">+ Nuovo modello</button></div>
         <nav class="tabs">${ms.map((x) => `<a class="tab ${x.id === m.id ? 'on' : ''}" href="javascript:void(0)" data-mod="${x.id}"><b>${esc(x.nome)}</b><span>${x.voci.length} voci</span></a>`).join('')}</nav>
@@ -976,13 +1042,25 @@ window.CTR = (function () {
             <button class="btn ghost small" data-add="${pp}">+ Aggiungi voce ${PER[pp]}</button>`).join('')}
         </div>
       </section>`;
-    const salvaM = async (nuovi) => {
-      await UI.salva('impostazioni', { id: 'modelliScheda', modelli: nuovi });
-      S.impostazioni = [...S.impostazioni.filter((x) => x.id !== 'modelliScheda'), { id: 'modelliScheda', modelli: nuovi }];
-      App.ridisegna();
-    };
+    const salvaM = async (nuovi, tolti) => { await scriviModelli(S, nuovi, tolti); App.ridisegna(); };
     const copiaM = () => JSON.parse(JSON.stringify(ms));
     el.querySelectorAll('[data-mod]').forEach((b) => (b.onclick = () => { modelloAperto = b.dataset.mod; App.ridisegna(); }));
+    el.querySelectorAll('[data-ricrea]').forEach((b) => (b.onclick = () => {
+      const x = mancanti.find((y) => y.id === b.dataset.ricrea);
+      UI.modal({ titolo: 'Ricrea il modello', valori: { nome: x.nome },
+        infoTxt: `Il modello torna con lo stesso codice di prima: le ${x.gru.length} gru che lo usavano lo ritrovano subito. Le voci sono quelle della scheda ${x.sc.anno} (le schede tengono una copia delle voci del modello).`,
+        campi: [{ k: 'nome', label: 'Nome del modello', req: true, maiuscolo: true }],
+        onSalva: async (v) => {
+          const voci = x.sc.voci.filter((y) => nvTesto(y.testo) !== 'NOTEGENERALI').map((y) => ({ id: y.id, per: y.per || 'T', testo: y.testo, tipo: 'codice', ...(haValore(y) ? { valore: true, unita: unitaDi(y) || 'mm' } : {}) }));
+          await scriviModelli(S, [...ms, { id: x.id, nome: String(v.nome).trim(), voci }]);
+          modelloAperto = x.id; UT.registra('modifica', `Modello di scheda «${v.nome}» ricreato dalle voci di una scheda (${x.gru.length} gru)`);
+          UI.toast(`Modello «${v.nome}» ricreato (${voci.length} voci)`, 'ok'); App.ridisegna();
+        } });
+    }));
+    el.querySelector('#btnRecCopia')?.addEventListener('click', async () => {
+      if (!UI.conferma(`Rimettere nella lista ${inCopia.map((x) => x.nome).join(', ')}?`)) return;
+      await scriviModelli(S, [...ms, ...inCopia]); UI.toast('Modelli rimessi', 'ok'); App.ridisegna();
+    });
     const modVoce = (v, per) => UI.modal({
       titolo: v ? 'Modifica voce' : 'Nuova voce ' + PER[per], valori: v ? { ...v, valore: haValore(v), unita: v.unita || (haValore(v) ? 'mm' : 'mm'), per: PER_NOME[v.per] } : { per: PER_NOME[per], unita: 'mm' },
       infoTxt: 'Ogni voce si segna con il codice (X, R, P, L, S). Se attivi «Campo valore» accanto ai codici compare anche una casella per scrivere un valore (es. il diametro della fune): è facoltativa, la compili solo quando la prendi. Sulla scheda del cliente, se c\'è, esce il valore al posto della X.',
@@ -1013,7 +1091,7 @@ window.CTR = (function () {
     el.querySelector('#btnEliminaMod')?.addEventListener('click', async () => {
       if (uso) return UI.toast(`Lo usano ${uso} impianti: cambia prima il loro modello`, 'err');
       if (!UI.conferma(`Eliminare il modello ${m.nome}?`)) return;
-      modelloAperto = null; await salvaM(copiaM().filter((y) => y.id !== m.id));
+      modelloAperto = null; await salvaM(copiaM().filter((y) => y.id !== m.id), [m.id]);
     });
     el.querySelector('#btnNuovoMod').onclick = () => UI.modal({
       titolo: 'Nuovo modello', infoTxt: 'Il nuovo modello parte come copia di quello scelto: poi togli o aggiungi le voci.',
