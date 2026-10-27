@@ -562,17 +562,27 @@ window.CTR = (function () {
       titolo: 'Voci di questo impianto', largo: true,
       infoTxt: (sc ? `Queste sono le voci della scheda ${anno} di questo impianto, quelle che usa davvero nei controlli. Togliendo la spunta la voce sparisce dalla scheda ${anno} (tutti e 4 i controlli). «Modello di scheda» decide invece le voci delle schede nuove (per esempio l\'anno prossimo). ` : 'Togli la spunta alle voci che su questo impianto non si fanno (es. freno ausiliario se non c\'è il motore ausiliario). Per cambiare le voci di tutti gli impianti usa «Modelli di scheda». ')
         + 'Se in fondo scrivi un nome, con le voci spuntate nasce un modello nuovo (che puoi usare anche per altre gru) e questo impianto passa a quel modello.',
-      valori: { modello: m.nome, ...Object.fromEntries(elenco.map((v) => ['v_' + v.id, spuntata(v)])) },
+      valori: { modello: m.nome, applica: true, ...Object.fromEntries(elenco.map((v) => ['v_' + v.id, spuntata(v)])) },
       campi: [{ k: 'modello', label: sc ? 'Modello di scheda (per le schede nuove)' : 'Modello di scheda', tipo: 'select', opzioni: ms.map((x) => x.nome) },
         ...(sc ? [{ tipo: 'titolo', label: `Voci della scheda ${anno}` }] : []),
         ...['T', 'S', 'A'].flatMap((pp) => { const vv = elenco.filter((v) => v.per === pp); return vv.length ? [{ tipo: 'titolo', label: PER_NOME[pp] }, ...vv.map((v) => ({ k: 'v_' + v.id, label: v.testo, tipo: 'sino', mezza: true }))] : []; }),
         { tipo: 'titolo', label: 'Nuovo modello (facoltativo)' },
-        { k: 'nuovoNome', label: 'Crea un modello con le voci spuntate: scrivi il nome', placeholder: 'es. SEGHETTO TRAMET', maiuscolo: true }],
+        { k: 'nuovoNome', label: 'Crea un modello con le voci spuntate: scrivi il nome', placeholder: 'es. SEGHETTO TRAMET', maiuscolo: true },
+        ...(sc ? [{ k: 'applica', label: `Se cambio modello, usa subito le sue voci anche nella scheda ${anno} già iniziata (i giudizi delle voci con lo stesso nome restano)`, tipo: 'sino' }] : [])],
       onSalva: async (v) => {
         const nome = String(v.nuovoNome || '').trim().toUpperCase();
         const tenute = elenco.filter((x) => v['v_' + x.id]), tolte = elenco.filter((x) => !v['v_' + x.id]);
         if (!tenute.length) { UI.toast('Spunta almeno una voce', 'err'); return false; }
         // 1) voci tolte dalla scheda dell'anno
+        let scOra = sc;   // la scheda dell'anno com'è dopo le modifiche di questo salvataggio
+        // la scheda dell'anno prende le voci del modello nuovo (stesse voci per nome: i giudizi restano)
+        const applicaAllaScheda = async (mod) => {
+          if (!scOra || !v.applica) return;
+          const r = rifaiScheda(scOra, mod.voci), perse = r.perse.filter((t) => nvTesto(t) !== 'NOTEGENERALI');
+          if (perse.length && !UI.conferma(`Nella scheda ${anno} queste voci non ci sono nel modello «${mod.nome}» e spariscono (con i loro giudizi):\n\n${perse.map((t) => '• ' + t).join('\n')}\n\nContinuare?`)) return;
+          await UI.salva('schedeControllo', r.d);
+          UT.registra('modifica', `Scheda ${anno} di ${IMP.titolo(i)} passata al modello «${mod.nome}»`);
+        };
         if (sc && tolte.length) {
           const usate = tolte.filter((x) => Object.values(sc.visite || {}).some((vis) => (vis.esiti?.[x.id] || []).some(Boolean)));
           if (!UI.conferma(`Togliere ${tolte.length} ${tolte.length === 1 ? 'voce' : 'voci'} dalla scheda ${anno}?\n\n${tolte.map((x) => '• ' + x.testo).join('\n')}${usate.length ? `\n\n${usate.length} ${usate.length === 1 ? 'ha' : 'hanno'} già dei giudizi nei controlli fatti: si perdono.` : ''}`)) return false;
@@ -580,7 +590,7 @@ window.CTR = (function () {
           d.voci = d.voci.filter((x) => !via.has(x.id));
           Object.values(d.visite || {}).forEach((vis) => { via.forEach((id) => { if (vis.esiti) delete vis.esiti[id]; if (vis.valori) delete vis.valori[id]; }); });
           (d.osservazioni || []).forEach((o) => { if (via.has(o.vocId)) { o.vocId = ''; o.p = null; } });
-          await UI.salva('schedeControllo', d);
+          await UI.salva('schedeControllo', d); scOra = d;
           UT.registra('modifica', `Tolte ${tolte.length} voci dalla scheda ${anno} di ${IMP.titolo(i)}`);
         }
         // 2) modello nuovo con le voci spuntate: l'impianto passa al modello nuovo
@@ -588,6 +598,7 @@ window.CTR = (function () {
           const nm = await aggiungiModello(S, nome, tenute);
           if (!nm) { UI.toast('Esiste già un modello con questo nome', 'err'); return false; }
           await UI.salva('impianti', { ...JSON.parse(JSON.stringify(i)), controllo: { modelloId: nm.id, escluse: [] } });
+          await applicaAllaScheda(nm);
           UT.registra('modifica', `Modello di scheda «${nome}» creato dalle voci di ${IMP.titolo(i)}`);
           UI.toast(`Modello «${nome}» creato (${tenute.length} voci) e assegnato a questo impianto`, 'ok');
           return;
@@ -597,6 +608,7 @@ window.CTR = (function () {
         const d = JSON.parse(JSON.stringify(i));
         d.controllo = { modelloId: scelto.id, escluse: !sc && scelto.id === m.id ? m.voci.filter((x) => !v['v_' + x.id]).map((x) => x.id) : (scelto.id === m.id ? escl : []) };
         await UI.salva('impianti', d);
+        if (scelto.id !== m.id) await applicaAllaScheda(scelto);
         UI.toast(sc ? (tolte.length ? 'Voci della scheda aggiornate' : scelto.id === m.id ? 'Salvato' : `Modello «${scelto.nome}» per le schede nuove`) : scelto.id === m.id ? 'Voci aggiornate' : 'Modello cambiato: riapri per scegliere le voci', 'ok');
       }
     });
