@@ -88,7 +88,7 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="cli">
         <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). In cima, con 📌, quelli ancora da firmare: restano lì finché non li chiudi. Il simbolo accanto alla ricerca apre i filtri (anno, mese, cliente, tecnico, stato).')}</h1>
-          <a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
+          <a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo" ${UT.puo('rap.scrivere') && !UT.solaLettura() ? '' : 'hidden'}><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
         <div class="barra-cerca">
           <input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, lavori, ordine, DDT…" value="${esc(filtro.q)}">
           <button type="button" class="btn-filtri ${filtriAperti ? 'on' : ''}" id="btnFiltri" aria-label="Filtri" title="Filtri">
@@ -504,7 +504,7 @@ window.RAP = (function () {
     el.innerHTML = `
       <section class="stampa-recap">
         <div class="azioni-lista no-print">
-          ${!UT.puoInviare() ? '' : r.numero ? '<button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>' : `<span class="pill st-ko">⏳ Numero in arrivo</span><button type="button" class="btn ghost small" id="btnNumero">↻ Assegna adesso</button>${info('Il numero lo dà il contatore unico del cloud, così due tablet non danno mai lo stesso numero. Si assegna da solo appena il rapportino è arrivato al cloud; se resta «in arrivo», tocca «Assegna adesso». Senza internet bisogna aspettare che torni la rete.')}`}
+          ${!UT.puo('stampa') ? '' : r.numero ? '<button class="btn" id="btnStampa">🖨️ Stampa / salva PDF</button>' : `<span class="pill st-ko">⏳ Numero in arrivo</span><button type="button" class="btn ghost small" id="btnNumero">↻ Assegna adesso</button>${info('Il numero lo dà il contatore unico del cloud, così due tablet non danno mai lo stesso numero. Si assegna da solo appena il rapportino è arrivato al cloud; se resta «in arrivo», tocca «Assegna adesso». Senza internet bisogna aspettare che torni la rete.')}`}
           <a class="btn ghost" href="#/rapportini/r/${r.id}/modifica">${firmato(r) ? '✏️ Modifica' : '✍️ Completa e firma'}</a>
           <a class="btn ghost" href="#/rapportini">Elenco</a>
           ${r.inviatoIl ? `<span class="muted small">✉️ inviato il ${fmt(r.inviatoIl.slice(0, 10))}</span>` : ''}
@@ -648,7 +648,7 @@ window.RAP = (function () {
   }
   // ---------- promemoria nella home (Master, Risorse Umane, Developer): restano finché non sono fatti ----------
   function memoHome(S) {
-    if (!UT.puoInviare()) return '';
+    if (!UT.puo('promemoria')) return '';
     const lista = (S.promemoria || []).filter((m) => !m.fatto).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
     if (!lista.length) return '';
     return `<div class="card memo-home"><div class="card-head"><h2>📌 Promemoria da fare <span class="pill st-scadenza">${lista.length}</span> ${info('Li scrivono i tecnici dal rapportino quando il cliente chiede qualcosa (offerte, ricambi, funi…). Restano qui finché qualcuno non tocca «✓ Fatto».')}</h2></div>

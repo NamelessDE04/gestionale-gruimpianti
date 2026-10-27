@@ -84,11 +84,59 @@ window.UT = (function () {
     if (!dev && vietato((location.hash.replace(/^#\/?/, '') || '').split('?')[0].split('/').filter(Boolean))) location.hash = '#/';
     App.ridisegna();
   }
+  // ================= FUNZIONI ABILITABILI PER PERSONA =================
+  // Ogni funzione ha un valore di partenza per livello (def). Il Master, da «Gestione utenti › 🔑 Funzioni»,
+  // può accenderla o spegnerla per la singola persona (u.permessi = { chiave: true/false }).
+  // Il Developer ha sempre tutto. Le funzioni che modificano i dati (scrive) non si possono dare a Risorse Umane:
+  // il cloud le rifiuterebbe (Risorse Umane è in sola lettura); per darle va cambiato il livello in Tecnico.
+  // ⚠️ OGNI FUNZIONE NUOVA DELL'APP VA AGGIUNTA QUI e controllata nel codice con UT.puo('chiave').
+  const TUTTI = ['master', 'tecnico', 'ru'], LAVORO = ['master', 'tecnico'], UFFICIO = ['master', 'ru'];
+  const FUNZIONI = [
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.rapportini', nome: 'Rapportini di intervento', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.schede', nome: 'Schede di controllo (gru, sottoganci, controlli approfonditi)', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.clienti', nome: 'Anagrafica clienti', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.impianti', nome: 'Anagrafica impianti', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.layout', nome: 'Layout delle sedi', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.mezzi', nome: 'Anagrafica mezzi', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.lavagna', nome: 'Lavagna', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.gho', nome: 'GHO ELIGIO (ore e configuratore cablaggio)', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'home.completa', nome: 'Home completa (tutte le caselle subito, senza «Anagrafiche e altro»)', def: UFFICIO },
+    { g: 'Lavoro', k: 'ctr.fare', nome: 'Fare i controlli (gru, sottoganci, pinze, magneti, funi, bozzelli…)', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'ctr.elimina', nome: 'Eliminare o azzerare un controllo già fatto', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'ctr.voci', nome: 'Cambiare le voci di controllo di un impianto', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'rap.scrivere', nome: 'Scrivere e firmare i rapportini', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'gho.ore', nome: 'Registrare le ore GHO', def: LAVORO, scrive: true },
+    { g: 'Anagrafiche', k: 'anag.modifica', nome: 'Aggiungere e modificare clienti, impianti, sottoganci, attrezzi e mezzi', def: LAVORO, scrive: true },
+    { g: 'Anagrafiche', k: 'anag.eliminaTutto', nome: 'Spostare o eliminare un cliente o una sede con tutti i suoi dati', def: ['master'], scrive: true },
+    { g: 'Anagrafiche', k: 'layout.modifica', nome: 'Disegnare e modificare i layout', def: LAVORO, scrive: true },
+    { g: 'Anagrafiche', k: 'sg.cartelle', nome: 'Cartelle sottoganci: eliminarle e sistemare le righe titolo', def: ['master'], scrive: true },
+    { g: 'Impostazioni', k: 'ctr.modelli', nome: 'Modelli di scheda di controllo', def: LAVORO, scrive: true },
+    { g: 'Impostazioni', k: 'ctr.modelloSede', nome: 'Cambiare il modello di scheda di una sede, salvare voci come modello, azzerare i controlli di una sede', def: ['master'], scrive: true },
+    { g: 'Impostazioni', k: 'imp.tipi', nome: 'Tipi di impianto (voci dell\'anagrafica impianti)', def: ['master'], scrive: true },
+    { g: 'Impostazioni', k: 'cablaggio.modifica', nome: 'Modificare il configuratore cablaggio', def: ['master'], scrive: true },
+    { g: 'Ufficio', k: 'stampa', nome: 'Stampare e salvare in PDF (schede, elenchi, rapportini, layout)', def: UFFICIO },
+    { g: 'Ufficio', k: 'invio', nome: 'Invia e archivia (email ai clienti)', def: UFFICIO },
+    { g: 'Ufficio', k: 'ordini', nome: 'N° d\'ordine dei clienti', def: UFFICIO },
+    { g: 'Ufficio', k: 'promemoria', nome: 'Promemoria dei rapportini in home (vedere e segnare fatti)', def: UFFICIO },
+    { g: 'Ufficio', k: 'conflitti', nome: 'Risolvere i conflitti tra dispositivi', def: ['master'], scrive: true }
+  ];
+  const FMAP = Object.fromEntries(FUNZIONI.map((f) => [f.k, f]));
+  // può questa persona (con questo livello) usare la funzione?
+  function puoPer(u, r, k) {
+    if (r === 'developer') return true;
+    const f = FMAP[k]; if (!f) return ALTI.includes(r);
+    if (f.scrive && r === 'ru') return false;
+    const o = u?.permessi?.[k];
+    return typeof o === 'boolean' ? o : f.def.includes(r);
+  }
+  const puo = (k) => puoPer(attuale(), ruoloSess(), k);
+  // come puo(), ma se non è abilitata lo dice
+  const serve = (k) => { if (puo(k)) return true; UI.toast('Funzione non abilitata per te: chiedi al Master di accenderla in «Gestione utenti › 🔑 Funzioni»', 'err'); return false; };
   const isMaster = () => ALTI.includes(ruoloSess());
   const isDev = () => ruoloSess() === 'developer';
   const solaLettura = () => ruoloSess() === 'ru';
   // stampare e inviare ai clienti rapportini, schede di controllo e sottoganci: solo Master e Risorse Umane
-  const puoInviare = () => ['developer', 'master', 'ru'].includes(ruoloSess());
+  const puoInviare = () => puo('stampa');
   const breve = (u) => (u?.nome || '');   // il nome della persona: lavagna, controlli, sottoganci e tutto il resto
   const sigla = (u) => (u?.nomeBreve || u?.nome || '');   // sigla (es. VL): solo nei rapportini di intervento
   const iniziali = (n = '') => n.trim().split(/\s+/).map((x) => x[0]).join('').slice(0, 2).toUpperCase() || '?';
@@ -509,10 +557,12 @@ window.UT = (function () {
               <div class="riga-main"><div class="riga-top"><b>${esc(u.nome)}</b>${u.nomeBreve ? ` <span class="muted">(${esc(u.nomeBreve)})</span>` : ''} <span class="pill ruolo-${ruoloDi(u)}">${RUOLI[ruoloDi(u)]}</span></div>
                 <div class="muted small">${u.attivo === false ? 'disattivato · ' : ''}${u.pinHash ? 'PIN impostato' : '<b class="txt-ko">PIN da impostare</b>'}${ruoloDi(u) !== 'ru' ? ` · ${u.firma ? 'firma salvata' : '<b class="txt-ko">firma mancante</b>'}` : ''}${u.google ? ' · ' + esc(u.google) : ''}</div></div>
               ${u.firma ? `<img class="firma-mini" src="${u.firma}" alt="">` : ''}
+              ${ruoloDi(u) !== 'developer' ? `<button type="button" class="btn ghost small u-funz" data-funz="${u.id}">🔑 Funzioni${Object.keys(u.permessi || {}).length ? ` <span class="pill st-scadenza">${Object.keys(u.permessi).length}</span>` : ''}</button>` : ''}
             </a>`).join('')}
         </div>
       </section>`;
     el.querySelector('#btnNuovo').onclick = () => modaleUtente(null);
+    el.querySelectorAll('[data-funz]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); e.preventDefault(); modaleFunzioni(S.utenti.find((x) => x.id === b.dataset.funz)); }));
     el.querySelector('#btnAccessi')?.addEventListener('click', () => accessi());
     el.querySelectorAll('[data-u]').forEach((r) => (r.onclick = () => {
       const u = S.utenti.find((x) => x.id === r.dataset.u);
@@ -598,6 +648,38 @@ window.UT = (function () {
         sincronizzaRuoli(S.utenti.filter((x) => x.id !== u.id));
       } : null,
       testoElimina: 'Elimina utente'
+    });
+  }
+
+  // ---------- funzioni abilitate per una persona ----------
+  // Si salvano solo le differenze dal livello: se un domani cambia il predefinito di una funzione, vale per tutti
+  // quelli che non l'hanno cambiata a mano.
+  function modaleFunzioni(u) {
+    if (!u) return;
+    const r = ruoloDi(u), ru = r === 'ru';
+    const voci = FUNZIONI.filter((f) => !(ru && f.scrive));
+    const gruppi = [...new Set(voci.map((f) => f.g))];
+    const diverso = (f) => typeof u.permessi?.[f.k] === 'boolean' && u.permessi[f.k] !== f.def.includes(r);
+    UI.modal({
+      titolo: '🔑 Funzioni di ' + u.nome, largo: true, testoSalva: 'Salva',
+      infoTxt: `Accendi o spegni quello che ${u.nome} può fare. Si parte da quello che prevede il livello «${RUOLI[r]}»; le voci con ✱ sono state cambiate a mano. Con «Ripristina» si torna a quello del livello.${ru ? ' Risorse Umane è in sola lettura: le funzioni che modificano i dati non compaiono (per darle cambia il livello in Tecnico).' : ''} Le funzioni nuove dell\'app compariranno qui da sole.`,
+      valori: Object.fromEntries(voci.map((f) => ['f_' + f.k.replace(/\./g, '_'), puoPer(u, r, f.k)])),
+      campi: gruppi.flatMap((g) => [{ tipo: 'titolo', label: g }, ...voci.filter((f) => f.g === g).map((f) => ({ k: 'f_' + f.k.replace(/\./g, '_'), label: f.nome + (diverso(f) ? ' ✱' : ''), tipo: 'sino' }))]),
+      onSalva: async (v) => {
+        const permessi = {};
+        voci.forEach((f) => { const on = !!v['f_' + f.k.replace(/\./g, '_')]; if (on !== f.def.includes(r)) permessi[f.k] = on; });
+        const d = { ...JSON.parse(JSON.stringify(u)), permessi };
+        if (!Object.keys(permessi).length) delete d.permessi;
+        await UI.salva('utenti', d);
+        registra('modifica', `Funzioni di ${u.nome}: ${Object.keys(permessi).length ? Object.entries(permessi).map(([k, on]) => (on ? '+' : '−') + (FMAP[k]?.nome || k)).join(', ') : 'quelle del livello'}`);
+        UI.toast('Funzioni salvate', 'ok');
+      },
+      onElimina: Object.keys(u.permessi || {}).length ? async () => {
+        if (!UI.conferma(`Riportare ${u.nome} alle funzioni del livello «${RUOLI[r]}»?`)) return false;
+        const d = JSON.parse(JSON.stringify(u)); delete d.permessi; await UI.salva('utenti', d);
+        registra('modifica', `Funzioni di ${u.nome}: tornate a quelle del livello`); UI.toast('Funzioni ripristinate', 'ok');
+      } : null,
+      testoElimina: '↺ Ripristina'
     });
   }
 
@@ -878,8 +960,24 @@ window.UT = (function () {
     if (['registro', 'azzera', 'importa', 'sviluppo'].includes(parti[0]) && r !== 'developer') return 'Questa sezione è riservata al Developer.';
     if (['utenti', 'conflitti'].includes(parti[0]) && !ALTI.includes(r)) return 'Questa sezione è riservata al Master.';
     // stampa e invio ai clienti: solo Master e Risorse Umane
-    const stampa = parti[0] === 'invio' || parti[0] === 'ordini' || (['controlli', 'sottoganci', 'approfonditi', 'gho'].includes(parti[0]) && parti.includes('stampa'));
-    if (stampa && !['developer', 'master', 'ru'].includes(r)) return 'Stampa e invio ai clienti sono riservati al Master e a Risorse Umane.';
+    const stampa = ['controlli', 'sottoganci', 'approfonditi', 'gho', 'impianti', 'rapportini'].includes(parti[0]) && parti.includes('stampa');
+    const no = (k) => !puo(k);
+    const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', controlli: 'sez.schede', sottoganci: 'sez.schede', approfonditi: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', gho: 'sez.gho', cablaggio: 'sez.gho' };
+    const nonAbil = 'Questa funzione non è abilitata per te. Se ti serve, chiedi al Master di accenderla in «Gestione utenti › 🔑 Funzioni».';
+    if (SEZ[parti[0]] && no(SEZ[parti[0]])) return nonAbil;
+    if (parti[0] === 'invio' && no('invio')) return nonAbil;
+    if (parti[0] === 'ordini' && no('ordini')) return nonAbil;
+    if (parti[0] === 'conflitti' && no('conflitti')) return nonAbil;
+    if (stampa && no('stampa')) return nonAbil;
+    if (r !== 'ru' && r !== 'developer') {
+      if (/^(controlli\/s\/[^/]+\/giro|controlli\/i\/[^/]+\/\d{4}\/\d$|sottoganci\/c\/[^/]+\/giro|approfonditi\/[^/]+\/(a\/[^/]+\/controllo|nuovo|s\/[^/]+$))/.test(p) && no('ctr.fare')) return nonAbil;
+      if (/^rapportini\/(nuovo|r\/[^/]+\/modifica)/.test(p) && no('rap.scrivere')) return nonAbil;
+      if (/^gho\/ore\/(?!stampa)[^/]+$/.test(p) && no('gho.ore')) return nonAbil;
+      if (/^(clienti|impianti|mezzi)\/(nuovo|.*\/modifica)|^sottoganci\/(s\/|c\/[^/]+\/nuovo|cartella)|^approfonditi\/[^/]+\/a\/[^/]+\/modifica|^approfonditi\/[^/]+\/a-nuovo/.test(p) && no('anag.modifica')) return nonAbil;
+      if (p === 'controlli/modelli' && no('ctr.modelli')) return nonAbil;
+      if (p === 'impianti/modelli' || p.startsWith('impianti/modelli/')) { if (no('imp.tipi')) return nonAbil; }
+      if (/^sottoganci\/c\/[^/]+\/titoli/.test(p) && no('sg.cartelle')) return nonAbil;
+    }
     if (r !== 'ru') return null;
     const modifica = /(^|\/)(nuovo|modifica|cartella-nuova|cartella|giro|modelli)(\/|$)/.test(p) || /^sottoganci\/s\//.test(p)
       || /^controlli\/i\/[^/]+\/\d{4}\/\d$/.test(p) || /^approfonditi\/[^/]+\/(a\/[^/]+\/controllo|s\/[^/]+$)/.test(p) || /^gho\/ore\/(?!stampa)[^/]+$/.test(p);
@@ -913,7 +1011,7 @@ window.UT = (function () {
   }
 
   return { cambiaModo, cambiaTest,
-    descrivi, attuale, isMaster, isDev, puoInviare, solaLettura, ruolo: () => ruoloSess(), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
+    descrivi, attuale, isMaster, isDev, puoInviare, puo, puoPer, serve, FUNZIONI, solaLettura, ruolo: () => ruoloSess(), RUOLI, schermata, profilo, gestione, registro, vietato, esci, iniziali,
     campoTecnici, collegaTecnici, installa, registra, accessoCloud, sincronizzaRuoli, ruoloDispositivo: () => ruoloDispositivo, nomi: () => attivi().filter((u) => ruoloDi(u) !== 'ru').map((u) => breve(u)), breve, sigla, attivi, ruoloDi, imposta: (dati) => (S = dati)
   };
 })();

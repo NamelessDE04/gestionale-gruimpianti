@@ -178,21 +178,21 @@ window.SG = (function () {
           </div>
           <div class="anno anno-mini"><a href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
-            UT.puoInviare() && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
+            UT.puo('stampa') && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
             { t: '⚙ Titolo dell\'elenco', href: `#/sottoganci/cartella/${cliId}` },
-            UT.isMaster() && { t: '🏷 Righe titolo dei sottoganci composti', href: `#/sottoganci/c/${cliId}/titoli` },
+            UT.puo('sg.cartelle') && { t: '🏷 Righe titolo dei sottoganci composti', href: `#/sottoganci/c/${cliId}/titoli` },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` },
-            UT.isMaster() && { t: '🗑 Elimina cartella', id: 'btnEliminaCart', cls: 'txt-ko' }
+            UT.puo('sg.cartelle') && { t: '🗑 Elimina cartella', id: 'btnEliminaCart', cls: 'txt-ko' }
           ])}
         </div>
         <div class="sg2-fasce">
           ${SLOT.map((s, i) => { const ok = sl[i], sel = prossimo && prossimo.n === s.n;
             return `<button type="button" class="${ok ? 'fatta' : ''} ${ok && aperto(ok) ? 'in-corso' : ''} ${sel ? 'scelta' : ''}" style="--c:${s.col}" data-sceglif="${s.n}">${ok ? (aperto(ok) ? '⏸' : '✓') + ' ' : ''}${s.nome}${ok && !aperto(ok) ? ' ' + dataBreve(ok.data).replace(/\/\d+$/, '') : ''}</button>`; }).join('')}
         </div>
-        ${UT.isMaster() && daSistemare(S, cliId).length ? `<a class="avviso-m st-b-scadenza" href="#/sottoganci/c/${cliId}/titoli"><span class="av-ico">🏷</span><span class="grow"><b>${daSistemare(S, cliId).length} sottoganci composti da sistemare</b><span>La prima riga sembra solo il nome dell'insieme (es. tirante): va tenuta come titolo, senza giudizio</span></span>›</a>` : ''}
-        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ ${giaFatta ? 'Rivedi o correggi' : inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${inCorso ? ` · ${Object.values(inCorso.righe).reduce((n, r) => n + r.codici.filter(Boolean).length, 0)} giudizi già dati` : giaFatta ? ' · già fatto il ' + dataBreve(sl[prossimo.n - 1].data) : ''}</small></a>`
+        ${UT.puo('sg.cartelle') && daSistemare(S, cliId).length ? `<a class="avviso-m st-b-scadenza" href="#/sottoganci/c/${cliId}/titoli"><span class="av-ico">🏷</span><span class="grow"><b>${daSistemare(S, cliId).length} sottoganci composti da sistemare</b><span>La prima riga sembra solo il nome dell'insieme (es. tirante): va tenuta come titolo, senza giudizio</span></span>›</a>` : ''}
+        ${prossimo && !UT.solaLettura() && UT.puo('ctr.fare') ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="#/sottoganci/c/${cliId}/giro/${anno}/${prossimo.n}">▶ ${giaFatta ? 'Rivedi o correggi' : inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${inCorso ? ` · ${Object.values(inCorso.righe).reduce((n, r) => n + r.codici.filter(Boolean).length, 0)} giudizi già dati` : giaFatta ? ' · già fatto il ' + dataBreve(sl[prossimo.n - 1].data) : ''}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
-        ${!UT.solaLettura() ? `<a class="btn ghost sg2-nuovo" href="#/sottoganci/c/${cliId}/nuovo">＋ Aggiungi sottogancio</a>` : ''}
+        ${!UT.solaLettura() && UT.puo('anag.modifica') ? `<a class="btn ghost sg2-nuovo" href="#/sottoganci/c/${cliId}/nuovo">＋ Aggiungi sottogancio</a>` : ''}
         ${tutti.length > 5 ? `<input type="search" id="fTesto" class="cerca" placeholder="🔍 Cerca n°, nome o n° certificato" value="${esc(filtroTesto[cliId] || '')}">` : ''}
         <div class="sg2-tit">Sottoganci · giudizi ${anno}</div>
         <div class="sg2-lista">
@@ -257,7 +257,7 @@ window.SG = (function () {
         <label>Titolo dell'elenco stampato<input name="titolo" value="${esc(c ? c.titoloElenco : 'ELENCO SOTTOGANCI')}" placeholder="es. ELENCO FUNI"></label>
         <p class="muted small">Sulla stampa viene aggiunto l'anno: «${esc(c ? c.titoloElenco : 'ELENCO SOTTOGANCI')} ${annoCorrente()}».</p>
         <div class="azioni-form">
-          ${c && (UT.isMaster() || !S.sottoganci.some((x) => x.sedeId === sedeId)) ? '<button type="button" class="btn danger ghost" id="btnChiudi">🗑 Elimina cartella</button>' : ''}
+          ${c && (UT.puo('sg.cartelle') || !S.sottoganci.some((x) => x.sedeId === sedeId)) ? '<button type="button" class="btn danger ghost" id="btnChiudi">🗑 Elimina cartella</button>' : ''}
           <span class="grow"></span>
           <a class="btn ghost" href="${c ? '#/sottoganci/c/' + sedeId : '#/sottoganci'}">Annulla</a>
           <button class="btn" type="submit">Salva</button>
@@ -468,8 +468,8 @@ window.SG = (function () {
         </div>
         <div class="azioni-form sg2-azz">
           <a class="link" href="#/sottoganci/c/${cliId}?anno=${anno}">📂 Cartella del cliente</a><span class="grow"></span>
-          ${!UT.solaLettura() ? '<button type="button" class="btn ghost small" id="btnAzzera">↺ Azzera e ricomincia</button>' : ''}
-          ${esistente && !UT.solaLettura() ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}
+          ${!UT.solaLettura() && UT.puo('ctr.elimina') ? '<button type="button" class="btn ghost small" id="btnAzzera">↺ Azzera e ricomincia</button>' : ''}
+          ${esistente && !UT.solaLettura() && UT.puo('ctr.elimina') ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}
         </div>
 
         <div class="sg2-piede">
@@ -741,7 +741,7 @@ window.SG = (function () {
     if (a === 'c' && cmd === 'nuovo') return formSottogancio(el, S, null, b);
     if (a === 'c' && cmd === 'giro') return formGiro(el, S, b, +x, +y);
     if (a === 'c' && cmd === 'stampa') return SGStampa.render(el, S, b, +x);
-    if (a === 'c' && cmd === 'titoli') return UT.isMaster() ? paginaTitoli(el, S, b) : cartella(el, S, b, query);
+    if (a === 'c' && cmd === 'titoli') return UT.puo('sg.cartelle') ? paginaTitoli(el, S, b) : cartella(el, S, b, query);
     if (a === 'c') return cartella(el, S, b, query);
     return cartelle(el, S);
   }

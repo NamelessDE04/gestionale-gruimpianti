@@ -244,6 +244,8 @@ window.IMPS = (function () {
 
   // ---------- azioni dei pulsanti ----------
   function collega(el, S, i, M) {
+    // senza il permesso di modificare le anagrafiche i pulsanti di modifica, sostituzione e documenti avvisano e basta
+    if (!UT.puo('anag.modifica')) el.querySelectorAll('[data-az], [data-allega], [data-rmfile]').forEach((b) => (b.hidden = true));
     el.querySelectorAll('[data-az]').forEach((b) => (b.onclick = () => {
       const az = JSON.parse(b.dataset.az);
       if (az.a === 'mod') modifica(i, az, M);

@@ -184,7 +184,7 @@ window.CTR = (function () {
       <section class="sg">
         <div class="sez-head">
           <h1>Controllo carriponte e gru a bandiera ${info('Qui trovi le sedi che hanno impianti. Ogni sede ha il suo piano dei controlli (in che mese si parte e quale controllo è l\'annuale). Le voci da controllare stanno nei «Modelli di scheda», uguali per tutti gli impianti dello stesso tipo.')}</h1>
-          ${UT.solaLettura() ? '' : '<a class="btn ghost small" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
+          ${UT.solaLettura() || !UT.puo('ctr.modelli') ? '' : '<a class="btn ghost small" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
         </div>
         ${tutte.length ? `<input type="search" id="fCerca" class="cerca" placeholder="Cerca cliente, sede, città o sigla…" value="${esc(FILTRO.q)}" autocomplete="off">` : ''}
         ${tutte.length ? (lista.length ? '' : '<p class="nessuno">Nessuna sede trovata.</p>') : `<p class="nessuno">Nessun impianto inserito. Aggiungi prima gli impianti in <a class="link" href="#/impianti">Anagrafica impianti</a>.</p>`}
@@ -227,16 +227,16 @@ window.CTR = (function () {
           <div class="anno anno-mini"><a href="#/controlli/s/${sedeId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/s/${sedeId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
             { t: '📅 Piano controlli e ordine gru', id: 'btnPiano' },
-            UT.isMaster() && imp.length && { t: '📋 Cambia modello scheda', id: 'btnModSede' },
-            UT.isMaster() && imp.length && { t: '🧹 Azzera controlli', id: 'btnAzzCtr' },
-            imp.length && UT.puoInviare() && { t: `🖨️ Stampa tutte le schede ${anno}`, href: `#/controlli/s/${sedeId}/${anno}/stampa` },
+            UT.puo('ctr.modelloSede') && imp.length && { t: '📋 Cambia modello scheda', id: 'btnModSede' },
+            UT.puo('ctr.modelloSede') && imp.length && { t: '🧹 Azzera controlli', id: 'btnAzzCtr' },
+            imp.length && UT.puo('stampa') && { t: `🖨️ Stampa tutte le schede ${anno}`, href: `#/controlli/s/${sedeId}/${anno}/stampa` },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.id}` }
           ])}
         </div>
         ${p.impostato ? '' : `<div class="avviso avviso-mini">Piano dei controlli non impostato (ora: 1° a gennaio, annuale il 1°). <button class="link" id="btnPiano2">Imposta</button></div>`}
         <div class="striscia">${st.map((x) => { const t = tipoVisita(p, x.n);
           return `<button type="button" class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} title="${nomeTipo(t)}" data-sceglin="${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></button>`; }).join('')}</div>
-        ${corr && imp.length && !UT.solaLettura() ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
+        ${corr && imp.length && !UT.solaLettura() && UT.puo('ctr.fare') ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
           return `<a class="ctr-inizia t-${t} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${x.completa ? 'Rivedi' : via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
         <div class="elenco">
           ${imp.map((i) => {
@@ -472,9 +472,9 @@ window.CTR = (function () {
           </div>
           <div class="anno anno-mini"><a href="#/controlli/i/${impId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/i/${impId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
-            UT.puoInviare() && { t: `🖨️ Stampa scheda ${anno}`, href: `#/controlli/i/${impId}/${anno}/stampa` },
-            !UT.solaLettura() && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
-            UT.isMaster() && sc && { t: '💾 Salva queste voci come modello', id: 'btnComeModello' },
+            UT.puo('stampa') && { t: `🖨️ Stampa scheda ${anno}`, href: `#/controlli/i/${impId}/${anno}/stampa` },
+            !UT.solaLettura() && UT.puo('ctr.voci') && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
+            UT.puo('ctr.modelloSede') && sc && { t: '💾 Salva queste voci come modello', id: 'btnComeModello' },
             { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
           ])}
         </div>
@@ -664,7 +664,7 @@ window.CTR = (function () {
         <div class="vis-testa t-${tipo}">
           <div class="grow"><b>${n}° controllo ${anno} · ${nomeTipo(tipo)}</b> <span>${MESI[mese - 1]}</span>
             <div class="vis-imp">${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))} · ${esc(c ? nomeSede(c, s) : '')}</div></div>
-          ${UI.menu([prima && !UT.solaLettura() && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' }, { t: '📋 Scheda dell\'anno', href: `#/controlli/i/${impId}?anno=${anno}` }, { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }])}
+          ${UI.menu([prima && !UT.solaLettura() && UT.puo('ctr.elimina') && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' }, { t: '📋 Scheda dell\'anno', href: `#/controlli/i/${impId}?anno=${anno}` }, { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }])}
         </div>
         ${fsAperta && !UT.solaLettura() ? `<div class="card vis-fs vis-fs-on" id="boxFsOn">
           <b>⏸ Impianto fuori servizio provvisorio</b> <span class="muted small">(annotazione ${esc(fsAperta.lettera)} dal ${fmt(fsAperta.data)})</span>

@@ -50,14 +50,14 @@ window.CAB = (function () {
       box.innerHTML = '';
       const io = UT.attuale();
       istanza = ConfiguratoreGru.mount(box, {
-        utente: { nome: UT.breve(io), ruolo: UT.isMaster() ? 'admin' : 'operatore' },
-        canEdit: UT.isMaster(),
+        utente: { nome: UT.breve(io), ruolo: UT.puo('cablaggio.modifica') ? 'admin' : 'operatore' },
+        canEdit: UT.puo('cablaggio.modifica'),
         logo: 'img/logo-grande.png',
         css: CSS_APP,
         modifiche: modificheSalvate(S),
         scrollTop: () => window.scrollTo({ top: 0 }),
         onModifica: (m) => {
-          if (!UT.isMaster()) return;
+          if (!UT.puo('cablaggio.modifica')) return;
           UI.salva('impostazioni', { id: 'modificheCablaggio', json: JSON.stringify(m) }).catch(() => {});
         },
         onRapporto: (r) => salvaRapporto(S, r)
@@ -98,7 +98,7 @@ window.CAB = (function () {
                 ${c.note ? `<div class="small">${esc(c.note)}</div>` : ''}
               </div>
               ${c.fileId ? `<button class="btn small" data-apri="${c.id}">PDF</button>` : ''}
-              ${UT.isMaster() ? `<button class="btn ghost small danger" data-del="${c.id}" aria-label="Elimina">×</button>` : ''}
+              ${UT.puo('cablaggio.modifica') ? `<button class="btn ghost small danger" data-del="${c.id}" aria-label="Elimina">×</button>` : ''}
             </div>`).join('') || '<p class="nessuno">Ancora nessun rapporto di collaudo. Li crei alla fine della checklist del configuratore.</p>'}
         </div>
       </section>`;

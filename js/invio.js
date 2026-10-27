@@ -236,7 +236,7 @@ window.INVIO = (function () {
   // ---------- pagina ----------
   const stato = { rap: new Set(), imp: new Set(), sg: false, modo: 'una', chiave: '', separati: false, vista: 'invio' };
   function pagina(el, S, query) {
-    if (!UT.puoInviare()) { el.innerHTML = '<p class="nessuno">Solo il Master e Risorse Umane possono inviare i documenti ai clienti.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
+    if (!UT.puo('invio')) { el.innerHTML = '<p class="nessuno">Invia e archivia non è abilitato per te.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
     const st = stato;
     if (query.get('vista')) st.vista = query.get('vista');
     if (query.get('sede')) st.sede = query.get('sede');

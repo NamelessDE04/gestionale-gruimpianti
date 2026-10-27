@@ -57,8 +57,11 @@ window.HOME = (function () {
   // il tecnico vede solo il lavoro di tutti i giorni; il resto sta in «Anagrafiche e altro»
   const PRINCIPALI = ['schede', 'rapportini', 'lavagna', 'gho'];
   const ALTRO = { k: 'altro', titolo: 'Anagrafiche e altro', sotto: 'Clienti, impianti, layout, mezzi…', ill: 'altro', attiva: true, href: '#/altro' };
-  const ridotta = () => UT.ruolo() === 'tecnico';
-  const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)), ALTRO] : caselle.filter((c) => !c.soloInvio || UT.puoInviare()));
+  const ridotta = () => !UT.puo('home.completa');
+  // caselle che questa persona può vedere (funzioni abilitate in «Gestione utenti › 🔑 Funzioni»)
+  const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
+  const vede = (c) => !SEZ[c.k] || UT.puo(SEZ[c.k]);
+  const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)).filter(vede), ALTRO] : caselle.filter((c) => vede(c)));
   const nScad = (S) => MEZ.avvisi(S).length;
   const badge = (S, c) => c.k === 'rapportini' ? RAP.badge(S)
     : c.k === 'gho' ? GHO.badge(S)
@@ -67,7 +70,7 @@ window.HOME = (function () {
 
   // pagina «Anagrafiche e altro»: tutte le caselle che non stanno nella home del tecnico
   function renderAltro(el, S) {
-    const resto = caselle.filter((c) => !PRINCIPALI.includes(c.k) && !c.soloInvio);
+    const resto = caselle.filter((c) => !PRINCIPALI.includes(c.k) && vede(c));
     el.innerHTML = `<section class="home"><div class="tiles">${resto.map((c) => tile(c, badge(S, c))).join('')}</div></section>`;
     return { titolo: 'Anagrafiche e altro', indietro: '#/', live: true };
   }
@@ -77,10 +80,10 @@ window.HOME = (function () {
     el.innerHTML = `
       <section class="home">
         <!-- data e saluto ora stanno nella barra in alto -->
-        ${UT.isMaster() && CONF.conta(S) ? `<a class="avviso-m st-b-scaduto" href="#/conflitti"><span class="av-ico">⚠️</span><span class="grow"><b>${CONF.conta(S)} ${CONF.conta(S) === 1 ? 'conflitto' : 'conflitti'} tra dispositivi</b><span>Due dispositivi offline hanno lavorato sugli stessi documenti: scegli cosa tenere</span></span>›</a>` : ''}
+        ${UT.puo('conflitti') && CONF.conta(S) ? `<a class="avviso-m st-b-scaduto" href="#/conflitti"><span class="av-ico">⚠️</span><span class="grow"><b>${CONF.conta(S)} ${CONF.conta(S) === 1 ? 'conflitto' : 'conflitti'} tra dispositivi</b><span>Due dispositivi offline hanno lavorato sugli stessi documenti: scegli cosa tenere</span></span>›</a>` : ''}
         ${RAP.memoHome(S)}
         ${avvisiMezzi(S)}
-        ${UT.puoInviare() && CLI.ordiniDaAggiornare(S).length ? `<a class="avviso-m st-b-scadenza" href="#/ordini"><span class="av-ico">🧾</span><span class="grow"><b>N° d'ordine ${UI.oggi().slice(0, 4)} da aggiornare: ${CLI.ordiniDaAggiornare(S).length} ${CLI.ordiniDaAggiornare(S).length === 1 ? 'sede' : 'sedi'}</b><span>Il codice del contratto di verifica cambia ogni anno: scrivilo o rimanda l'avviso</span></span>›</a>` : ''}
+        ${UT.puo('ordini') && CLI.ordiniDaAggiornare(S).length ? `<a class="avviso-m st-b-scadenza" href="#/ordini"><span class="av-ico">🧾</span><span class="grow"><b>N° d'ordine ${UI.oggi().slice(0, 4)} da aggiornare: ${CLI.ordiniDaAggiornare(S).length} ${CLI.ordiniDaAggiornare(S).length === 1 ? 'sede' : 'sedi'}</b><span>Il codice del contratto di verifica cambia ogni anno: scrivilo o rimanda l'avviso</span></span>›</a>` : ''}
         <div class="tiles">${vociHome().map((c) => tile(c, badge(S, c))).join('')}</div>
         <p class="in-arrivo">In arrivo: ${caselle.filter((c) => !c.attiva).map((c) => c.titolo).join(' · ')}</p>
       </section>`;

@@ -234,7 +234,7 @@ window.CONF = (function () {
 
   const giaTolti = new Set();
   function pagina(el, S) {
-    if (!UT.isMaster()) { el.innerHTML = '<p class="nessuno">Solo il Master gestisce i conflitti.</p>'; return { titolo: 'Conflitti', indietro: '#/' }; }
+    if (!UT.puo('conflitti')) { el.innerHTML = '<p class="nessuno">Risolvere i conflitti non è abilitato per te.</p>'; return { titolo: 'Conflitti', indietro: '#/' }; }
     // pulizia: tolgo da soli quelli inutili
     S.conflitti.filter((c) => inutile(S, c) && !giaTolti.has(c.id)).forEach((c) => { giaTolti.add(c.id); Backend.remove('conflitti', c.id).catch(() => giaTolti.delete(c.id)); });
     const lista = validi(S).sort((a, b) => (b.rilevato || '').localeCompare(a.rilevato || ''));

@@ -1581,3 +1581,6 @@ body.in-test .tape { background: repeating-linear-gradient(-45deg, #8b5cf6 0 14p
 #avvisoQuota { position: sticky; top: 0; z-index: 8000; display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; background: #fff3cd; color: #5c4400; border-bottom: 2px solid #e0b400; font-size: 13.5px; line-height: 1.3; overflow-wrap: anywhere; }
 #avvisoQuota b { font-size: 14.5px; }
 @media print { #avvisoQuota { display: none !important; } }
+/* gestione utenti: pulsante funzioni */
+.cli-riga .u-funz { flex-shrink: 0; margin-left: 6px; white-space: nowrap; }
+@media (max-width: 560px) { .cli-riga { flex-wrap: wrap; } .cli-riga .u-funz { margin-left: auto; } }

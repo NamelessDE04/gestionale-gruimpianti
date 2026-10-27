@@ -110,6 +110,7 @@ window.CLI = (function () {
     const fc = el.querySelector('#fCerca');
     fc.oninput = () => { cerca = fc.value; const p = fc.selectionStart; App.ridisegna(); const n = document.getElementById('fCerca'); n.focus(); n.setSelectionRange(p, p); };
     el.querySelector('#btnNuovo').onclick = () => modaleDati(S, null);
+    if (!UT.puo('anag.modifica')) el.querySelector('#btnNuovo').hidden = true;
     return { titolo: 'Anagrafica clienti', indietro: '#/', live: true };
   }
 
@@ -124,8 +125,8 @@ window.CLI = (function () {
           ${avatar(c, true)}
           <div class="grow">
             <h1>${esc(c.ragioneSociale)}</h1>
-            ${(c.nomiPrecedenti || []).length ? `<p class="muted small">${c.nomiPrecedenti.map((x, k) => `ex <b>${esc(x.nome)}</b> fino al ${UI.fmt(UI.addGiorni(x.fino, -1))}${UT.isMaster() ? ` <button type="button" class="link txt-ko" data-togliex="${k}" aria-label="Togli questo nome precedente">✕</button>` : ''}`).join(' · ')}</p>
-              ${UT.isMaster() && c.nomiPrecedenti.length > 1 ? '<button type="button" class="link txt-ko small" id="btnTogliTuttiEx">Togli tutti i nomi precedenti</button>' : ''}` : ''}
+            ${(c.nomiPrecedenti || []).length ? `<p class="muted small">${c.nomiPrecedenti.map((x, k) => `ex <b>${esc(x.nome)}</b> fino al ${UI.fmt(UI.addGiorni(x.fino, -1))}${UT.puo('anag.eliminaTutto') ? ` <button type="button" class="link txt-ko" data-togliex="${k}" aria-label="Togli questo nome precedente">✕</button>` : ''}`).join(' · ')}</p>
+              ${UT.puo('anag.eliminaTutto') && c.nomiPrecedenti.length > 1 ? '<button type="button" class="link txt-ko small" id="btnTogliTuttiEx">Togli tutti i nomi precedenti</button>' : ''}` : ''}
           </div>
         </div>
 
@@ -147,7 +148,7 @@ window.CLI = (function () {
 
         <div class="card">
           <div class="card-head"><h2>Sedi <span class="conta">${(c.sedi || []).length}</span> ${info('Un cliente può avere più sedi (stabilimenti, cantieri). Impianti e sottoganci sono collegati alla sede. Tocca una sede per modificarla.')}</h2>
-            <div class="card-azioni"><button class="btn ghost small" id="btnSede">+ Aggiungi sede</button>${UT.isMaster() && (c.sedi || []).length ? UI.menu([{ t: '↪ Sposta una sede in un altro cliente', id: 'btnSposta' }]) : ''}</div></div>
+            <div class="card-azioni"><button class="btn ghost small" id="btnSede">+ Aggiungi sede</button>${UT.puo('anag.eliminaTutto') && (c.sedi || []).length ? UI.menu([{ t: '↪ Sposta una sede in un altro cliente', id: 'btnSposta' }]) : ''}</div></div>
           <div class="schede-mini">
             ${(c.sedi || []).map((s) => `
               <div class="mini" data-sede="${s.id}" role="button" tabindex="0">
@@ -186,6 +187,7 @@ window.CLI = (function () {
       if (UI.conferma(`Togliere il nome precedente «${x.nome}»?\n\nI documenti fatti prima del cambio usciranno con il nome attuale.`)) togliEx(+b.dataset.togliex); }));
     el.querySelector('#btnTogliTuttiEx')?.addEventListener('click', () => { if (UI.conferma(`Togliere tutti i ${c.nomiPrecedenti.length} nomi precedenti di ${c.ragioneSociale}?\n\nTutti i documenti usciranno con il nome attuale.`)) togliEx(null); });
     el.querySelector('#btnDati').onclick = () => modaleDati(S, c);
+    if (!UT.puo('anag.modifica')) el.querySelectorAll('#btnDati,#btnSede,#btnRef').forEach((x) => (x.hidden = true));
     el.querySelector('#btnSede').onclick = () => modaleSede(S, c, null);
     el.querySelector('#btnSposta')?.addEventListener('click', () => spostaSede(S, c));
     el.querySelector('#btnRef').onclick = () => modaleRef(c, null);
@@ -199,6 +201,7 @@ window.CLI = (function () {
 
   // ---------- FINESTRE DI MODIFICA ----------
   function modaleDati(S, c) {
+    if (!UT.serve('anag.modifica')) return;
     const nuovo = !c;
     UI.modal({
       titolo: nuovo ? 'Nuovo cliente' : 'Dati generali',
@@ -237,7 +240,7 @@ window.CLI = (function () {
       },
       onElimina: nuovo ? null : async () => {
         const n = (c.sedi || []).reduce((t, s) => t + usaSede(S, s.id), 0);
-        if (n && UT.isMaster()) return eliminaTutto(S, c);
+        if (n && UT.puo('anag.eliminaTutto')) return eliminaTutto(S, c);
         if (n) { UI.toast(`Non si può eliminare: ha impianti, sottoganci o controlli collegati (${n}). Può farlo solo il Master.`, 'err'); return false; }
         if (!UI.conferma(`Eliminare ${nome(c)} con tutte le sue sedi e referenti?`)) return false;
         for (const g of S.giriSottoganci.filter((g) => (c.sedi || []).some((s) => s.id === g.sedeId))) await Backend.remove('giriSottoganci', g.id);
@@ -248,6 +251,7 @@ window.CLI = (function () {
   }
 
   function modaleSede(S, c, sd) {
+    if (!UT.serve('anag.modifica')) return;
     UI.modal({
       titolo: sd ? 'Modifica sede' : 'Nuova sede',
       infoTxt: 'Il nome della sede compare sotto il nome del cliente nelle cartelle e sugli elenchi (es. STABILIMENTO 2). Il nome breve (es. ST2) è la sigla veloce che usate in officina: compare nelle tab, nelle cartelle e sulla lavagna. Il colore (giallo, verde, rosso) indica in che mese del trimestre si fanno i controlli ed è lo stesso dei magneti della lavagna.',
@@ -285,7 +289,7 @@ window.CLI = (function () {
       },
       onElimina: sd ? async () => {
         const n = usaSede(S, sd.id);
-        if (n && UT.isMaster()) return eliminaSedeTutto(S, c, sd);
+        if (n && UT.puo('anag.eliminaTutto')) return eliminaSedeTutto(S, c, sd);
         if (n) { UI.toast(`Non si può togliere: la sede ha impianti o sottoganci collegati (${n}). Può farlo solo il Master.`, 'err'); return false; }
         if (!UI.conferma(`Togliere la sede ${sd.nome}?`)) return false;
         const doc = JSON.parse(JSON.stringify(c)); doc.sedi = doc.sedi.filter((x) => x.id !== sd.id);
@@ -296,6 +300,7 @@ window.CLI = (function () {
   }
 
   function modaleRef(c, r) {
+    if (!UT.serve('anag.modifica')) return;
     UI.modal({
       titolo: r ? 'Modifica referente' : 'Nuovo referente',
       valori: r || {},

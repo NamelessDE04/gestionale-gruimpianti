@@ -46,7 +46,7 @@ window.IMP = (function () {
       <section class="cli">
         <div class="sez-head">
           <h1>Anagrafica impianti ${info('Gli impianti sono divisi per cliente. Tocca un cliente per vedere i suoi impianti e aggiungerne di nuovi. Puoi cercare anche per matricola, numero di serie o numero interno.' + (UT.isMaster() ? ' Con «⚙ Tipi di impianto» decidi quali voci ha la scheda di ogni tipo (gru a ponte, bandiera, seghetto…) e ne crei di nuovi.' : ''))}</h1>
-          ${UT.isMaster() && !UT.solaLettura() ? '<a class="btn ghost small" href="#/impianti/modelli">⚙ Tipi di impianto</a>' : ''}
+          ${UT.puo('imp.tipi') && !UT.solaLettura() ? '<a class="btn ghost small" href="#/impianti/modelli">⚙ Tipi di impianto</a>' : ''}
         </div>
         <input type="search" id="fCerca" class="cerca" placeholder="Cerca cliente, matricola, n° di serie, n° interno…" value="${esc(cerca)}">
         <div class="elenco">
@@ -81,7 +81,7 @@ window.IMP = (function () {
           ${CLI.avatar(c, true)}
           <div class="grow"><h1><a class="link-anag" href="#/clienti/${c.id}">${esc(CLI.nome(c))}</a></h1>
             <p class="muted">${imp.length} impianti · ${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}</p></div>
-          <a class="btn fab" href="#/impianti/nuovo?cliente=${c.id}"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo impianto</span></a>
+          <a class="btn fab" href="#/impianti/nuovo?cliente=${c.id}" ${UT.puo('anag.modifica') ? '' : 'hidden'}><span class="fab-piu">+</span><span class="fab-txt"> Nuovo impianto</span></a>
         </div>
         ${gruppi.filter((g) => g.lista.length || (c.sedi || []).length > 1).map((g) => `
           <h2 class="sez">${g.s ? UI.magnete(g.s) + ' ' + esc(g.s.nome || g.s.citta) : 'Senza sede'} <span class="conta">${g.lista.length}</span></h2>
@@ -127,7 +127,7 @@ window.IMP = (function () {
         <div class="mimp-scelta">${MODELLI.map((m) => `<button type="button" class="mimp-ico ${m.id === i.modello ? 'on' : ''}" data-modello="${m.id}">${MIMP.ICONE[m.icona] || MIMP.ICONE.generico}<span>${esc(m.nome)}</span></button>`).join('')}</div>
         <div class="due">
           <label><span class="lab-riga">Tipologia
-              ${UT.isMaster() ? '<button type="button" class="link" id="btnTipi">modifica elenco</button>' : ''}</span>
+              ${UT.puo('imp.tipi') ? '<button type="button" class="link" id="btnTipi">modifica elenco</button>' : ''}</span>
             <select name="tipologia"></select></label>
           <label>Marca<input name="marca" list="listaMarche" value="${esc(i.marca)}">
             <datalist id="listaMarche">${marche(S).map((m) => `<option value="${esc(m)}">`).join('')}</datalist></label>
@@ -262,7 +262,7 @@ window.IMP = (function () {
     const [, a, b, cmd] = parti;
     if (a === 'c') return delCliente(el, S, b);
     if (a === 'modelli') {
-      if (!UT.isMaster()) { el.innerHTML = '<p class="nessuno">Solo il master e il developer possono modificare i tipi di impianto.</p>'; return { titolo: 'Tipi di impianto', indietro: '#/impianti' }; }
+      if (!UT.puo('imp.tipi')) { el.innerHTML = '<p class="nessuno">I tipi di impianto non sono abilitati per te.</p>'; return { titolo: 'Tipi di impianto', indietro: '#/impianti' }; }
       return b ? MIMP.modifica(el, S, b) : MIMP.elenco(el, S);
     }
     if (a === 'nuovo') return form(el, S, null, query);

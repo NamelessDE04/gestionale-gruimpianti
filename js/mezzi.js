@@ -64,6 +64,7 @@ window.MEZ = (function () {
       </section>`;
     el.querySelector('#btnNuovo').onclick = () => modale(null);
     el.querySelector('#btnNuovoP').onclick = () => modaleP(null);
+    if (!UT.puo('anag.modifica')) el.querySelectorAll('#btnNuovo,#btnNuovoP').forEach((x) => (x.hidden = true));
     return { titolo: 'Anagrafica mezzi', indietro: '#/', live: true };
   }
 
@@ -112,6 +113,7 @@ window.MEZ = (function () {
         </div>
       </section>`;
     el.querySelector('#btnDati').onclick = () => (isPiatt(m) ? modaleP(m) : modale(m));
+    if (!UT.puo('anag.modifica')) el.querySelector('#btnDati').hidden = true;
     const inp = el.querySelector('#inDoc'); let tipo = '';
     el.querySelectorAll('[data-allega]').forEach((b) => (b.onclick = () => { tipo = b.dataset.allega; inp.click(); }));
     inp.onchange = async () => {
@@ -135,6 +137,7 @@ window.MEZ = (function () {
   }
 
   function modale(m) {
+    if (!UT.serve('anag.modifica')) return;
     UI.modal({
       titolo: m ? 'Modifica mezzo' : 'Nuovo mezzo', valori: m || {},
       campi: [
@@ -165,6 +168,7 @@ window.MEZ = (function () {
   }
 
   function modaleP(m) {
+    if (!UT.serve('anag.modifica')) return;
     UI.modal({
       titolo: m ? 'Modifica piattaforma' : 'Nuova piattaforma aerea', valori: m ? { ...m, tipoPiattaforma: tipoP(m) } : { tipoPiattaforma: TIPI_P[0] },
       campi: [

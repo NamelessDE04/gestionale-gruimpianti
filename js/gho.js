@@ -111,7 +111,7 @@ window.GHO = (function () {
           <div class="grow"><h1>Registro ore</h1><p class="muted small">${righe.length} ${righe.length === 1 ? 'intervento' : 'interventi'} · ${hm(tot.uomo)} ore · ${tot.km} km · ${euro(tot.costo)} di spese
             ${info('Ogni intervento fatto per GHO ELIGIO: orari, viaggio, persone, km, piattaforme e materiale. Le ore totali sono (ore lavorate + ore di viaggio) × persone. Il viaggio costa 0,50 € al km solo se andiamo con un nostro mezzo; la nostra piattaforma 5 € all\'ora. Il materiale messo da noi va con il prezzo: se non lo sai, lascialo vuoto e comparirà un promemoria. A fine mese stampa il riepilogo per la fattura.')}</p></div>
           <div class="anno anno-mini gho-mese"><a href="#/gho/ore?mese=${meseShift(mese, -1)}" aria-label="Mese prima">‹</a><b>${nomeMese(mese)}</b><a href="#/gho/ore?mese=${meseShift(mese, 1)}" aria-label="Mese dopo">›</a></div>
-          ${UI.menu([UT.puoInviare() && { t: `🖨️ Riepilogo di ${nomeMese(mese)}`, href: `#/gho/ore/stampa/${mese}` }])}
+          ${UI.menu([UT.puo('stampa') && { t: `🖨️ Riepilogo di ${nomeMese(mese)}`, href: `#/gho/ore/stampa/${mese}` }])}
         </div>
         ${!leggi ? `<a class="sg2-inizia ap-nuovo" href="#/gho/ore/nuovo">＋ Nuovo intervento</a>` : ''}
         ${righe.length ? `<div class="sg2-lista">${righe.map((r) => `

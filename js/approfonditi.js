@@ -163,7 +163,7 @@ window.APR = (function () {
       <section class="sg sg2 ap">
         <div class="card sg2-testa"><div class="grow"><h1>${T.titolo}</h1>
           <p class="muted small">${T.sotto} ${info(T.fam === 'a' ? 'Ogni attrezzo ha il suo foglio annuale con 4 colonne, una per fascetta (blu, giallo, arancio, verde). Tocca un attrezzo per fare il controllo o stampare il foglio. I pallini colorati sono i controlli già fatti quest\'anno.' : 'Ogni controllo è una scheda: tocca una scheda per completarla o stamparla.')}</p></div></div>
-        ${!UT.solaLettura() ? `<a class="sg2-inizia ap-nuovo" href="#/approfonditi/${tipo}/nuovo">${T.nuovo}</a>` : ''}
+        ${!UT.solaLettura() && UT.puo('ctr.fare') ? `<a class="sg2-inizia ap-nuovo" href="#/approfonditi/${tipo}/nuovo">${T.nuovo}</a>` : ''}
         <input type="search" id="fTesto" class="cerca" placeholder="Cerca cliente, numero, matricola…" value="${esc(filtri[tipo] || '')}">
         ${corpo}
       </section>`;
@@ -196,13 +196,13 @@ window.APR = (function () {
             ${info('Tocca una delle 4 fascette per scegliere quale controllo fare (anche solo il 4°, senza aver fatto gli altri): il pulsante grande avvia quello scelto. Se è già fatto, serve a correggerlo. Nel menu ⋯ trovi la stampa del foglio e la modifica dei dati dell\'attrezzo.')}</p></div>
           <div class="anno anno-mini"><a href="${base}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="${base}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
-            UT.puoInviare() && { t: `🖨️ Foglio ${anno} per il cliente`, href: `${base}/stampa/${anno}` },
-            !UT.solaLettura() && { t: '✏️ Modifica dati attrezzo', href: `${base}/modifica` }
+            UT.puo('stampa') && { t: `🖨️ Foglio ${anno} per il cliente`, href: `${base}/stampa/${anno}` },
+            !UT.solaLettura() && UT.puo('anag.modifica') && { t: '✏️ Modifica dati attrezzo', href: `${base}/modifica` }
           ])}
         </div>
         <div class="sg2-fasce">${SLOT.map((s, i) => { const k = ct[i], sel = prossimo && prossimo.n === s.n;
           return `<button type="button" class="${k ? 'fatta' : ''} ${k && k.inCorso ? 'in-corso' : ''} ${sel ? 'scelta' : ''}" style="--c:${s.col}" data-sceglif="${s.n}">${k ? (k.inCorso ? '⏸ ' : '✓ ') : ''}${s.nome}${k && !k.inCorso ? ' ' + dataBreve(k.data) : ''}</button>`; }).join('')}</div>
-        ${prossimo && !UT.solaLettura() ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="${base}/controllo/${anno}/${prossimo.n}">▶ ${giaFatta ? 'Rivedi o correggi' : inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${giaFatta ? ' · già fatto il ' + dataBreve(pk.data) : inCorso ? ' · in corso' : ''}</small></a>`
+        ${prossimo && !UT.solaLettura() && UT.puo('ctr.fare') ? `<a class="sg2-inizia" style="--c:${prossimo.col}" href="${base}/controllo/${anno}/${prossimo.n}">▶ ${giaFatta ? 'Rivedi o correggi' : inCorso ? 'Continua' : 'Inizia'} controllo fascetta ${prossimo.nome.toUpperCase()}<small>${prossimo.n}° controllo del ${anno}${giaFatta ? ' · già fatto il ' + dataBreve(pk.data) : inCorso ? ' · in corso' : ''}</small></a>`
           : !prossimo ? `<p class="sg2-finito">✓ Tutti e 4 i controlli del ${anno} sono fatti</p>` : ''}
         <div class="sg2-tit">Componenti · giudizi ${anno}</div>
         <div class="sg2-lista">${comp.map((cp, i) => `
@@ -305,7 +305,7 @@ window.APR = (function () {
           ${area('Altre osservazioni (una per riga)', 'note', g.note, 'es. CATENE INCISE')}
           <label class="check ap-fs"><input type="checkbox" name="fs" ${g.fuoriServizio ? 'checked' : ''}> <b>FUORI SERVIZIO</b> (sul foglio compare in rosso con la data)</label>
           <div class="azioni-form"><a class="link" href="${base}">📂 Torna all'attrezzo</a><span class="grow"></span>
-            ${esistente && !UT.solaLettura() ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}</div>
+            ${esistente && !UT.solaLettura() && UT.puo('ctr.elimina') ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}</div>
         </div>
         <div class="sg2-piede"><b><span id="nFatti">0</span>/${comp.length}</b><div class="bar"><i id="gBar"></i></div><button class="btn big" type="submit">✓ Concludi controllo</button></div>
       </form>`;
@@ -520,7 +520,7 @@ window.APR = (function () {
             ${id && !UT.solaLettura() ? '<button type="button" class="btn danger ghost" id="btnElimina">Elimina</button>' : ''}
             <span class="grow"></span>
             <a class="btn ghost" href="${base}">Annulla</a>
-            ${UT.puoInviare() ? '<button class="btn ghost" type="button" id="btnStampaS">🖨️ Salva e stampa</button>' : ''}
+            ${UT.puo('stampa') ? '<button class="btn ghost" type="button" id="btnStampaS">🖨️ Salva e stampa</button>' : ''}
             <button class="btn" type="submit">Salva</button>
           </div>
         </form>`;

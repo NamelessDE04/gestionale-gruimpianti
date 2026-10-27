@@ -269,7 +269,7 @@ window.LAY = (function () {
     if (!s) { el.innerHTML = '<p class="nessuno">Sede non trovata.</p>'; return { titolo: 'Layout', indietro: '#/layout' }; }
     const indietro = ctr ? '#/layout?ctr=1' : '#/layout';
     const salvato = docDi(S, sedeId);
-    const puoModificare = !UT.solaLettura();
+    const puoModificare = !UT.solaLettura() && UT.puo('layout.modifica');
     const modifica = !!inModifica[sedeId] && puoModificare;
     const L = aggiorna(salvato ? JSON.parse(JSON.stringify(salvato)) : nuovo(sedeId, c.id));
     if (!(+L.u > 0)) L.u = Math.round(unitaCalcolata(L) * 1000) / 1000;   // da qui in poi testi e simboli hanno sempre la stessa grandezza
@@ -291,7 +291,7 @@ window.LAY = (function () {
           ${modifica ? '<button class="btn" id="btnFine">✓ Fine</button>' : ''}
           ${UI.menu([
             !modifica && puoModificare && { t: '✏️ Modifica layout', id: 'btnMod' },
-            UT.puoInviare() && !modifica && salvato && { t: '🖨️ Stampa', id: 'btnStampa' },
+            UT.puo('stampa') && !modifica && salvato && { t: '🖨️ Stampa', id: 'btnStampa' },
             !modifica && puoModificare && { t: '📥 Carica layout da file', id: 'btnCarica' },
             !modifica && puoModificare && docDi(S, sedeId + COPIA) && { t: `↩ Rimetti il layout di prima (copia del ${UI.fmt(docDi(S, sedeId + COPIA).copiaDel || '')})`, id: 'btnRipristina' },
             ctr ? { t: '☰ Controlli: vista elenco', href: '#/controlli/s/' + sedeId } : { t: '✅ Controlli di questa sede', href: '#/layout/s/' + sedeId + '?ctr=1' },
