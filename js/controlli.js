@@ -195,6 +195,7 @@ window.CTR = (function () {
   const annoOggi = () => +oggi().slice(0, 4);
   let annoScelto = annoOggi();
   const sceltoCtr = {};   // sede|anno -> controllo scelto a mano (1-4), vale finché l'app resta aperta
+  const gruAperte = {};   // sede -> elenco gru aperto (resta così finché l'app resta aperta)
 
   const slotHtml = (p, n, st, anno, href) => {
     const t = tipoVisita(p, n);
@@ -270,6 +271,8 @@ window.CTR = (function () {
           return `<button type="button" class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} title="${nomeTipo(t)}" data-sceglin="${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></button>`; }).join('')}</div>
         ${corr && imp.length && !UT.solaLettura() && UT.puo('ctr.fare') ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
           return `<a class="ctr-inizia t-${t} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${x.completa ? 'Rivedi' : via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
+        <details class="tendina-gru" id="tendGru" ${gruAperte[sedeId] ? 'open' : ''}>
+          <summary><span>🏗️ Elenco gru <b>(${imp.length})</b></span><small>schede dell'anno, osservazioni aperte, fuori servizio</small><span class="tg-freccia">▾</span></summary>
         <div class="elenco">
           ${imp.map((i) => {
             const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).length;
@@ -285,8 +288,11 @@ window.CTR = (function () {
             </div>`;
           }).join('')}
         </div>
-        <p class="muted small centro">Tocca 1°, 2°, 3° o 4° in alto per scegliere il controllo. Con «Inizia» vedi solo le gru da controllare, con la ricerca. Puoi anche toccare il numero del controllo di una gru, oppure l'impianto per la sua scheda dell'anno.</p>
+        <p class="muted small centro">Tocca il numero del controllo di una gru, oppure l'impianto per la sua scheda dell'anno.</p>
+        </details>
+        <p class="muted small centro">Tocca 1°, 2°, 3° o 4° in alto per scegliere il controllo. Con «Inizia» vedi solo le gru da controllare, con la ricerca.</p>
       </section>`;
+    el.querySelector('#tendGru')?.addEventListener('toggle', (e) => { gruAperte[sedeId] = e.target.open; });
     el.querySelector('#btnModSede')?.addEventListener('click', async () => { await assicuraModelli(S); cambiaModelloSede(S, imp, anno); });
     el.querySelector('#btnAzzCtr')?.addEventListener('click', () => azzeraControlli(S, imp, anno, p));
     el.querySelectorAll('[data-sceglin]').forEach((b) => (b.onclick = () => { sceltoCtr[sedeId + '|' + anno] = +b.dataset.sceglin; App.ridisegna(); }));
