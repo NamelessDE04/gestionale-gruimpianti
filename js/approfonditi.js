@@ -86,7 +86,7 @@ window.APR = (function () {
       .map((c) => `<optgroup label="${esc(c.ragioneSociale)}">${(c.sedi || []).map((s) => `<option value="${s.id}" ${s.id === sedeId ? 'selected' : ''}>${esc(c.ragioneSociale)} – ${esc(s.nome || s.citta || 'sede')}</option>`).join('')}</optgroup>`).join('');
     return `<label>Cliente e sede *<select name="sede" required><option value="">— scegli —</option>${op}</select></label>`;
   }
-  const portate = (i) => (i.paranchi || []).map((p) => p.portata).filter(Boolean).map((k) => (+k >= 1000 ? fmtN(k / 1000, 1) + ' t' : k + ' kg')).join(' + ');
+  const portate = (i) => (i.paranchi || []).map((p) => p.portata).filter(Boolean).map((k) => (!/^\s*\d+([.,]\d+)?\s*$/.test(String(k)) ? String(k).trim() : +String(k).replace(',', '.') >= 1000 ? fmtN(+String(k).replace(',', '.') / 1000, 1) + ' t' : k + ' kg')).join(' + ');
   const descImp = (i) => [i.numeroInterno && 'N° ' + i.numeroInterno, i.tipologia, i.marca, i.matricola && 'matr. ' + i.matricola].filter(Boolean).join(' · ');
   function sceltaImpianto(S, sedeId, impId) {
     const imp = S.impianti.filter((i) => i.sedeId === sedeId);

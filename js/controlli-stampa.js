@@ -3,7 +3,7 @@
 // Una pagina per impianto; si possono stampare tutti gli impianti di una sede in un colpo.
 window.CTRS = (function () {
   const { esc, fmt } = UI;
-  const kgT = (n) => { n = +n; if (!n) return ''; return (n / 1000).toLocaleString('it-IT'); };   // portata in t, senza unità (come sull'originale)
+  const kgT = (v) => { const s = String(v ?? '').trim(); if (!/^\d+([.,]\d+)?$/.test(s)) return s; const n = +s.replace(',', '.'); if (!n) return ''; return (n / 1000).toLocaleString('it-IT'); };   // portata in t, senza unità (come sull'originale)
 
   // colonne (mm)
   const X0 = 5.04, X1 = 204.89, XC = 13.12, XD = 119.25;

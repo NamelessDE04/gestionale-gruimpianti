@@ -11,7 +11,9 @@ window.IMP = (function () {
   const tipologie = (S) => (S.impostazioni.find((x) => x.id === 'tipologieGru') || {}).voci || TIPOLOGIE_BASE;
   const marche = (S) => [...new Set(S.impianti.map((i) => i.marca).filter(Boolean))].sort();
 
-  const kg = (n) => { n = +n; if (!n) return ''; return n >= 1000 ? (n / 1000).toLocaleString('it-IT') + ' t' : n + ' kg'; };
+  const soloNum = (v) => /^\s*\d+([.,]\d+)?\s*$/.test(String(v ?? '')) ? +String(v).replace(',', '.') : null;
+  // portata: se è un numero la scrivo in kg/t, se c'è scritto altro (es. «10 t + 5 t», «vedi targa») la lascio com'è
+  const kg = (v) => { const n = soloNum(v); if (n === null) return String(v ?? '').trim(); if (!n) return ''; return n >= 1000 ? (n / 1000).toLocaleString('it-IT') + ' t' : n + ' kg'; };
   const portate = (i, S) => (S && !MIMP.di(S, i).gru ? '' : (i.paranchi || []).map((p) => kg(p.portata)).filter(Boolean).join(' + ') || '—');
   // ordine delle gru di una sede. Con «per campata» un numero interno tipo 3/11 o 1-50 (gru/campata)
   // si ordina per il secondo numero e poi per il primo: 1/1, 2/1, 3/1, 1/2, 2/2…
@@ -146,10 +148,10 @@ window.IMP = (function () {
         </div>
         <div class="due">
           <label>Numero interno<input name="numeroInterno" value="${esc(i.numeroInterno)}" placeholder="numero usato dal cliente"></label>
-          <label>Anno di costruzione<input name="annoCostruzione" type="number" inputmode="numeric" min="1900" max="2100" value="${esc(i.annoCostruzione)}"></label>
+          <label>Anno di costruzione<input name="annoCostruzione" value="${esc(i.annoCostruzione)}"></label>
         </div>
         <div class="due" id="bloccoScart">
-          <label>Scartamento (luce) <span class="unita">(mm)</span><input name="scartamento" type="number" inputmode="numeric" value="${esc(i.scartamento || '')}" placeholder="distanza tra le vie di corsa"></label>
+          <label>Scartamento (luce) <span class="unita">(mm)</span><input name="scartamento" value="${esc(i.scartamento || '')}" placeholder="distanza tra le vie di corsa"></label>
           <span></span>
         </div>
         <h2 class="sez-form">Stato ${info('Fuori servizio PROVVISORIO: l\'impianto resta nei controlli (nel controllo si segna con il tasto «⛔ fuori servizio provvisorio»). Fuori servizio DEFINITIVO: diventa grigio, non compare più tra gli impianti da controllare né nel layout; le schede degli anni passati restano.')}</h2>
@@ -218,11 +220,11 @@ window.IMP = (function () {
       box.innerHTML = i.paranchi.map((p, n) => `
         <div class="paranco">
           <span class="paranco-nome">${RUOLI[n] || 'Paranco ' + (n + 1)}</span>
-          <label class="misura"><input type="number" inputmode="numeric" min="0" step="1" value="${esc(p.portata)}" placeholder="portata"><span>kg</span></label>
-          <span class="muted small conv">${kg(p.portata)}</span>
+          <label class="misura"><input value="${esc(p.portata)}" placeholder="es. 10000"><span>kg</span></label>
+          <span class="muted small conv">${soloNum(p.portata) !== null ? kg(p.portata) : ''}</span>
           ${n > 0 ? `<button type="button" class="btn ghost small danger" data-rm="${n}" aria-label="Togli paranco">×</button>` : ''}
         </div>`).join('');
-      box.querySelectorAll('.paranco').forEach((r, n) => (r.querySelector('input').oninput = (e) => { r.querySelector('.conv').textContent = kg(e.target.value); }));
+      box.querySelectorAll('.paranco').forEach((r, n) => (r.querySelector('input').oninput = (e) => { r.querySelector('.conv').textContent = soloNum(e.target.value) !== null ? kg(e.target.value) : ''; }));
       box.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { leggi(); i.paranchi.splice(+b.dataset.rm, 1); disegnaParanchi(); }));
       el.querySelector('#btnParanco').hidden = i.paranchi.length >= 3;
     };
@@ -236,10 +238,10 @@ window.IMP = (function () {
       Object.assign(i, {
         clienteId: f.clienteId.value, sedeId: f.sedeId.value, modello: i.modello, tipologia: f.tipologia.value, marca: f.marca.value.trim(),
         // tengo tutti i dati del paranco (fune, motori, carrello…), aggiorno solo nome e portata
-        paranchi: i.paranchi.map((p, n) => ({ ...p, ruolo: RUOLI[n] || 'Paranco ' + (n + 1), portata: p.portata ? +p.portata : '' })),
-        scartamento: f.scartamento.value,
+        paranchi: i.paranchi.map((p, n) => ({ ...p, ruolo: RUOLI[n] || 'Paranco ' + (n + 1), portata: soloNum(p.portata) ?? String(p.portata ?? '').trim() })),
+        scartamento: f.scartamento.value.trim(),
         matricola: f.matricola.value.trim(), numeroSerie: f.numeroSerie.value.trim(), numeroInterno: f.numeroInterno.value.trim(),
-        annoCostruzione: f.annoCostruzione.value,
+        annoCostruzione: f.annoCostruzione.value.trim(),
         stato: f.stato.value, dismesso: f.stato.value === 'fsd', fsDal: f.stato.value ? (f.fsDal.value || (statoImp(orig || {}) === f.stato.value ? i.fsDal : '') || UI.oggi()) : ''
       });
       if (f.stato.value === 'fsd' && statoImp(orig || {}) !== 'fsd' && !UI.conferma('Mettere l\'impianto FUORI SERVIZIO DEFINITIVO?\n\nDiventa grigio e non compare più tra gli impianti da controllare né nel layout. Le schede degli anni passati restano.')) return;

@@ -92,7 +92,7 @@ window.MIMP = (function () {
   // campi di una sezione nel formato delle finestre di modifica
   const campiModal = (sez) => sez.campi.map((f) => ({
     k: f.k, label: f.label, u: f.u || '', placeholder: f.ph || '', mezza: true,
-    ...(f.tipo === 'numero' ? { num: true } : f.tipo === 'data' ? { tipo: 'date' } : f.tipo === 'sino' ? { tipo: 'sino' } : f.tipo === 'scelta' ? { tipo: 'select', opzioni: f.opzioni || [] } : {})
+    ...(f.tipo === 'data' ? { tipo: 'date' } : f.tipo === 'sino' ? { tipo: 'sino' } : f.tipo === 'scelta' ? { tipo: 'select', opzioni: f.opzioni || [] } : {})
   }));
   const valoreCampo = (f, v) => f.tipo === 'sino' ? (v ? 'Sì' : 'No') : f.tipo === 'data' ? UI.fmt(v) : esc(v) + (f.u ? ' ' + esc(f.u) : '');
   const pieno = (f, v) => (f.tipo === 'sino' ? v === true || v === false : v !== undefined && v !== null && v !== '');

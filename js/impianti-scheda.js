@@ -26,38 +26,38 @@ window.IMPS = (function () {
   const F_SOLL = [
     { k: 'tipo', label: 'Tipologia', tipo: 'select', opzioni: ['Paranco', 'Argano'], mezza: true },
     { k: 'marcaModello', label: 'Marca e modello', mezza: true },
-    { k: 'portata', label: 'Portata', u: 'kg', num: true, mezza: true },
+    { k: 'portata', label: 'Portata', u: 'kg', mezza: true },
     { k: 'velocita', label: 'Velocità di sollevamento', u: 'm/min', mezza: true, placeholder: 'es. 5/0,8' },
     { k: 'classeFem', label: 'Classe FEM', mezza: true, lista: ['1Cm', '1Bm', '1Am', '2m', '3m', '4m', '5m'] },
     { k: 'classeIso', label: 'Classe ISO', mezza: true, lista: ['M3', 'M4', 'M5', 'M6', 'M7', 'M8'] },
-    { k: 'corsa', label: 'Corsa del gancio', u: 'm', num: true, mezza: true },
+    { k: 'corsa', label: 'Corsa del gancio', u: 'm', mezza: true },
     { tipo: 'titolo', label: 'Bozzello' },
     { k: 'bozzello', label: 'Descrizione bozzello', placeholder: 'es. bozzello a 2 pulegge, gancio n° 10' },
-    { k: 'pulegge', label: 'N° pulegge', num: true, mezza: true }
+    { k: 'pulegge', label: 'N° pulegge', mezza: true }
   ];
   const F_FUNE = [
     { k: 'conformazione', label: 'Conformazione', mezza: true, lista: ['6x19', '6x36 WS + IWRC', '8x19', '8x36 WS + IWRC', 'Antigirevole 18x7', 'Antigirevole 35x7'] },
-    { k: 'diametro', label: 'Diametro', u: 'mm', num: true, mezza: true },
-    { k: 'caricoRottura', label: 'Carico di rottura', u: 'kN', num: true, mezza: true },
-    { k: 'tratti', label: 'Tratti di fune', num: true, mezza: true },
-    { k: 'lunghezza', label: 'Lunghezza', u: 'm', num: true, mezza: true },
+    { k: 'diametro', label: 'Diametro', u: 'mm', mezza: true },
+    { k: 'caricoRottura', label: 'Carico di rottura', u: 'kN', mezza: true },
+    { k: 'tratti', label: 'Tratti di fune', mezza: true },
+    { k: 'lunghezza', label: 'Lunghezza', u: 'm', mezza: true },
     { k: 'dataInstallazione', label: 'Data di installazione', tipo: 'date', mezza: true }
   ];
   const TRASM = ['Motoriduttore diretto', 'Albero di trasmissione', 'Catena', 'Ingranaggi'];
   const F_CARR = [
     { k: 'tipologia', label: 'Tipologia di carrello', mezza: true, lista: ['Birotaia', 'Monorotaia', 'Monorotaia a ingombri ridotti', 'Carrello argano'] },
     { k: 'trasmissione', label: 'Tipo di trasmissione', mezza: true, lista: TRASM },
-    { k: 'ruoteMotrici', label: 'Ruote motrici', num: true, mezza: true },
-    { k: 'ruoteFolli', label: 'Ruote folli', num: true, mezza: true },
-    { k: 'scartamento', label: 'Scartamento carrello', u: 'mm', num: true, mezza: true },
+    { k: 'ruoteMotrici', label: 'Ruote motrici', mezza: true },
+    { k: 'ruoteFolli', label: 'Ruote folli', mezza: true },
+    { k: 'scartamento', label: 'Scartamento carrello', u: 'mm', mezza: true },
     { k: 'velocita', label: 'Velocità di traslazione', u: 'm/min', mezza: true, placeholder: 'es. 20/5' }
   ];
   const F_PONTE = [
-    { k: 'numeroMotori', label: 'N° motori di traslazione', num: true, mezza: true },
+    { k: 'numeroMotori', label: 'N° motori di traslazione', mezza: true },
     { k: 'trasmissione', label: 'Tipo di trasmissione', mezza: true, lista: TRASM },
-    { k: 'ruoteMotrici', label: 'Ruote motrici', num: true, mezza: true },
-    { k: 'ruoteFolli', label: 'Ruote folli', num: true, mezza: true },
-    { k: 'diametroRuote', label: 'Diametro ruote', u: 'mm', num: true, mezza: true },
+    { k: 'ruoteMotrici', label: 'Ruote motrici', mezza: true },
+    { k: 'ruoteFolli', label: 'Ruote folli', mezza: true },
+    { k: 'diametroRuote', label: 'Diametro ruote', u: 'mm', mezza: true },
     { k: 'velocita', label: 'Velocità di traslazione', u: 'm/min', mezza: true, placeholder: 'es. 40/10' }
   ];
   const F_ELE = [
@@ -66,7 +66,7 @@ window.IMPS = (function () {
     { tipo: 'titolo', label: 'Linea di alimentazione' },
     { k: 'alimTipo', label: 'Tipologia carrellino di alimentazione', mezza: true, lista: ['Linea a festone', 'Blindosbarra', 'Sbarre in rame', 'Avvolgicavo'] },
     { k: 'alimMarca', label: 'Marca carrellino di alimentazione', mezza: true },
-    { k: 'alimAmpere', label: 'Portata carrellino', u: 'A', num: true, mezza: true },
+    { k: 'alimAmpere', label: 'Portata carrellino', u: 'A', mezza: true },
     { tipo: 'titolo', label: 'Comando' },
     { k: 'comando', label: 'Tipo di comando', tipo: 'select', opzioni: ['Pulsantiera', 'Radiocomando', 'Pulsantiera + radiocomando', 'Cabina'] },
     { k: 'pulsConformazione', label: 'Pulsantiera: conformazione', placeholder: 'es. 8 pulsanti 2 velocità + fungo + marcia' },
@@ -82,7 +82,8 @@ window.IMPS = (function () {
   const RUOLO = (p, n) => 'Paranco ' + (p.ruolo || ['primario', 'secondario', 'ausiliario'][n] || n + 1).toLowerCase();
 
   // ---------- piccoli aiuti ----------
-  const kg = (n) => { n = +n; if (!n) return ''; return n >= 1000 ? (n / 1000).toLocaleString('it-IT') + ' t' : n + ' kg'; };
+  const soloNum = (v) => /^\s*\d+([.,]\d+)?\s*$/.test(String(v ?? '')) ? +String(v).replace(',', '.') : null;
+  const kg = (v) => { const n = soloNum(v); if (n === null) return String(v ?? '').trim(); if (!n) return ''; return n >= 1000 ? (n / 1000).toLocaleString('it-IT') + ' t' : n + ' kg'; };
   const valore = (c, v) => (Array.isArray(v) ? v.map(esc).join(' · ') : c.tipo === 'date' ? fmt(v) : c.k === 'portata' ? kg(v) : esc(v) + (c.u ? ' ' + esc(c.u) : ''));
   const pieno = (v) => v !== undefined && v !== null && v !== '' && v !== false && !(Array.isArray(v) && !v.length);
   function vista(schema, obj, esclusi = []) {
@@ -132,7 +133,7 @@ window.IMPS = (function () {
       corpo = card('Dati dell\'impianto', `
         <div class="griglia-campi">
           ${[['Tipo di impianto', M.nome], ['Tipologia', i.tipologia], ['Marca', i.marca], ['Anno di costruzione', i.annoCostruzione], ['Matricola', i.matricola],
-            ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ...(M.scartamento ? [['Scartamento (luce)', i.scartamento && i.scartamento + ' mm']] : [])]
+            ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ...(M.scartamento ? [['Scartamento (luce)', i.scartamento && (soloNum(i.scartamento) !== null ? i.scartamento + ' mm' : i.scartamento)]] : [])]
             .map(([l, v]) => `<div class="campo"><span>${l}</span><b>${v ? esc(v) : '<i class="muted">—</i>'}</b></div>`).join('')}
         </div>
         ${M.gru ? `<h3 class="sotto-tit">Portata</h3>
@@ -380,7 +381,7 @@ window.IMPS = (function () {
         ${sezione('Dati dell\'impianto', `
           <div class="r-griglia">
             ${[['Tipo di impianto', M.nome], ['Tipologia', i.tipologia], ['Marca', i.marca], ['Anno di costruzione', i.annoCostruzione], ['Matricola', i.matricola],
-              ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ...(M.scartamento ? [['Scartamento (luce)', i.scartamento && i.scartamento + ' mm']] : []),
+              ['Numero di serie', i.numeroSerie], ['Numero interno', i.numeroInterno], ...(M.scartamento ? [['Scartamento (luce)', i.scartamento && (soloNum(i.scartamento) !== null ? i.scartamento + ' mm' : i.scartamento)]] : []),
               ...(M.gru ? paranchi.map((p, n) => ['Portata ' + RUOLO(p, n).replace('Paranco ', 'paranco '), kg(p.portata)]) : [])]
               .map(([l, v]) => `<div class="r-c"><span>${l}</span><b>${v ? esc(v) : '—'}</b></div>`).join('')}
           </div>`)}
