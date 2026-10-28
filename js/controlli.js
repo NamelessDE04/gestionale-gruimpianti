@@ -690,6 +690,10 @@ window.CTR = (function () {
     };
     const voci = sc.voci.filter((v) => periodi.includes(v.per));
     const osservazioni = sc.osservazioni;
+    // riquadro rosso sopra la voce: osservazioni ancora aperte (nate prima) e quelle nate in questo controllo
+    const etichettaOss = (o) => (o.risoltaIl ? `✓ <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))} [OK ${fmt(o.risoltaIl)}]` : `⚠ ${o.visita === n ? 'nuova in questo controllo' : 'ancora aperta'} · <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))}`);
+    const rigaOss = (o) => `<div class="oss-aperta" data-l="${esc(o.lettera)}">${etichettaOss(o)}</div>`;
+    const sullaVoce = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && !tolta(o, n) && o.visita <= n);
     const aperte = (vocId, pi) => osservazioni.filter((o) => o.vocId === vocId && (o.p || 1) === pi && !o.risoltaIl && !tolta(o, n) && (o.visita < n || (o.visita === n && !prima)));
     // valori iniziali: per le anomalie ancora aperte riporto la lettera
     leggiVisita(vis, voci);
@@ -753,7 +757,7 @@ window.CTR = (function () {
                 ${Array.from({ length: np }, (_, k) => k + 1).map((pi) => `
                   <div class="gi-parte" data-p="${pi}">
                     ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
-                    ${aperte(v.id, pi).map((o) => `<div class="oss-aperta" data-l="${esc(o.lettera)}">⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))}</div>`).join('')}
+                    ${sullaVoce(v.id, pi).map(rigaOss).join('')}
                     <div class="gi-row">
                       <div class="codici codici-c">${CODICI.map(([k, l]) => `<button type="button" class="cod-btn c-cv" data-c="${k}" title="${l}">${k}</button>`).join('')}</div>
                       ${haValore(v) ? `<label class="valore"><input type="text" ${unitaDi(v) ? 'inputmode="decimal"' : ''} data-val placeholder="valore" aria-label="Valore${unitaDi(v) ? ' in ' + esc(unitaDi(v)) : ''}">${unitaDi(v) ? `<span>${esc(unitaDi(v))}</span>` : ''}</label>${nominale(v, pi) ? `<span class="prima">nom. ${esc(nominale(v, pi))}</span>` : ''}${(() => { const u = ultimoValore(v, pi); return u ? `<span class="prima ult-val">ultimo: <b>${esc(u.val)}${unitaDi(v) ? ' ' + esc(unitaDi(v)) : ''}</b> · ${esc(fmt(u.data))}</span>` : ''; })()}` : ''}
@@ -849,7 +853,7 @@ window.CTR = (function () {
             o.risoltaIl = ov.querySelector('[data-d]').value || f.dataScheda.value || oggi();
             if (o.vocId && letteraDi(vis.esiti[o.vocId]?.[(o.p || 1) - 1]) === o.lettera) vis.esiti[o.vocId][(o.p || 1) - 1] = togliLettera(vis.esiti[o.vocId][(o.p || 1) - 1], o.lettera, 'R');   // sistemata in questo controllo
           } else delete o.risoltaIl;
-          el.querySelectorAll(`.oss-aperta[data-l="${CSS.escape(o.lettera)}"]`).forEach((d) => (d.innerHTML = o.risoltaIl ? `✓ <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))} [OK ${fmt(o.risoltaIl)}]` : `⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))}`));
+          el.querySelectorAll(`.oss-aperta[data-l="${CSS.escape(o.lettera)}"]`).forEach((d) => (d.innerHTML = etichettaOss(o)));
           const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
           disegnaOss(); sporco = true;
         }
@@ -895,8 +899,13 @@ window.CTR = (function () {
       testoSalva: 'Aggiungi',
       onSalva: (x) => {
         const lettera = prossimaLettera();
-        osservazioni.push({ lettera, testo: x.testo, vocId: v?.id || '', p: v ? pi : null, visita: n, data: f.dataScheda.value || oggi() });
-        if (v) { vis.esiti[v.id][pi - 1] = componiEsito(lettera, codiciDi(vis.esiti[v.id][pi - 1])); mostra(v, pi); }   // i codici già messi restano
+        const o = { lettera, testo: x.testo, vocId: v?.id || '', p: v ? pi : null, visita: n, data: f.dataScheda.value || oggi() };
+        osservazioni.push(o);
+        if (v) {
+          vis.esiti[v.id][pi - 1] = componiEsito(lettera, codiciDi(vis.esiti[v.id][pi - 1])); mostra(v, pi);   // i codici già messi restano
+          box(v.id, pi).querySelector('.gi-row').insertAdjacentHTML('beforebegin', rigaOss(o));                 // il riquadro rosso sopra la voce, come per quelle già aperte
+        }
+        sporco = true;
         disegnaOss();
       }
     });
