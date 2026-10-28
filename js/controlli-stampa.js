@@ -105,9 +105,11 @@ window.CTRS = (function () {
           const e = es[pi] || '', w = vl[pi] || (vecchio(e) ? e : '');
           // controllo con l'impianto fuori servizio provvisorio: le caselle vuote restano vuote
           // più codici nella stessa casella (es. «X+R»): tutti, se il modello lo chiede, altrimenti il più importante
-          const cc = CTR.codiciDi(e);
+          const cc = CTR.codiciDi(e), lett = CTR.letteraDi(e);
           let txt;
-          if (cc.length > 1 && piuCodici) txt = [...cc, w].filter(Boolean).join(' ');
+          // con la lettera di un'osservazione esce la lettera (e, se il modello lo chiede, anche i codici)
+          if (lett) txt = piuCodici ? [lett, ...cc, w].filter(Boolean).join(' ') : lett;
+          else if (cc.length > 1 && piuCodici) txt = [...cc, w].filter(Boolean).join(' ');
           else {
             const e1 = cc.length > 1 ? CTR.codicePrincipale(e) : e;
             txt = w && (!e1 || e1 === 'X' || vecchio(e1)) ? w : (e1 || (vis.fs || /^NOTE\s*GENERALI$/i.test(String(v.testo).trim()) ? '' : 'X'));

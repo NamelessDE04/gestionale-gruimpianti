@@ -16,6 +16,12 @@ window.CTR = (function () {
   const codiciDi = (val) => String(val || '').split('+').filter((c) => CODICI.some(([k]) => k === c));
   const uniscCodici = (lista) => CODICI.map(([k]) => k).filter((k) => lista.includes(k)).join('+');
   // sulla scheda del cliente: il codice più significativo (sostituito, ripristinato, pulito, lubrificato, poi visionato)
+  // la lettera di un'osservazione (A, B…) resta nella casella anche se ci metti dei codici: «F+X»
+  const partiEsito = (val) => String(val || '').split('+').filter(Boolean);
+  const letteraDi = (val) => partiEsito(val).find((x) => /^[A-Z]{1,2}$/.test(x) && !CODICI.some(([k]) => k === x)) || '';
+  const componiEsito = (lett, codici) => [lett, ...CODICI.map(([k]) => k).filter((k) => codici.includes(k))].filter(Boolean).join('+');
+  // toglie la lettera dalla casella (osservazione tolta o sistemata); con «metti» aggiunge un codice (es. R = ripristinato)
+  const togliLettera = (val, l, metti) => (letteraDi(val) !== l ? val : componiEsito('', metti ? [...new Set([...codiciDi(val), metti])] : codiciDi(val)));
   const codicePrincipale = (val) => { const c = codiciDi(val); return ['S', 'R', 'P', 'L', 'X'].find((k) => c.includes(k)) || ''; };
   const V = (per, testo, unita) => ({ id: uid(), per, testo, tipo: 'codice', ...(unita != null ? { valore: true, unita } : {}) });
   // CAMPO VALORE: oltre al codice (X, R, P…) la voce ha una casella per scrivere un valore (es. diametro in mm).
@@ -23,7 +29,8 @@ window.CTR = (function () {
   const UNITA = ['mm', 'cm', 'kg', 't', '%', 'bar', '°C', 'V', 'A', 'nessuna'];
   const haValore = (v) => !!(v && (v.valore || v.tipo === 'misura'));
   const unitaDi = (v) => { const u = v?.unita != null ? v.unita : (v?.tipo === 'misura' ? 'mm' : ''); return u === 'nessuna' ? '' : u; };
-  const isCodice = (x) => CODICI.some(([k]) => k === x) || (/^[A-Z](\+[A-Z])+$/.test(x || '') && String(x).split('+').every((c) => CODICI.some(([k]) => k === c)));   // anche più codici insieme («X+R»)
+  // esito "noto": codici e/o lettera di un'osservazione, anche insieme («X+R», «F+X»)
+  const isCodice = (x) => CODICI.some(([k]) => k === x) || (/^[A-Z]{1,2}(\+[A-Z]{1,2})+$/.test(x || '') && String(x).split('+').every((c) => /^[A-Z]{1,2}$/.test(c)));
   const isLett = (x) => /^[A-Z]{1,2}$/.test(x || '') && !isCodice(x);
   // schede salvate con la vecchia "misura": il numero era nell'esito -> lo sposto nei valori e l'esito diventa X
   function leggiVisita(vis, voci) {
@@ -782,7 +789,7 @@ window.CTR = (function () {
       const scelti = codiciDi(val);
       b.querySelectorAll('.cod-btn').forEach((x) => x.classList.toggle('on', scelti.includes(x.dataset.c)));
       const vv = b.querySelector('[data-val]'); if (vv && document.activeElement !== vv) vv.value = vis.valori[v.id]?.[pi - 1] || '';
-      b.querySelector('.val-lettera').innerHTML = isLettera(val) ? `<span class="lettera-on">${esc(val)}</span>` : '';
+      b.querySelector('.val-lettera').innerHTML = letteraDi(val) ? `<span class="lettera-on">${esc(letteraDi(val))}</span>` : '';
       b.classList.toggle('fatto', !!val); b.classList.remove('manca');
       el.querySelector('#nFatti').textContent = voci.reduce((t, x) => t + vis.esiti[x.id].filter(Boolean).length, 0);
     };
@@ -807,7 +814,7 @@ window.CTR = (function () {
         // la lettera sparisce dalle caselle: di tutti i controlli dell'anno, oppure solo da questo in poi
         for (const x of [vis, ...Object.values(sc.visite || {})]) {
           if (modo === 'dopo' && visita(x) < n) continue;
-          const es = x?.esiti?.[o.vocId]; if (es && es[(o.p || 1) - 1] === o.lettera) es[(o.p || 1) - 1] = '';
+          const es = x?.esiti?.[o.vocId], k = (o.p || 1) - 1; if (es && letteraDi(es[k]) === o.lettera) es[k] = togliLettera(es[k], o.lettera);
         }
         el.querySelectorAll('.oss-aperta').forEach((d) => { if (d.dataset.l === o.lettera) d.remove(); });
         const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
@@ -840,7 +847,7 @@ window.CTR = (function () {
           cambiaTesto(o, n, t);   // nei controlli prima resta il testo di prima
           if (ok.checked) {
             o.risoltaIl = ov.querySelector('[data-d]').value || f.dataScheda.value || oggi();
-            if (o.vocId && vis.esiti[o.vocId]?.[(o.p || 1) - 1] === o.lettera) vis.esiti[o.vocId][(o.p || 1) - 1] = 'R';   // sistemata in questo controllo
+            if (o.vocId && letteraDi(vis.esiti[o.vocId]?.[(o.p || 1) - 1]) === o.lettera) vis.esiti[o.vocId][(o.p || 1) - 1] = togliLettera(vis.esiti[o.vocId][(o.p || 1) - 1], o.lettera, 'R');   // sistemata in questo controllo
           } else delete o.risoltaIl;
           el.querySelectorAll(`.oss-aperta[data-l="${CSS.escape(o.lettera)}"]`).forEach((d) => (d.innerHTML = o.risoltaIl ? `✓ <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))} [OK ${fmt(o.risoltaIl)}]` : `⚠ ancora aperta · <b>${esc(o.lettera)}</b> ${esc(testoOss(o, n))}`));
           const v = voci.find((x) => x.id === o.vocId); if (v) mostra(v, o.p || 1);
@@ -889,7 +896,7 @@ window.CTR = (function () {
       onSalva: (x) => {
         const lettera = prossimaLettera();
         osservazioni.push({ lettera, testo: x.testo, vocId: v?.id || '', p: v ? pi : null, visita: n, data: f.dataScheda.value || oggi() });
-        if (v) { vis.esiti[v.id][pi - 1] = lettera; mostra(v, pi); }
+        if (v) { vis.esiti[v.id][pi - 1] = componiEsito(lettera, codiciDi(vis.esiti[v.id][pi - 1])); mostra(v, pi); }   // i codici già messi restano
         disegnaOss();
       }
     });
@@ -897,9 +904,9 @@ window.CTR = (function () {
       const b = box(v.id, pi);
       // tocco su un codice: si accende o si spegne; se ce n'è già un altro restano tutti e due (es. X e R)
       b.querySelectorAll('.cod-btn').forEach((x) => (x.onclick = () => {
-        const ora = vis.esiti[v.id][pi - 1] || '', c = isLettera(ora) ? [] : codiciDi(ora);
+        const ora = vis.esiti[v.id][pi - 1] || '', c = codiciDi(ora);
         const nuovi = c.includes(x.dataset.c) ? c.filter((k) => k !== x.dataset.c) : [...c, x.dataset.c];
-        vis.esiti[v.id][pi - 1] = uniscCodici(nuovi); mostra(v, pi);
+        vis.esiti[v.id][pi - 1] = componiEsito(letteraDi(ora), nuovi); mostra(v, pi);   // la lettera dell'osservazione resta
       }));
       // scrivere un valore vuol dire che la voce è stata controllata: se manca il codice metto X
       const vv = b.querySelector('[data-val]'); if (vv) vv.oninput = () => { vis.valori[v.id][pi - 1] = vv.value.trim(); if (vv.value.trim() && !vis.esiti[v.id][pi - 1]) vis.esiti[v.id][pi - 1] = 'X'; mostra(v, pi); };
@@ -907,7 +914,7 @@ window.CTR = (function () {
       b.querySelectorAll('[data-sistema]').forEach((x) => (x.onclick = () => {
         const o = osservazioni.find((y) => y.lettera === x.dataset.sistema);
         o.risoltaIl = f.dataScheda.value || oggi();
-        if (vis.esiti[v.id][pi - 1] === o.lettera) vis.esiti[v.id][pi - 1] = 'R';
+        if (letteraDi(vis.esiti[v.id][pi - 1]) === o.lettera) vis.esiti[v.id][pi - 1] = togliLettera(vis.esiti[v.id][pi - 1], o.lettera, 'R');
         x.closest('.oss-aperta').innerHTML = `✓ <b>${esc(o.lettera)}</b> [OK ${fmt(o.risoltaIl)}]`;
         mostra(v, pi); disegnaOss();
       }));
@@ -945,7 +952,7 @@ window.CTR = (function () {
       const d = f.dataScheda.value || oggi();
       if (!UI.conferma(`Rimettere in servizio l'impianto?\n\nL'annotazione ${fsAperta.lettera} «FUORI SERVIZIO PROVVISORIO» si chiude con [OK ${fmt(d)}]. Poi compila il controllo e salva.`)) return;
       fsAperta.risoltaIl = d;
-      Object.keys(vis.esiti).forEach((k) => (vis.esiti[k] = vis.esiti[k].map((x) => (x === fsAperta.lettera ? '' : x))));
+      Object.keys(vis.esiti).forEach((k) => (vis.esiti[k] = vis.esiti[k].map((x) => togliLettera(x, fsAperta.lettera))));
       try { await UI.salva('impianti', { ...i, stato: '', fsDal: '' }); } catch (e) {}
       el.querySelector('#boxFsOn').innerHTML = `<b>✅ Rimesso in servizio</b> <span class="muted small">l'annotazione ${esc(fsAperta.lettera)} si chiude con [OK ${esc(fmt(d))}] quando salvi il controllo</span>`;
       sporco = true; disegnaOss(); UI.toast('Impianto in servizio: compila il controllo e salva', 'ok');
@@ -1126,5 +1133,5 @@ window.CTR = (function () {
     return sedi(el, S);
   }
 
-  return { route, aggiungiModello, modelloDi, codiciDi, codicePrincipale, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+  return { route, aggiungiModello, modelloDi, codiciDi, codicePrincipale, letteraDi, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
 })();
