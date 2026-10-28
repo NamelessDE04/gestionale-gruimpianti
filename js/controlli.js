@@ -12,13 +12,18 @@ window.CTR = (function () {
   const CODICI = [['X', 'esame visivo funzionale'], ['R', 'ripristinato'], ['P', 'pulito'], ['L', 'lubrificato'], ['S', 'sostituito']];
   const MESI = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
 
+  // Una casella può avere più codici insieme (es. visionato X, regolato R): si salvano uniti con «+» («X+R»).
+  const codiciDi = (val) => String(val || '').split('+').filter((c) => CODICI.some(([k]) => k === c));
+  const uniscCodici = (lista) => CODICI.map(([k]) => k).filter((k) => lista.includes(k)).join('+');
+  // sulla scheda del cliente: il codice più significativo (sostituito, ripristinato, pulito, lubrificato, poi visionato)
+  const codicePrincipale = (val) => { const c = codiciDi(val); return ['S', 'R', 'P', 'L', 'X'].find((k) => c.includes(k)) || ''; };
   const V = (per, testo, unita) => ({ id: uid(), per, testo, tipo: 'codice', ...(unita != null ? { valore: true, unita } : {}) });
   // CAMPO VALORE: oltre al codice (X, R, P…) la voce ha una casella per scrivere un valore (es. diametro in mm).
   // Il valore è facoltativo: se non lo prendi, basta il codice. Le voci "misura" delle versioni vecchie valgono come valore in mm.
   const UNITA = ['mm', 'cm', 'kg', 't', '%', 'bar', '°C', 'V', 'A', 'nessuna'];
   const haValore = (v) => !!(v && (v.valore || v.tipo === 'misura'));
   const unitaDi = (v) => { const u = v?.unita != null ? v.unita : (v?.tipo === 'misura' ? 'mm' : ''); return u === 'nessuna' ? '' : u; };
-  const isCodice = (x) => CODICI.some(([k]) => k === x);
+  const isCodice = (x) => CODICI.some(([k]) => k === x) || (/^[A-Z](\+[A-Z])+$/.test(x || '') && String(x).split('+').every((c) => CODICI.some(([k]) => k === c)));   // anche più codici insieme («X+R»)
   const isLett = (x) => /^[A-Z]{1,2}$/.test(x || '') && !isCodice(x);
   // schede salvate con la vecchia "misura": il numero era nell'esito -> lo sposto nei valori e l'esito diventa X
   function leggiVisita(vis, voci) {
@@ -774,7 +779,8 @@ window.CTR = (function () {
     const isLettera = (x) => /^[A-Z]{1,2}$/.test(x) && !CODICI.some(([k]) => k === x);
     const mostra = (v, pi) => {
       const b = box(v.id, pi), val = vis.esiti[v.id][pi - 1] || '';
-      b.querySelectorAll('.cod-btn').forEach((x) => x.classList.toggle('on', x.dataset.c === val));
+      const scelti = codiciDi(val);
+      b.querySelectorAll('.cod-btn').forEach((x) => x.classList.toggle('on', scelti.includes(x.dataset.c)));
       const vv = b.querySelector('[data-val]'); if (vv && document.activeElement !== vv) vv.value = vis.valori[v.id]?.[pi - 1] || '';
       b.querySelector('.val-lettera').innerHTML = isLettera(val) ? `<span class="lettera-on">${esc(val)}</span>` : '';
       b.classList.toggle('fatto', !!val); b.classList.remove('manca');
@@ -889,7 +895,12 @@ window.CTR = (function () {
     });
     voci.forEach((v) => { for (let pi = 1; pi <= np; pi++) {
       const b = box(v.id, pi);
-      b.querySelectorAll('.cod-btn').forEach((x) => (x.onclick = () => { vis.esiti[v.id][pi - 1] = vis.esiti[v.id][pi - 1] === x.dataset.c ? '' : x.dataset.c; mostra(v, pi); }));
+      // tocco su un codice: si accende o si spegne; se ce n'è già un altro restano tutti e due (es. X e R)
+      b.querySelectorAll('.cod-btn').forEach((x) => (x.onclick = () => {
+        const ora = vis.esiti[v.id][pi - 1] || '', c = isLettera(ora) ? [] : codiciDi(ora);
+        const nuovi = c.includes(x.dataset.c) ? c.filter((k) => k !== x.dataset.c) : [...c, x.dataset.c];
+        vis.esiti[v.id][pi - 1] = uniscCodici(nuovi); mostra(v, pi);
+      }));
       // scrivere un valore vuol dire che la voce è stata controllata: se manca il codice metto X
       const vv = b.querySelector('[data-val]'); if (vv) vv.oninput = () => { vis.valori[v.id][pi - 1] = vv.value.trim(); if (vv.value.trim() && !vis.esiti[v.id][pi - 1]) vis.esiti[v.id][pi - 1] = 'X'; mostra(v, pi); };
       b.querySelector('[data-anom]').onclick = () => nuovaOss(v, pi);
@@ -1028,6 +1039,7 @@ window.CTR = (function () {
         <div class="card">
           <div class="card-head"><h2>${esc(m.nome)} <span class="conta">${uso} impianti</span></h2>
             <div class="card-azioni"><button class="btn ghost small" id="btnRinomina">Rinomina</button>${ms.length > 1 && !['carroponte', 'bandiera'].includes(m.id) ? '<button class="btn ghost small danger" id="btnEliminaMod">Elimina</button>' : ''}</div></div>
+          <label class="check mod-piu"><input type="checkbox" id="chkPiu" ${m.stampaPiu ? 'checked' : ''}> <span><b>Sulla scheda del cliente stampa tutti i codici</b> di una casella (es. «X R 25»). Se è spento si stampa solo il più importante (S, R, P, L, poi X) e il valore al posto della X. ${info('Nel controllo si possono sempre segnare più codici sulla stessa voce (es. X visionato, R regolato e la misura). Questa scelta decide solo cosa esce sulla scheda stampata o inviata al cliente per gli impianti con questo modello.')}</span></label>
           ${['T', 'S', 'A'].map((pp) => `
             <h3 class="sotto-tit">${PER_NOME[pp]} (${PER[pp]})</h3>
             <div class="mod-voci">
@@ -1045,6 +1057,7 @@ window.CTR = (function () {
     const salvaM = async (nuovi, tolti) => { await scriviModelli(S, nuovi, tolti); App.ridisegna(); };
     const copiaM = () => JSON.parse(JSON.stringify(ms));
     el.querySelectorAll('[data-mod]').forEach((b) => (b.onclick = () => { modelloAperto = b.dataset.mod; App.ridisegna(); }));
+    el.querySelector('#chkPiu')?.addEventListener('change', async (e) => { const n = copiaM(); const mm = n.find((y) => y.id === m.id); if (e.target.checked) mm.stampaPiu = true; else delete mm.stampaPiu; await salvaM(n); UI.toast(e.target.checked ? 'Sulla scheda del cliente escono tutti i codici' : 'Sulla scheda del cliente esce un codice solo', 'ok'); });
     el.querySelectorAll('[data-ricrea]').forEach((b) => (b.onclick = () => {
       const x = mancanti.find((y) => y.id === b.dataset.ricrea);
       UI.modal({ titolo: 'Ricrea il modello', valori: { nome: x.nome },
@@ -1113,5 +1126,5 @@ window.CTR = (function () {
     return sedi(el, S);
   }
 
-  return { route, aggiungiModello, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+  return { route, aggiungiModello, modelloDi, codiciDi, codicePrincipale, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
 })();

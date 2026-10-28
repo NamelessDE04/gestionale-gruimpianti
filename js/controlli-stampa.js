@@ -16,6 +16,7 @@ window.CTRS = (function () {
   const val = (v) => esc(v ?? '');
 
   function pagina(S, imp, anno) {
+    const piuCodici = !!CTR.modelloDi(S, imp)?.stampaPiu;   // il modello dell'impianto chiede di stampare tutti i codici
     const { c, s } = CTR.trovaSede(S, imp.sedeId);
     const sc = CTR.schedaDi(S, imp.id, anno);
     // data della scheda: l'ultimo controllo dell'anno (serve per il nome che il cliente aveva allora)
@@ -99,11 +100,18 @@ window.CTRS = (function () {
         const bl = blocchi[n];
         // SCHEDA CLIENTE: una voce dovuta e lasciata vuota esce come X; se è stato scritto un valore esce il valore
         // (al posto della X). Le lettere delle anomalie e i codici R/P/L/S restano quelli scritti.
-        const vecchio = (x) => x && !CTR.CODICI.some(([c]) => c === x) && !/^[A-Z]{1,2}$/.test(x);   // vecchia "misura" nell'esito
+        const vecchio = (x) => x && !CTR.CODICI.some(([c]) => c === x) && !CTR.codiciDi(x).length && !/^[A-Z]{1,2}$/.test(x);   // vecchia "misura" nell'esito
         bl.p.forEach(([a, b], pi) => {
           const e = es[pi] || '', w = vl[pi] || (vecchio(e) ? e : '');
           // controllo con l'impianto fuori servizio provvisorio: le caselle vuote restano vuote
-          const txt = w && (!e || e === 'X' || vecchio(e)) ? w : (e || (vis.fs || /^NOTE\s*GENERALI$/i.test(String(v.testo).trim()) ? '' : 'X'));
+          // più codici nella stessa casella (es. «X+R»): tutti, se il modello lo chiede, altrimenti il più importante
+          const cc = CTR.codiciDi(e);
+          let txt;
+          if (cc.length > 1 && piuCodici) txt = [...cc, w].filter(Boolean).join(' ');
+          else {
+            const e1 = cc.length > 1 ? CTR.codicePrincipale(e) : e;
+            txt = w && (!e1 || e1 === 'X' || vecchio(e1)) ? w : (e1 || (vis.fs || /^NOTE\s*GENERALI$/i.test(String(v.testo).trim()) ? '' : 'X'));
+          }
           h += T(a, ty(k), val(txt), 'cs-c cs-fit', b - a);
         });
       });
