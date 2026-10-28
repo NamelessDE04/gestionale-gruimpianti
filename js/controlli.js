@@ -701,6 +701,8 @@ window.CTR = (function () {
       if (haValore(v)) vis.valori[v.id] = vis.valori[v.id] || Array(np).fill('');
       vis.esiti[v.id] = vis.esiti[v.id] || Array(np).fill('');
       for (let pi = 1; pi <= np; pi++) if (!vis.esiti[v.id][pi - 1]) { const a = aperte(v.id, pi)[0]; if (a && !prima) vis.esiti[v.id][pi - 1] = a.lettera; }
+      // un'anomalia nuova di questo controllo deve avere la sua lettera nella casella (anche se ci sono già X, R, misura…)
+      for (let pi = 1; pi <= np; pi++) { const o = sullaVoce(v.id, pi).find((k) => k.visita === n), ora = vis.esiti[v.id][pi - 1] || ''; if (o && !letteraDi(ora)) vis.esiti[v.id][pi - 1] = componiEsito(o.lettera, codiciDi(ora)); }
     });
     // ultimo valore preso (questo anno nei controlli prima, altrimenti gli anni prima): voce uguale per id o per nome
     const ultimoValore = (v, pi) => {
@@ -793,7 +795,8 @@ window.CTR = (function () {
       const scelti = codiciDi(val);
       b.querySelectorAll('.cod-btn').forEach((x) => x.classList.toggle('on', scelti.includes(x.dataset.c)));
       const vv = b.querySelector('[data-val]'); if (vv && document.activeElement !== vv) vv.value = vis.valori[v.id]?.[pi - 1] || '';
-      b.querySelector('.val-lettera').innerHTML = letteraDi(val) ? `<span class="lettera-on">${esc(letteraDi(val))}</span>` : '';
+      const lt = letteraDi(val) || sullaVoce(v.id, pi)[0]?.lettera || '';
+      b.querySelector('.val-lettera').innerHTML = lt ? `<span class="lettera-on">${esc(lt)}</span>` : '';
       b.classList.toggle('fatto', !!val); b.classList.remove('manca');
       el.querySelector('#nFatti').textContent = voci.reduce((t, x) => t + vis.esiti[x.id].filter(Boolean).length, 0);
     };
