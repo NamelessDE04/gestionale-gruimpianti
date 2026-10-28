@@ -195,7 +195,15 @@ window.CTR = (function () {
   const annoOggi = () => +oggi().slice(0, 4);
   let annoScelto = annoOggi();
   const sceltoCtr = {};   // sede|anno -> controllo scelto a mano (1-4), vale finché l'app resta aperta
-  const gruAperte = {};   // sede -> elenco gru aperto (resta così finché l'app resta aperta)
+  // «consulta»: gru aperta dall'elenco nella tendina della sede → scheda dell'anno e controlli in sola lettura, per tutti
+  let consulta = null;   // id dell'impianto in consultazione
+  const sl = () => UT.solaLettura() || !!consulta;
+  const BANNER_CONS = '<div class="avviso avviso-mini consulta-avv"><span>👁 <b>Sola consultazione</b>: qui non si modifica niente. Per lavorare usa «Inizia / Continua il controllo».</span></div>';
+  const gruAperte = {};
+  // uscito dalle pagine di quella gru (anche verso altre sezioni) → la consultazione finisce
+  window.addEventListener('hashchange', () => {
+    if (consulta && !/[?&]vedi=1/.test(location.hash) && !location.hash.startsWith('#/controlli/i/' + consulta)) { consulta = null; document.body.classList.remove('consulta'); }
+  });   // sede -> elenco gru aperto (resta così finché l'app resta aperta)
 
   const slotHtml = (p, n, st, anno, href) => {
     const t = tipoVisita(p, n);
@@ -215,7 +223,7 @@ window.CTR = (function () {
       <section class="sg">
         <div class="sez-head">
           <h1>Controllo carriponte e gru a bandiera ${info('Qui trovi le sedi che hanno impianti. Ogni sede ha il suo piano dei controlli (in che mese si parte e quale controllo è l\'annuale). Le voci da controllare stanno nei «Modelli di scheda», uguali per tutti gli impianti dello stesso tipo.')}</h1>
-          ${UT.solaLettura() || !UT.puo('ctr.modelli') ? '' : '<a class="btn ghost small" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
+          ${sl() || !UT.puo('ctr.modelli') ? '' : '<a class="btn ghost small" href="#/controlli/modelli">⚙ Modelli di scheda</a>'}
         </div>
         ${(() => { const ms = modelli(S); if (!ms || !UT.puo('ctr.modelli')) return ''; const n = S.impianti.filter((i) => i.controllo?.modelloId && !ms.some((m) => m.id === i.controllo.modelloId)).length;
           return n ? `<a class="avviso-m st-b-scaduto" href="#/controlli/modelli"><span class="av-ico">⚠️</span><span class="grow"><b>${n} gru usano un modello di scheda che non c'è più</b><span>Tocca per ricrearlo dalle voci delle loro schede</span></span>›</a>` : ''; })()}
@@ -269,7 +277,7 @@ window.CTR = (function () {
         ${p.impostato ? '' : `<div class="avviso avviso-mini">Piano dei controlli non impostato (ora: 1° a gennaio, annuale il 1°). <button class="link" id="btnPiano2">Imposta</button></div>`}
         <div class="striscia">${st.map((x) => { const t = tipoVisita(p, x.n);
           return `<button type="button" class="st-v t-${t} ${x.completa ? 'fatto' : ''} ${x.n === corr ? 'corrente' : ''} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} title="${nomeTipo(t)}" data-sceglin="${x.n}"><b>${x.n}° ${MESI[meseVisita(p, x.n) - 1].slice(0, 3)}</b><span>${t === 'T' ? 'TRIM' : t === 'S' ? 'SEME' : 'ANN'} · ${x.completa ? '✓' : `${x.fatti}/${x.tot}`}</span></button>`; }).join('')}</div>
-        ${corr && imp.length && !UT.solaLettura() && UT.puo('ctr.fare') ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
+        ${corr && imp.length && !sl() && UT.puo('ctr.fare') ? (() => { const x = st[corr - 1], t = tipoVisita(p, corr), via = x.fatti || imp.some((i) => schedaDi(S, i.id, anno)?.visite?.[corr]);
           return `<a class="ctr-inizia t-${t} ${s.coloriFascette ? 'fasc-on' : ''}" ${s.coloriFascette ? `style="--fc:${COL_FASC[t]}"` : ''} href="#/controlli/s/${sedeId}/giro/${anno}/${corr}">▶ ${x.completa ? 'Rivedi' : via ? 'Continua' : 'Inizia'} il ${corr}° controllo<small>${nomeTipo(t)} · ${MESI[meseVisita(p, corr) - 1]} ${anno}${via ? ` · ${x.fatti}/${x.tot} gru fatte` : ` · ${x.tot} gru`}</small></a>`; })() : ''}
         <details class="tendina-gru" id="tendGru" ${gruAperte[sedeId] ? 'open' : ''}>
           <summary><span>🏗️ Elenco gru <b>(${imp.length})</b></span><small>schede dell'anno, osservazioni aperte, fuori servizio</small><span class="tg-freccia">▾</span></summary>
@@ -277,14 +285,14 @@ window.CTR = (function () {
           ${imp.map((i) => {
             const sc = schedaDi(S, i.id, anno), aperteN = (sc?.osservazioni || []).filter((o) => !o.risoltaIl && !o.tolta).length;
             return `<div class="riga imp-riga ${i.dismesso ? 'dismesso' : ''}">
-              <a class="imp-link" href="#/controlli/i/${i.id}?anno=${anno}">
+              <a class="imp-link" href="#/controlli/i/${i.id}?anno=${anno}&vedi=1">
                 <span class="imp-ico">${IMP.icona(i)}</span>
                 <div class="riga-main">
                   <div class="riga-top">${i.numeroInterno ? `<b>N° ${esc(i.numeroInterno)}</b> · ` : ''}${esc(IMP.titolo(i))}</div>
                   <div class="muted small">${i.matricola ? 'Matr. ' + esc(i.matricola) : ''}${aperteN ? ` · <b class="txt-ko">${aperteN} oss. aperte</b>` : ''}${IMP.pillStato(i)}</div>
                 </div>
               </a>
-              <div class="visite-mini">${[1, 2, 3, 4].map((n) => i.dismesso && !sc?.visite?.[n] ? '<span class="vm vm-vuoto">–</span>' : `<a class="vm ${fatta(sc?.visite?.[n]) ? 'fatto' : sc?.visite?.[n] ? 'incorso' : ''} ${n === corr && !fatta(sc?.visite?.[n]) ? 'corrente' : ''} t-${tipoVisita(p, n)}" href="#/controlli/i/${i.id}/${anno}/${n}" title="${n}° controllo${sc?.visite?.[n]?.inCorso ? ' (in corso)' : ''}">${fatta(sc?.visite?.[n]) ? '✓' : sc?.visite?.[n] ? '⏸' : n}</a>`).join('')}</div>
+              <div class="visite-mini">${[1, 2, 3, 4].map((n) => i.dismesso && !sc?.visite?.[n] ? '<span class="vm vm-vuoto">–</span>' : `<a class="vm ${fatta(sc?.visite?.[n]) ? 'fatto' : sc?.visite?.[n] ? 'incorso' : ''} ${n === corr && !fatta(sc?.visite?.[n]) ? 'corrente' : ''} t-${tipoVisita(p, n)}" href="#/controlli/i/${i.id}/${anno}/${n}?vedi=1" title="${n}° controllo${sc?.visite?.[n]?.inCorso ? ' (in corso)' : ''}">${fatta(sc?.visite?.[n]) ? '✓' : sc?.visite?.[n] ? '⏸' : n}</a>`).join('')}</div>
             </div>`;
           }).join('')}
         </div>
@@ -508,6 +516,7 @@ window.CTR = (function () {
       return voci.filter((v) => per.includes(v.per) && !noteGen(v)).reduce((t, v) => t + Array.from({ length: np }, (_, k) => (vis.esiti?.[v.id] || [])[k]).filter((x) => !x).length, 0); };
     el.innerHTML = `
       <section class="sg ctr">
+        ${consulta ? BANNER_CONS : ''}
         <div class="card ctr-testa">
           <span class="imp-ico">${IMP.icona(i)}</span>
           <div class="grow">
@@ -517,9 +526,9 @@ window.CTR = (function () {
           <div class="anno anno-mini"><a href="#/controlli/i/${impId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/i/${impId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
             UT.puo('stampa') && { t: `🖨️ Stampa scheda ${anno}`, href: `#/controlli/i/${impId}/${anno}/stampa` },
-            !UT.solaLettura() && UT.puo('ctr.voci') && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
-            UT.puo('ctr.modelloSede') && sc && { t: '💾 Salva queste voci come modello', id: 'btnComeModello' },
-            UT.puo('ctr.modelloSede') && sc && { t: '🕘 Versioni di prima della scheda', id: 'btnCopie' },
+            !sl() && UT.puo('ctr.voci') && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
+            !sl() && UT.puo('ctr.modelloSede') && sc && { t: '💾 Salva queste voci come modello', id: 'btnComeModello' },
+            !sl() && UT.puo('ctr.modelloSede') && sc && { t: '🕘 Versioni di prima della scheda', id: 'btnCopie' },
             { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
           ])}
         </div>
@@ -529,14 +538,14 @@ window.CTR = (function () {
           <div class="card-head"><h2>Osservazioni ${anno} ${info('Le osservazioni restano sulla scheda per tutto l\'anno. Quando un problema viene risolto, segnalo come sistemato: sulla scheda comparirà con [OK e la data].')}</h2></div>
           ${oss.length ? oss.map((o) => `<div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b>
               <div class="grow">${esc(o.testo)}${o.versioni ? `<div class="muted small">prima: ${o.versioni.slice(0, -1).map((x) => '«' + esc(x.testo) + '»').join(', ')} · cambiata dal ${o.versioni[o.versioni.length - 1].dal}° controllo</div>` : ''}<div class="muted small">${esc(vocNome(voci, o.vocId))}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ` · <b class="txt-ok">[OK ${fmt(o.risoltaIl)}]</b>` : ''}${o.tolta ? ` · <b class="muted">tolta dal ${o.tolta}° controllo</b>` : ''}</div></div>
-              ${UT.solaLettura() ? '' : `<div class="oss-bt"><button class="btn ghost small" data-modoss="${o.lettera}" aria-label="Modifica il testo">✏️</button><button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`}</div>`).join('')
+              ${sl() ? '' : `<div class="oss-bt"><button class="btn ghost small" data-modoss="${o.lettera}" aria-label="Modifica il testo">✏️</button><button class="btn ghost small" data-oss="${o.lettera}">${o.risoltaIl ? 'Riapri' : '✓ Sistemata'}</button></div>`}</div>`).join('')
             : '<p class="muted">Nessuna osservazione.</p>'}
         </div>
-        ${!UT.solaLettura() || scV.noteInterne ? `<div class="card"><div class="card-head"><h2>📝 Note Gru Impianti ${anno} ${info('Appunti nostri: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2></div>
-          <textarea id="noteInt" rows="3" data-libero placeholder="appunti per noi…" ${UT.solaLettura() ? 'readonly' : ''}>${esc(scV.noteInterne || '')}</textarea>
-          ${UT.solaLettura() ? '' : '<div class="azioni-form"><span class="grow"></span><button type="button" class="btn ghost small" id="btnNoteInt">Salva note</button></div>'}</div>` : ''}
+        ${!sl() || scV.noteInterne ? `<div class="card"><div class="card-head"><h2>📝 Note Gru Impianti ${anno} ${info('Appunti nostri: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2></div>
+          <textarea id="noteInt" rows="3" data-libero placeholder="appunti per noi…" ${sl() ? 'readonly' : ''}>${esc(scV.noteInterne || '')}</textarea>
+          ${sl() ? '' : '<div class="azioni-form"><span class="grow"></span><button type="button" class="btn ghost small" id="btnNoteInt">Salva note</button></div>'}</div>` : ''}
         ${sc?.noteVecchie ? `<div class="card"><div class="card-head"><h2>Note dal programma vecchio ${info('Note interne scritte sul programma vecchio per questo impianto in quest\'anno. Non compaiono sulla scheda del cliente. Se servono, spostale nelle note Gru Impianti; altrimenti eliminale.')}</h2></div><p class="note-vecchie">${esc(sc.noteVecchie)}</p>
-          ${UT.solaLettura() ? '' : '<div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnVecchieVia">🗑 Elimina</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnVecchieSposta">↧ Sposta nelle note Gru Impianti</button></div>'}</div>` : ''}
+          ${sl() ? '' : '<div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnVecchieVia">🗑 Elimina</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnVecchieSposta">↧ Sposta nelle note Gru Impianti</button></div>'}</div>` : ''}
       </section>`;
     el.querySelector('#btnVoci')?.addEventListener('click', () => modaleVoci(S, i, anno));
     el.querySelector('#btnCopie')?.addEventListener('click', async () => {
@@ -731,13 +740,14 @@ window.CTR = (function () {
 
     el.innerHTML = `
       <form class="sg form" id="fVis" novalidate>
+        ${consulta ? BANNER_CONS : ''}
         ${CONF.avvisoAltro(prima, `Il ${n}° controllo ${anno} di questo impianto`)}
         <div class="vis-testa t-${tipo}">
           <div class="grow"><b>${n}° controllo ${anno} · ${nomeTipo(tipo)}</b> <span>${MESI[mese - 1]}</span>
             <div class="vis-imp">${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))} · ${esc(c ? nomeSede(c, s) : '')}</div></div>
-          ${UI.menu([prima && !UT.solaLettura() && UT.puo('ctr.elimina') && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' }, { t: '📋 Scheda dell\'anno', href: `#/controlli/i/${impId}?anno=${anno}` }, { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }])}
+          ${UI.menu([prima && !sl() && UT.puo('ctr.elimina') && { t: '🗑 Elimina questo controllo', id: 'btnElimina', cls: 'txt-ko' }, { t: '📋 Scheda dell\'anno', href: `#/controlli/i/${impId}?anno=${anno}` }, { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }])}
         </div>
-        ${fsAperta && !UT.solaLettura() ? `<div class="card vis-fs vis-fs-on" id="boxFsOn">
+        ${fsAperta && !sl() ? `<div class="card vis-fs vis-fs-on" id="boxFsOn">
           <b>⏸ Impianto fuori servizio provvisorio</b> <span class="muted small">(annotazione ${esc(fsAperta.lettera)} dal ${fmt(fsAperta.data)})</span>
           <div class="azioni-form"><button type="button" class="btn ghost" id="btnFsp">⛔ Ancora fuori servizio: salva così</button><button type="button" class="btn" id="btnFsVia">✅ Rimetti in servizio</button></div>
           <p class="muted small">«Rimetti in servizio» chiude l'annotazione con [OK] alla data di questo controllo: poi compili il controllo normalmente e salvi.</p>
@@ -761,7 +771,7 @@ window.CTR = (function () {
           <div class="giro-lista">
             ${voci.filter((v) => v.per === pp).map((v) => `
               <div class="giro-item cv-item" data-v="${v.id}">
-                <div class="gi-head"><b>${esc(v.testo)}</b>${UT.isDev() && !UT.solaLettura() ? `<button type="button" class="voc-via" data-vocvia="${v.id}" title="Togli questa voce dalla scheda" aria-label="Togli questa voce dalla scheda">🗑</button>` : ''}</div>
+                <div class="gi-head"><b>${esc(v.testo)}</b>${UT.isDev() && !sl() ? `<button type="button" class="voc-via" data-vocvia="${v.id}" title="Togli questa voce dalla scheda" aria-label="Togli questa voce dalla scheda">🗑</button>` : ''}</div>
                 ${Array.from({ length: np }, (_, k) => k + 1).map((pi) => `
                   <div class="gi-parte" data-p="${pi}">
                     ${np > 1 ? `<div class="gi-comp">P${pi} · paranco ${esc((i.paranchi[pi - 1]?.ruolo || '').toLowerCase())}</div>` : ''}
@@ -784,7 +794,7 @@ window.CTR = (function () {
           <h2>📝 Note Gru Impianti ${info('Appunti nostri su questo impianto per quest\'anno: NON compaiono sulla scheda stampata o inviata al cliente.')}</h2>
           <textarea name="noteInterne" rows="3" data-libero placeholder="es. portare ricambio freno, chiedere chiavi al capoturno…">${esc(sc.noteInterne || '')}</textarea>
         </div>
-        ${UT.solaLettura() || fsAperta ? '' : `<div class="card vis-fs">
+        ${sl() || fsAperta ? '' : `<div class="card vis-fs">
           <button type="button" class="btn ghost" id="btnFsp">⛔ Impianto fuori servizio provvisorio</button>
           <p class="muted small">Salva il controllo con le voci vuote (restano solo le lettere delle osservazioni ancora aperte) e su «NOTE GENERALI» l'annotazione «FUORI SERVIZIO PROVVISORIO».</p>
         </div>`}
@@ -811,7 +821,7 @@ window.CTR = (function () {
       el.querySelector('#ossLista').innerHTML = visibili.length ? visibili.map((o) => `
         <div class="oss-riga ${o.risoltaIl ? 'risolta' : ''}"><b class="oss-l">${esc(o.lettera)}</b><div class="grow">${esc(testoOss(o, n))}
           <div class="muted small">${esc(vocNome(sc.voci, o.vocId) || 'osservazione generale')}${np > 1 && o.p ? ' · P' + o.p : ''} · ${o.visita ? o.visita + '° controllo' : 'dal ' + (o.daAnno || anno - 1)}${o.risoltaIl ? ' · [OK ' + fmt(o.risoltaIl) + ']' : ''}</div></div>
-          ${UT.solaLettura() ? '' : `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}" aria-label="Elimina l'osservazione" title="Elimina l'osservazione">🗑</button>`}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
+          ${sl() ? '' : `<button type="button" class="btn ghost small danger" data-togli="${o.lettera}" aria-label="Elimina l'osservazione" title="Elimina l'osservazione">🗑</button>`}</div>`).join('') : '<p class="muted">Nessuna osservazione.</p>';
       el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = async () => {
         const o = osservazioni.find((x) => x.lettera === b.dataset.togli);
         // quelle nate in questo controllo si tolgono e basta; per le altre scegli tu come
@@ -847,7 +857,7 @@ window.CTR = (function () {
           ${o.versioni ? `<p class="muted small">Testi precedenti: ${o.versioni.filter((x) => x.dal < n).map((x) => `${x.dal ? 'dal ' + x.dal + '°' : 'all\'inizio'}: «${esc(x.testo)}»`).join(' · ')}</p>` : ''}
           <label class="check oss-ok"><input type="checkbox" data-ok ${o.risoltaIl ? 'checked' : ''}> Sistemata: scrivi [OK e la data]</label>
           <label data-dbox ${o.risoltaIl ? '' : 'hidden'}>Data dell'OK<input type="date" data-d value="${dataOk}"></label>
-          ${UT.solaLettura() ? '' : `<button type="button" class="btn ghost danger oss-via" data-via>🗑 ${o.visita === n && !o.daAnno ? 'Elimina questa annotazione' : 'Togli da questo controllo in poi'}<small>${o.visita === n && !o.daAnno ? 'È nata in questo controllo: sparisce del tutto.' : 'Nei controlli già fatti resta com\'era; da qui in avanti non compare più, senza [OK].'}</small></button>`}
+          ${sl() ? '' : `<button type="button" class="btn ghost danger oss-via" data-via>🗑 ${o.visita === n && !o.daAnno ? 'Elimina questa annotazione' : 'Togli da questo controllo in poi'}<small>${o.visita === n && !o.daAnno ? 'È nata in questo controllo: sparisce del tutto.' : 'Nei controlli già fatti resta com\'era; da qui in avanti non compare più, senza [OK].'}</small></button>`}
         </div>
         <div class="modal-foot"><button type="button" class="btn ghost" data-no>‹ Indietro</button><span class="grow"></span><button type="button" class="btn big oss-si" data-si>OK</button></div></div>`;
       const ok = ov.querySelector('[data-ok]'), dbox = ov.querySelector('[data-dbox]');
@@ -1010,7 +1020,7 @@ window.CTR = (function () {
     f.addEventListener('input', () => (sporco = true)); f.addEventListener('change', () => (sporco = true));
     f.addEventListener('click', (e) => { if (e.target.closest('.cod-btn, [data-togli], [data-anom], .chip-t')) sporco = true; });
     App.allUscita(() => {
-      if (!sporco || UT.solaLettura()) return true;
+      if (!sporco || sl()) return true;
       const t = leggiTecnici(); if (!t.tecnici.length) return false;   // senza tecnico non posso salvare: l'app chiede conferma
       const manc = voci.reduce((k, v) => k + (noteGen(v) ? 0 : vis.esiti[v.id].filter((x, ix) => ix < np && !x).length), 0);
       Object.assign(vis, { dataScheda: f.dataScheda.value || oggi(), dataEsecuzione: f.dataEsecuzione.value || oggi(), tecnici: t.tecnici, tecnico: t.tecnico, firmaDi: t.firmaDi,
@@ -1020,7 +1030,12 @@ window.CTR = (function () {
       UI.salva('schedeControllo', d).then(() => UI.toast(manc ? `💾 Salvato da solo · ${IMP.titolo(i)} in corso (${manc} voci da fare)` : `💾 Salvato da solo · ${IMP.titolo(i)}`, 'ok')).catch(() => {});
       sporco = false; return true;
     });
-    App.proteggi(() => sporco && !UT.solaLettura());
+    App.proteggi(() => sporco && !sl());
+    if (consulta) {   // tutto bloccato: si guarda soltanto
+      const fs = document.createElement('fieldset'); fs.disabled = true; fs.className = 'consulta-fs';
+      [...f.children].filter((x) => !x.classList.contains('consulta-avv') && !x.classList.contains('vis-testa')).forEach((x) => fs.appendChild(x));
+      f.appendChild(fs); f.onsubmit = (e) => { e.preventDefault(); };
+    }
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare il ${n}° controllo ${anno} di questo impianto? Le osservazioni nate in questo controllo verranno tolte.`)) return;
       sporco = false;
@@ -1141,6 +1156,11 @@ window.CTR = (function () {
 
   function route(el, S, parti, query) {
     const [, a, b, x, y] = parti;
+    // consultazione: parte dalla tendina (?vedi=1) e resta finché giro tra scheda dell'anno e controlli della stessa gru
+    if (query?.get('vedi')) consulta = b;
+    else if (!(a === 'i' && b === consulta)) consulta = null;
+    document.body.classList.toggle('sola-lettura', UT.solaLettura() || !!consulta);
+    document.body.classList.toggle('consulta', !!consulta);
     if (a === 'modelli') { pagModelli(el, S); return { titolo: 'Modelli di scheda', indietro: '#/controlli', live: true }; }
     if (a === 's' && x === 'giro') return giroSede(el, S, b, +y, +parti[5]);
     if (a === 's' && y === 'stampa') return CTRS.render(el, S, impiantiSede(S, b, +x).map((i) => i.id), +x, '#/controlli/s/' + b + '?anno=' + x);
