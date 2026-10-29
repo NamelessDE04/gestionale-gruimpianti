@@ -35,6 +35,9 @@ function anagraficaGestionale() {
     id: s.id,
     name: (s.sigla || `${c.ragioneSociale || ''} ${s.nome || ''}`).trim().toUpperCase(),
     full: [c.ragioneSociale, s.nome].filter(Boolean).join(' · ').toUpperCase(),   // nome completo, per i menu a tendina
+    ditta: (c.ragioneSociale || '').toUpperCase(),
+    sigla: (s.sigla || '').toUpperCase(),                                   // nel menu: il nome in grande…
+    sede: [s.nome, [s.indirizzo, s.citta].filter(Boolean).join(', ')].filter(Boolean).join(' · '),   // …e la sede/indirizzo piccolo sotto
     color: MESE_COLORE[s.pianoControlli?.mese1] || 'none',
     contacts: (c.referenti || []).filter(r => r.telefono).map(r => ({ id: r.id, name: [r.nome, r.cognome].filter(Boolean).join(' '), phone: r.telefono }))
   })));
@@ -780,16 +783,39 @@ function openEditor(id, opts = {}) {
   buildEditor();
 }
 
-function clientOptions(sel) {
-  const col = coloreDelMese(parseIso(state.edit.date).getMonth());
-  const perNome = a => [...a].sort((x, y) => (x.full || x.name || '').localeCompare(y.full || y.name || '', 'it'));
-  const due = perNome(state.clients.filter(c => c.color === col));
-  const others = perNome(state.clients.filter(c => c.color !== col));
-  // nel menu il nome completo (ditta · sede) con la sigla; sulla lavagna resta solo la sigla
-  const opt = c => `<option value="${c.id}" ${c.id === sel ? 'selected' : ''}>${esc(c.full && c.full !== c.name ? `${c.full} (${c.name})` : c.name)}</option>`;
-  return `<option value="">Scegli cliente…</option>`
-    + (due.length ? `<optgroup label="Da controllare questo mese">${due.map(opt).join('')}</optgroup>` : '')
-    + (others.length ? `<optgroup label="Altri clienti">${others.map(opt).join('')}</optgroup>` : '');
+// scelta del cliente: elenco con ricerca, tutti in ordine alfabetico (nome della ditta in evidenza, sede e indirizzo piccoli)
+const nomeCli = c => c.ditta || c.full || c.name || '';
+const sedeCli = c => [c.sede, c.sigla].filter(Boolean).join(' · ');
+function clientPicker(id, sel, vuoto) {
+  const c = clientById(sel);
+  const scelto = c ? `<b>${esc(nomeCli(c))}</b><small>${esc(sedeCli(c))}</small>` : `<span class="muted">${vuoto}</span>`;
+  return `<div class="cli-pick" data-id="${id}"><input type="hidden" id="${id}" value="${esc(sel || '')}">
+    <button type="button" class="cli-btn" aria-haspopup="listbox"><span class="cli-sc">${scelto}</span><span class="cli-fr">▾</span></button>
+    <div class="cli-pop" hidden><input type="search" class="cli-q" placeholder="🔍 Cerca cliente, sede, sigla…" autocomplete="off">
+      <div class="cli-list" role="listbox"></div></div></div>`;
+}
+function attivaClientPicker(box, vuoto) {
+  if (!box) return;
+  const hid = box.querySelector('input[type=hidden]'), btn = box.querySelector('.cli-btn'), pop = box.querySelector('.cli-pop'), q = box.querySelector('.cli-q'), list = box.querySelector('.cli-list');
+  const tutti = [...state.clients].sort((x, y) => nomeCli(x).localeCompare(nomeCli(y), 'it') || sedeCli(x).localeCompare(sedeCli(y), 'it'));
+  const disegna = () => {
+    const t = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
+    const vis = tutti.filter(c => { const h = [nomeCli(c), c.sede, c.name, c.full].join(' ').toLowerCase(); return t.every(w => h.includes(w)); });
+    list.innerHTML = (vuoto && !t.length ? `<button type="button" class="cli-it vuoto" data-v=""><span class="muted">${vuoto}</span></button>` : '')
+      + (vis.map(c => `<button type="button" class="cli-it ${c.id === hid.value ? 'on' : ''}" data-v="${c.id}"><b>${esc(nomeCli(c))}</b><small>${esc(sedeCli(c))}</small></button>`).join('')
+      || '<p class="empty">Nessun cliente trovato</p>');
+  };
+  const chiudi = () => { pop.hidden = true; box.classList.remove('aperto'); };
+  btn.onclick = () => { if (!pop.hidden) return chiudi(); pop.hidden = false; box.classList.add('aperto'); q.value = ''; disegna(); setTimeout(() => q.focus(), 30); list.querySelector('.on')?.scrollIntoView({ block: 'center' }); };
+  q.oninput = disegna;
+  q.onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); list.querySelector('.cli-it:not(.vuoto)')?.click(); } if (e.key === 'Escape') { e.stopPropagation(); chiudi(); } };
+  list.onclick = e => {
+    const it = e.target.closest('.cli-it'); if (!it) return;
+    hid.value = it.dataset.v; const c = clientById(it.dataset.v);
+    box.querySelector('.cli-sc').innerHTML = c ? `<b>${esc(nomeCli(c))}</b><small>${esc(sedeCli(c))}</small>` : `<span class="muted">${vuoto || 'Scegli cliente…'}</span>`;
+    chiudi(); syncEdit();
+  };
+  document.addEventListener('pointerdown', function fuori(e) { if (!document.body.contains(box)) return document.removeEventListener('pointerdown', fuori); if (!box.contains(e.target)) chiudi(); });
 }
 
 function buildEditor() {
@@ -808,9 +834,9 @@ function buildEditor() {
     ? `<div class="seg">${['extra', 'pers'].map(t => `<button type="button" class="seg-btn ${e.type === t ? 'on' : ''}" data-action="ed-type" data-type="${t}">${TIPI[t]}</button>`).join('')}</div>`
     : '';
   const clientField = e.type === 'pers' ? '' : e.type === 'extra'
-    ? `<label class="fld"><span>Cliente (facoltativo)</span><select id="edXClient">${clientOptions(e.extraClientId).replace('Scegli cliente…', 'Nessun cliente')}</select></label>`
+    ? `<div class="fld"><span>Cliente (facoltativo)</span>${clientPicker('edXClient', e.extraClientId, 'Nessun cliente')}</div>`
     : (isNew
-    ? `<label class="fld"><span>Cliente</span><select id="edClient">${clientOptions(e.clientId)}</select></label>`
+    ? `<div class="fld"><span>Cliente</span>${clientPicker('edClient', e.clientId, 'Scegli cliente…')}</div>`
     : `<div class="ed-client"><span class="mag ${c?.color || ''}">${esc(c?.name || '?')}</span>
          </div>`);
   const placeholder = e.type === 'check' ? 'Es. chiamare il giorno prima' : e.type === 'extra' ? 'Es. Sostituzione fune paranco' : 'Es. Luca permesso / visita medica';
@@ -857,6 +883,8 @@ function buildEditor() {
       </form>
     </div>`;
   showModal();
+  attivaClientPicker($('.cli-pick[data-id="edClient"]'), '');
+  attivaClientPicker($('.cli-pick[data-id="edXClient"]'), 'Nessun cliente');
   updateSpanTxt();
 }
 
