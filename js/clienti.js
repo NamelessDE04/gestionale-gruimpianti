@@ -155,7 +155,7 @@ window.CLI = (function () {
                 <div class="mini-top"><b>${etichettaSede(s)}</b>
 </div>
                 <p>${esc(indirizzo(s)) || '<span class="muted">Indirizzo da inserire</span>'}</p>
-                ${(s.km !== undefined && s.km !== '') || s.viaggio ? `<p class="km">🚚 ${[s.km !== undefined && s.km !== '' ? esc(s.km) + ' km' : '', s.viaggio ? esc(s.viaggio) + ' min' : ''].filter(Boolean).join(' · ')} dalla nostra sede</p>` : ''}
+                ${(s.km !== undefined && s.km !== '') || s.viaggio ? `<p class="km">🚚 ${[s.km !== undefined && s.km !== '' ? esc(s.km) + ' km' : '', s.viaggio ? esc(UI.minOre(s.viaggio)) + ' h di viaggio' : ''].filter(Boolean).join(' · ')} dalla nostra sede</p>` : ''}
                 ${s.note ? `<p class="muted small">${esc(s.note)}</p>` : ''}
                 ${s.pianoControlli ? `<p class="ordine-sede">${ordineDi(s) ? `🧾 N° ordine ${annoOggi()}: <b>${esc(ordineDi(s))}</b>` : s.ordineNonDato ? '<span class="muted">🧾 Il cliente non dà il n° d\'ordine</span>' : `<span class="txt-ko">🧾 N° ordine ${annoOggi()} da inserire</span>${ultimoOrdine(s) ? ` <span class="muted">(${ultimoOrdine(s).anno}: ${esc(ultimoOrdine(s).numero)})</span>` : ''}`}</p>` : ''}
                 ${indirizzo(s) ? `<a class="azione" href="${mappa(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Apri mappa</a>` : ''}
@@ -255,7 +255,7 @@ window.CLI = (function () {
     UI.modal({
       titolo: sd ? 'Modifica sede' : 'Nuova sede',
       infoTxt: 'Il nome della sede compare sotto il nome del cliente nelle cartelle e sugli elenchi (es. STABILIMENTO 2). Il nome breve (es. ST2) è la sigla veloce che usate in officina: compare nelle tab, nelle cartelle e sulla lavagna. Il colore (giallo, verde, rosso) indica in che mese del trimestre si fanno i controlli ed è lo stesso dei magneti della lavagna.',
-      valori: sd ? { ...sd, ordine: ordineDi(sd), trimestre: sd.pianoControlli ? ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'][sd.pianoControlli.mese1 - 1] : '' } : {},
+      valori: sd ? { ...sd, viaggio: UI.minOre(sd.viaggio), ordine: ordineDi(sd), trimestre: sd.pianoControlli ? ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'][sd.pianoControlli.mese1 - 1] : '' } : {},
       campi: [
         { k: 'nome', label: 'Nome sede', req: true, placeholder: 'es. STABILIMENTO 2', maiuscolo: true, mezza: true },
         { k: 'sigla', label: 'Nome breve sede', placeholder: 'es. ST2', maiuscolo: true, mezza: true, aiuto: 'La sigla che usate in officina' },
@@ -268,7 +268,7 @@ window.CLI = (function () {
           aiuto: (sd && ultimoOrdine(sd) && ultimoOrdine(sd).anno !== annoOggi() ? `${ultimoOrdine(sd).anno}: ${ultimoOrdine(sd).numero} · ` : '') + 'Codice del cliente per il contratto annuale di verifica: si cambia ogni anno' },
         { k: 'ordineNonDato', label: 'Il cliente non ci dà il n° d\'ordine', tipo: 'sino', mezza: true },
         { k: 'km', label: 'Km dalla nostra sede', tipo: 'number', mezza: true, placeholder: 'es. 25', aiuto: 'Solo andata: si cambia quando serve' },
-        { k: 'viaggio', label: 'Viaggio', u: 'minuti', tipo: 'number', mezza: true, placeholder: 'es. 30', aiuto: 'Tempo di viaggio solo andata: lo propone il rapportino' },
+        { k: 'viaggio', label: 'Viaggio (ore)', num: true, mezza: true, placeholder: 'es. 0,5 oppure 1:30', aiuto: 'Tempo di viaggio solo andata, in ore (0,5 = mezz\'ora · 1:15 = un\'ora e un quarto): lo propone il rapportino' },
         { k: 'note', label: 'Note sulla sede', tipo: 'textarea', placeholder: 'es. ingresso carraio, orari, chiave in portineria…' }
       ],
       onSalva: async (v) => {
@@ -277,6 +277,7 @@ window.CLI = (function () {
         const { trimestre, ordine, ...dati } = v;
         const m = ['1° mese – giallo', '2° mese – verde', '3° mese – rosso'].indexOf(trimestre) + 1;
         const target = sd ? doc.sedi.find((x) => x.id === sd.id) : { id: uid() };
+        dati.viaggio = UI.oreMin(dati.viaggio);   // in ore sullo schermo, in minuti nei dati
         Object.assign(target, dati);
         // n° d'ordine dell'anno in corso (gli anni precedenti restano nello storico)
         target.ordini = { ...(target.ordini || {}) };

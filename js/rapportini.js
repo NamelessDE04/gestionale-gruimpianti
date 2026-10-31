@@ -305,11 +305,11 @@ window.RAP = (function () {
           </div>
           <div class="gr-riga">
             <label>Tratta<select data-k="tratta">${Object.entries(TRATTE).map(([k, l]) => `<option value="${k}" ${k === g.tratta ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
-            <label>Viaggio <span class="unita">(minuti)</span><input type="number" inputmode="numeric" min="0" data-k="viaggio" value="${esc(g.viaggio)}"></label>
+            <label>Viaggio <span class="unita">(ore)</span><input inputmode="decimal" data-k="viaggio" data-ore value="${esc(UI.minOre(g.viaggio))}" placeholder="es. 1,5"></label>
             <label>Km<input type="number" inputmode="numeric" min="0" data-k="km" value="${esc(g.km)}"></label>
             <label>Persone<input type="number" inputmode="numeric" min="1" data-k="persone" value="${esc(g.persone)}"></label>
           </div>
-          ${s && (s.km || s.viaggio) ? `<p class="muted small gr-sugg">Dall'anagrafica (solo andata): ${[s.km ? s.km + ' km' : '', s.viaggio ? s.viaggio + ' min' : ''].filter(Boolean).join(' · ')} <button type="button" class="link" data-sugg="${i}">↺ usa questi</button></p>` : ''}
+          ${s && (s.km || s.viaggio) ? `<p class="muted small gr-sugg">Dall'anagrafica (solo andata): ${[s.km ? s.km + ' km' : '', s.viaggio ? UI.minOre(s.viaggio) + ' h di viaggio' : ''].filter(Boolean).join(' · ')} <button type="button" class="link" data-sugg="${i}">↺ usa questi</button></p>` : ''}
           <div class="gr-riga gr-tec">
             <div class="grow"><span class="lab">Chi è andato</span><div class="chip-tecnici">${chipTec(g)}</div></div>
             <div class="grow"><span class="lab">Piattaforme usate</span>${chipPiatt(g)}</div>
@@ -341,7 +341,7 @@ window.RAP = (function () {
             if (/^\d{4}$/.test(x.value) || /^\d{1,2}[:.]\d{2}$/.test(x.value)) { if (sistema(x)) { if (ore[k + 1]) ore[k + 1].focus(); else x.blur(); } }
           });
         });
-        box.querySelector('[data-k="tratta"]').addEventListener('change', () => { leggiUno(box, g); suggerisci(g, sedeAttuale()); g.auto = true; box.querySelector('[data-k="km"]').value = g.km; box.querySelector('[data-k="viaggio"]').value = g.viaggio; tot(); });
+        box.querySelector('[data-k="tratta"]').addEventListener('change', () => { leggiUno(box, g); suggerisci(g, sedeAttuale()); g.auto = true; box.querySelector('[data-k="km"]').value = g.km; box.querySelector('[data-k="viaggio"]').value = UI.minOre(g.viaggio); tot(); });
         box.querySelectorAll('[data-pt]').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); leggiUno(box, g); }));
         box.querySelectorAll('[data-tec]').forEach((b) => (b.onclick = () => {
           b.classList.toggle('on'); leggiUno(box, g);
@@ -354,7 +354,7 @@ window.RAP = (function () {
       el.querySelectorAll('[data-sugg]').forEach((b) => (b.onclick = () => { leggiGiorni(); const g = r.giorni[+b.dataset.sugg]; suggerisci(g, sedeAttuale()); g.auto = true; disegnaGiorni(); }));
     }
     function leggiUno(box, g) {
-      box.querySelectorAll('[data-k]').forEach((x) => (g[x.dataset.k] = x.type === 'checkbox' ? x.checked : 'ora' in x.dataset ? (ora15(x.value) || '') : x.value.trim().toUpperCase()));
+      box.querySelectorAll('[data-k]').forEach((x) => (g[x.dataset.k] = x.type === 'checkbox' ? x.checked : 'ora' in x.dataset ? (ora15(x.value) || '') : 'ore' in x.dataset ? String(UI.oreMin(x.value)) : x.value.trim().toUpperCase()));
       g.tecnici = [...box.querySelectorAll('[data-tec].on')].map((b) => b.dataset.tec);
       g.piattaforme = [...box.querySelectorAll('[data-pt].on')].map((b) => b.dataset.pt);
       delete g.piattaforma;

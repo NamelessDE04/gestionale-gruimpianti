@@ -302,5 +302,11 @@ window.UI = (function () {
   document.addEventListener('focusout', (e) => maiusc(e.target), true);
   document.addEventListener('submit', (e) => e.target.querySelectorAll('input, textarea').forEach(maiusc), true);
 
-  return { toccoFuori, adattaTesti, menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
+  // tempo di viaggio: salvato in minuti (come sempre), mostrato e scritto in ore: «1,5» oppure «1:30» (anche «45'» = minuti)
+  const minOre = (min) => { const m = Math.round(+min || 0); if (!m) return ''; if (m % 15 === 0) return String(m / 60).replace('.', ','); return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`; };
+  const oreMin = (t) => { const s = String(t ?? '').trim().replace(/\s*(h|ore|ora)$/i, ''); if (!s) return '';
+    let m = s.match(/^(\d+)\s*[:h]\s*(\d{1,2})$/i); if (m) return +m[1] * 60 + +m[2];
+    m = s.match(/^(\d+)\s*(['’]|min)$/i); if (m) return +m[1];
+    const n = +s.replace(',', '.'); return Number.isFinite(n) && n >= 0 ? Math.round(n * 60) : ''; };
+  return { minOre, oreMin, toccoFuori, adattaTesti, menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
 })();
