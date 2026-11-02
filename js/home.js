@@ -1,13 +1,13 @@
 // ===== HOME A CASELLE =====
 window.HOME = (function () {
   const caselle = [
-    { k: 'rapportini', titolo: 'Rapportini di intervento', sotto: 'Interventi firmati dal cliente', ill: 'rapportini', attiva: true },
+    { k: 'rapportini', titolo: 'Rapportini e DDT', sotto: 'Interventi firmati dal cliente e documenti di trasporto', ill: 'rapportini', attiva: true },
     { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, sottoganci e controlli approfonditi', ill: 'schede', attiva: true },
     { k: 'clienti', titolo: 'Anagrafica Clienti', sotto: 'Ditte, sedi e referenti', ill: 'clienti', attiva: true },
     { k: 'impianti', titolo: 'Anagrafica Impianti', sotto: 'Gru, paranchi e carriponte', ill: 'impianti', attiva: true },
     { k: 'layout', titolo: 'Layout delle sedi', sotto: 'Piante dei capannoni con le gru', ill: 'layout', attiva: true },
     { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
-    { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, giacenze e ordini', ill: 'magazzino' },
+    { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, quantità, da riordinare e listino prezzi', ill: 'magazzino', attiva: true },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
     { k: 'invio', titolo: 'Invia e archivia', sotto: 'Schede, rapportini ed elenchi: mandali ai clienti per email o salvali in PDF e stampali', ill: 'invio', attiva: true, href: '#/invio', soloInvio: true },
     { k: 'gho', titolo: 'GHO ELIGIO', sotto: 'Registro ore e configuratore cablaggio', ill: 'gho', attiva: true, href: '#/gho' }
@@ -59,12 +59,13 @@ window.HOME = (function () {
   const ALTRO = { k: 'altro', titolo: 'Anagrafiche e altro', sotto: 'Clienti, impianti, layout, mezzi…', ill: 'altro', attiva: true, href: '#/altro' };
   const ridotta = () => !UT.puo('home.completa');
   // caselle che questa persona può vedere (funzioni abilitate in «Gestione utenti › 🔑 Funzioni»)
-  const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
+  const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', magazzino: 'sez.magazzino', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
   const vede = (c) => !SEZ[c.k] || UT.puo(SEZ[c.k]);
   const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)).filter(vede), ALTRO] : caselle.filter((c) => vede(c)));
   const nScad = (S) => MEZ.avvisi(S).length;
   const badge = (S, c) => c.k === 'rapportini' ? RAP.badge(S)
     : c.k === 'gho' ? GHO.badge(S)
+    : c.k === 'magazzino' ? MAG.badge(S)
     : (c.k === 'mezzi' || c.k === 'altro') && nScad(S) ? `${nScad(S)} ${nScad(S) === 1 ? 'scadenza mezzi' : 'scadenze mezzi'}`
     : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '';
 

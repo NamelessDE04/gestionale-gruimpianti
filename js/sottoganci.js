@@ -420,9 +420,28 @@ window.SG = (function () {
       .sort((a, b) => (a.anno - b.anno) || (a.slot - b.slot));
     const storicoVoce = (v) => giriPrima.filter((x) => x.righe[v.s.id]).slice(-3)
       .map((x) => ({ col: SLOT[x.slot - 1].col, data: dataBreve(x.data), cod: x.righe[v.s.id].codici[v.pi] || '' }));
-    const bottoni = (cls) => `<div class="${cls}">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}" title="${esc(CODICI.find((x) => x[0] === k)[1])}">${esc(k)}</button>`).join('')}
+    // fili rotti (solo funi): campo libero nel menu «altro»; il testo va da solo nelle note, non dà giudizio e non fa avanzare
+    const fune = (v) => /\bFUN[EI]\b/i.test(v.p.denominazione || '') && UT.puo('ctr.fili');
+    const testoFili = (t) => { t = String(t || '').trim(); if (!t) return ''; if (/^\d+$/.test(t)) return +t === 1 ? '1 filo rotto' : `${+t} fili rotti`; return t; };
+    const campoFili = (v, val) => fune(v) ? `<label class="sg2-fili">✂️ Fili rotti<input type="text" data-fili autocomplete="off" enterkeyhint="done" placeholder="n° (va nelle note)" value="${esc(val || '')}"></label>` : '';
+    const filiDi = (v) => (g.righe[v.s.id].fili || [])[v.pi] || '';
+    // mette o cambia nella nota il pezzo dei fili rotti, lasciando com'è il resto
+    const notaConFili = (nota, vecchio, nuovo) => {
+      let n = String(nota || '');
+      if (vecchio) { const ix = n.lastIndexOf(vecchio); if (ix >= 0) n = (n.slice(0, ix) + n.slice(ix + vecchio.length)).replace(/^\s*·\s*|\s*·\s*$/g, '').replace(/\s*·\s*·\s*/g, ' · ').trim(); }
+      return nuovo ? (n ? n + ' · ' + nuovo : nuovo) : n;
+    };
+    const scriviFili = (v, val) => {
+      const r = g.righe[v.s.id]; r.fili = r.fili || v.s.parti.map(() => '');
+      const vecchio = testoFili(r.fili[v.pi]) || (String(r.note[v.pi] || '').match(/\b\d+ fil[io] rott[oi]\b/i) || [''])[0]; r.fili[v.pi] = val;
+      r.note[v.pi] = notaConFili(r.note[v.pi], vecchio, testoFili(val));
+      const box = riga(v.key); box.querySelector('[data-nota]').value = r.note[v.pi]; mostraNota(box, r.note[v.pi]);
+      const fb = box.querySelector('[data-fili]'); if (fb && fb.value !== val) fb.value = val;
+      sporco = true;
+    };
+    const bottoni = (cls, v) => `<div class="${cls}">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}" title="${esc(CODICI.find((x) => x[0] === k)[1])}">${esc(k)}</button>`).join('')}
         <button type="button" class="cod-btn altro" data-altro>altro ▾</button></div>
-      <div class="sg2-altri" hidden>${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>`;
+      <div class="sg2-altri" hidden>${campoFili(v, filiDi(v))}${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>`;
 
     el.innerHTML = `
       <form class="sg form sg2-giro modo-${modoGiro}" id="fGiro" novalidate>
@@ -450,7 +469,7 @@ window.SG = (function () {
               <div class="h"><b class="n ${v.pi ? 'comp' : ''}">${esc(v.s.numero)}</b>
                 <span class="d">${esc(v.p.denominazione)}<small>${sub(v)}${prima(v) ? ` · prima: <em class="${classeCod(prima(v))}">${esc(prima(v))}</em>` : ''}</small></span>
                 <button type="button" class="pen" data-pen aria-label="Note">✎</button></div>
-              ${v.elim ? msgElim(v) : bottoni('sg2-bt')}
+              ${v.elim ? msgElim(v) : bottoni('sg2-bt', v)}
               <div class="notina" data-vedi></div>
               <input class="gi-nota" data-nota placeholder="Note" value="${esc(g.righe[v.s.id].note[v.pi] || '')}" hidden>
             </div>`).join('')}
@@ -570,6 +589,8 @@ window.SG = (function () {
         setCod(i, nuovo); riordina(v); if (nuovo) dopoGiudizio(i, y0);
       }));
       const ba = box.querySelector('[data-altro]'); if (ba) ba.onclick = () => { const a = box.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
+      const fi = box.querySelector('[data-fili]');
+      if (fi) { fi.oninput = () => scriviFili(v, fi.value); fi.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); fi.blur(); } }; }
       const nota = box.querySelector('[data-nota]');
       box.querySelector('[data-pen]').onclick = () => { nota.hidden = !nota.hidden; if (!nota.hidden) nota.focus(); };
       nota.oninput = () => { g.righe[v.s.id].note[v.pi] = nota.value; mostraNota(box, nota.hidden ? nota.value : ''); };
@@ -595,11 +616,11 @@ window.SG = (function () {
         <div class="u-den">${esc(v.p.denominazione)}</div>
         <div class="u-dim">${sub(v)}</div>
         ${(() => { const st = storicoVoce(v); return st.length ? `<div class="u-storia"><small>controlli precedenti</small><div>${st.map((x) => `<span class="u-st" style="--c:${x.col}"><i>${esc(x.data)}</i><em class="${classeCod(x.cod)}">${esc(x.cod || '—')}</em></span>`).join('')}</div></div>` : '<div class="u-prima">nessun controllo precedente</div>'; })()}
-        ${nota ? `<div class="notina">📝 ${esc(nota)}</div>` : ''}
+        <div class="notina" ${nota ? '' : 'hidden'}>📝 ${esc(nota)}</div>
         <span class="grow"></span>
         ${v.elim ? msgElim(v) : `<div class="u-bt">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('')}</div>`}
         <div class="u-sotto"><button type="button" class="link" data-ualtro>${cod && !PRINCIPALI.includes(cod) ? '<b>' + esc(cod) + '</b> ▾' : 'altro giudizio ▾'}</button><button type="button" class="link" data-unota>✎ nota</button></div>
-        <div class="sg2-altri" hidden>${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>
+        <div class="sg2-altri" hidden>${v.elim ? '' : campoFili(v, filiDi(v))}${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>
         <input class="gi-nota" data-unotain placeholder="Note" value="${esc(nota)}" hidden>
         <div class="u-nav"><button type="button" class="link" data-uprec>‹ precedente</button><button type="button" class="link" data-usalta>salta ›</button></div>`;
       const y = el.querySelector('.sg2-barra').getBoundingClientRect().top + window.scrollY - 70;
@@ -610,7 +631,8 @@ window.SG = (function () {
       }));
       if (v.elim) { uno.querySelector('[data-ualtro]').hidden = true; uno.querySelectorAll('.sg2-altri .cod-btn').forEach((b) => (b.disabled = true)); }
       uno.querySelector('[data-ualtro]').onclick = () => { const a = uno.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
-      const ni = uno.querySelector('[data-unotain]');
+      const ni = uno.querySelector('[data-unotain]'), ufi = uno.querySelector('[data-fili]');
+      if (ufi) { ufi.oninput = () => { scriviFili(v, ufi.value); ni.value = g.righe[v.s.id].note[v.pi]; const nt = uno.querySelector('.notina'); if (nt) { nt.textContent = '📝 ' + ni.value; nt.hidden = !ni.value; } }; ufi.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); ufi.blur(); } }; }
       uno.querySelector('[data-unota]').onclick = () => { ni.hidden = !ni.hidden; if (!ni.hidden) ni.focus(); };
       ni.oninput = () => { g.righe[v.s.id].note[v.pi] = ni.value; const r = riga(v.key); r.querySelector('[data-nota]').value = ni.value; mostraNota(r, ni.value); };
       const vai = (d) => { let j = corrente; do { j += d; } while (j >= 0 && j < voci.length && !visibile(j)); if (j >= 0 && j < voci.length) { corrente = j; evidenzia(); disegnaUno(); } };

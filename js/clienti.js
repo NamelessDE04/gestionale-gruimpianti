@@ -141,6 +141,7 @@ window.CLI = (function () {
             ${campo('Telefono', tel(c.telefono))}
             ${campo('Email', mail(c.email))}
             ${campo('PEC', mail(c.pec))}
+            ${UT.puo('prezzi') && c.maggiorazione != null ? campo('Maggiorazione listino', esc(String(c.maggiorazione).replace('.', ',')) + ' %') : ''}
             ${(c.altreEmail || []).length ? campo('Altre email', c.altreEmail.map((x) => `${mail(x.e)}${x.l ? ` <small class="muted">${esc(x.l)}</small>` : ''}`).join('<br>')) : ''}
           </div>
           ${c.note ? `<p class="cli-note">${esc(c.note)}</p>` : ''}
@@ -206,7 +207,7 @@ window.CLI = (function () {
     UI.modal({
       titolo: nuovo ? 'Nuovo cliente' : 'Dati generali',
       infoTxt: nuovo ? 'Dopo il salvataggio potrai aggiungere sedi e referenti.' : null,
-      valori: c ? { ...c, altreEmailTxt: (c.altreEmail || []).map((x) => x.e + (x.l ? ' - ' + x.l : '')).join('\n') } : {},
+      valori: c ? { ...c, maggiorazione: c.maggiorazione != null ? String(c.maggiorazione).replace('.', ',') : '', altreEmailTxt: (c.altreEmail || []).map((x) => x.e + (x.l ? ' - ' + x.l : '')).join('\n') } : {},
       campi: [
         { k: 'logo', label: 'Logo del cliente', tipo: 'immagine', vuoto: 'Nessun logo: si vedono le iniziali' },
         { k: 'ragioneSociale', label: 'Ragione sociale', req: true, maiuscolo: true },
@@ -217,9 +218,11 @@ window.CLI = (function () {
         { k: 'email', label: 'Email generale', tipo: 'email', mezza: true },
         { k: 'pec', label: 'PEC', tipo: 'email' },
         { k: 'altreEmailTxt', label: 'Altre email', tipo: 'textarea', placeholder: 'una per riga, es.\namministrazione@ditta.it - fatture\nmanutenzione@ditta.it - ufficio tecnico', aiuto: 'Email non legate a un referente. Dopo il trattino puoi scrivere a cosa servono. Compaiono anche nell\'invio ai clienti.' },
-        { k: 'note', label: 'Note', tipo: 'textarea', placeholder: 'es. orari di accesso, chi avvisare…' }
+        { k: 'note', label: 'Note', tipo: 'textarea', placeholder: 'es. orari di accesso, chi avvisare…' },
+        ...(UT.puo('prezzi') ? [{ k: 'maggiorazione', label: 'Maggiorazione listino %', num: true, mezza: true, placeholder: 'vuoto = prezzi normali', aiuto: 'Solo per i prezzi del listino: se la scrivi, per questo cliente vale su tutti gli articoli (prezzo nostro + questa %). Non compare su rapportini e DDT.' }] : [])
       ],
       onSalva: async (v) => {
+        if ('maggiorazione' in v) { const m = parseFloat(String(v.maggiorazione).replace(',', '.')); v.maggiorazione = isFinite(m) ? m : null; }
         // altre email: una per riga, "indirizzo - a cosa serve"
         const altre = [];
         for (const riga of String(v.altreEmailTxt || '').split(/\n+/).map((x) => x.trim()).filter(Boolean)) {

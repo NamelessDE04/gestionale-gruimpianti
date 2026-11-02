@@ -31,7 +31,7 @@ window.GHO = (function () {
   const costoMat = (r) => matNostri(r).reduce((t, m) => t + num(m.prezzo) * (num(m.qta) || 1), 0);
   const costoTot = (r) => costoKm(r) + costoPiatt(r) + costoMat(r);
   const daPrezzare = (S) => (S.oreGho || []).filter((r) => (r.materiali || []).some(senzaPrezzo));
-  const badge = (S) => { const n = daPrezzare(S).reduce((t, r) => t + r.materiali.filter(senzaPrezzo).length, 0); return n ? `${n} ${n === 1 ? 'prezzo' : 'prezzi'} da controllare` : ''; };
+  const badge = (S) => { if (!UT.puo('prezzi')) return ''; const n = daPrezzare(S).reduce((t, r) => t + r.materiali.filter(senzaPrezzo).length, 0); return n ? `${n} ${n === 1 ? 'prezzo' : 'prezzi'} da controllare` : ''; };
 
   const utente = (S, id) => S.utenti.find((u) => u.id === id);
   const nomiPers = (S, r) => (r.persone || []).map((id) => UT.breve(utente(S, id)) || '?');
@@ -100,8 +100,8 @@ window.GHO = (function () {
     if (query.get('mese')) meseScelto = query.get('mese');
     const mese = meseScelto;
     const righe = (S.oreGho || []).filter((r) => meseDi(r) === mese).sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.mattDa || '').localeCompare(b.mattDa || ''));
-    const prezzi = daPrezzare(S);
-    const tot = righe.reduce((t, r) => ({ uomo: t.uomo + oreUomo(r), km: t.km + num(r.km), costo: t.costo + costoTot(r) }), { uomo: 0, km: 0, costo: 0 });
+    const vedeP = UT.puo('prezzi'), prezzi = vedeP ? daPrezzare(S) : [];
+    const tot = righe.reduce((t, r) => ({ uomo: t.uomo + oreUomo(r), km: t.km + num(r.km), costo: t.costo + (vedeP ? costoTot(r) : costoKm(r) + costoPiatt(r)) }), { uomo: 0, km: 0, costo: 0 });
     const leggi = UT.solaLettura();
     el.innerHTML = `
       <section class="sg sg2 gho">
@@ -119,7 +119,7 @@ window.GHO = (function () {
             <a class="gho-apri" href="#/gho/ore/${r.id}">
               <span class="n ap-data">${esc(fmt(r.data).replace(/\/(\d\d)(\d\d)$/, '/$2'))}</span>
               <span class="d">${esc([r.cliente, r.citta].filter(Boolean).join(' · '))}${r.gru ? ` <small class="muted">gru ${esc(r.gru)}</small>` : ''}
-                <small>${esc(orari(r).join(' e '))}${r.viaggio ? ' + viaggio ' + oreTesto(r.viaggio) : ''} · ${esc(nomiPers(S, r).join(', '))}${(r.materiali || []).some(senzaPrezzo) ? ' · <b class="txt-ko">prezzo da mettere</b>' : ''}</small></span>
+                <small>${esc(orari(r).join(' e '))}${r.viaggio ? ' + viaggio ' + oreTesto(r.viaggio) : ''} · ${esc(nomiPers(S, r).join(', '))}${UT.puo('prezzi') && (r.materiali || []).some(senzaPrezzo) ? ' · <b class="txt-ko">prezzo da mettere</b>' : ''}</small></span>
               <span class="gho-ore">${hm(oreUomo(r))}</span></a>
             <button type="button" class="btn ghost small" data-wa="${r.id}" aria-label="Messaggio WhatsApp">💬</button>
           </div>`).join('')}</div>` : `<p class="nessuno">Nessun intervento a ${nomeMese(mese)}.</p>`}
@@ -189,9 +189,9 @@ window.GHO = (function () {
             <div class="ap-tratto gho-m ${m.nostro ? 'nostro' : ''}" data-i="${i}"><div class="ap-tratto-h">
               <div class="ap-scelte"><button type="button" data-mn="0" class="${m.nostro ? '' : 'on'}">Dato da loro</button><button type="button" data-mn="1" class="${m.nostro ? 'on' : ''}">Messo da noi</button></div>
               <button type="button" class="btn ghost small danger" data-rmm="${i}">×</button></div>
-              <div class="gho-mat"><label>Codice<input data-k="codice" value="${esc(m.codice || '')}"></label><label class="lungo">Descrizione<input data-k="descrizione" value="${esc(m.descrizione || '')}"></label>
+              <div class="gho-mat"><label>Codice<input data-k="codice" value="${esc(m.codice || '')}"></label><label class="lungo">Descrizione${m.articoloId ? ' <span class="art-tag">📦 dal magazzino</span>' : ''}<input data-k="descrizione" value="${esc(m.descrizione || '')}" ${m.nostro ? 'placeholder="scrivi per cercare in magazzino"' : ''}></label>
                 <label>Quantità<input data-k="qta" inputmode="decimal" value="${esc(m.qta ?? 1)}"></label>
-                ${m.nostro ? `<label>Prezzo € (al pezzo)<input data-k="prezzo" inputmode="decimal" value="${esc(m.prezzo ?? '')}" placeholder="da vedere"></label>` : ''}</div></div>`).join('')}</div>
+                ${m.nostro && UT.puo('prezzi') ? `<label>Prezzo € (al pezzo)<input data-k="prezzo" inputmode="decimal" value="${esc(m.prezzo ?? '')}" placeholder="da vedere"></label>` : ''}</div></div>`).join('')}</div>
           <button type="button" class="btn ghost small" id="gAddM">+ Aggiungi materiale</button>
 
           <h2 class="sez-form">Segnalazioni ${info('Quello che va segnalato al cliente: sul foglio stampato esce in rosso.')}</h2>
@@ -228,7 +228,8 @@ window.GHO = (function () {
       F.querySelector('#gKm').textContent = nostroMezzo(r) ? `= ${euro(costoKm(r))}` : 'non si conta (mezzo loro)';
       F.querySelectorAll('.gho-p').forEach((b, i) => { const p = r.piattaforme[i]; b.querySelector('[data-pc]').innerHTML = p.nostra ? `${num(p.qta) || 1} × ${num(p.ore)} h × 5 € = <b>${euro(num(p.ore) * (num(p.qta) || 1) * EURO_ORA_PIATT)}</b>` : 'piattaforma loro: non si conta'; });
       const manca = r.materiali.filter(senzaPrezzo).length;
-      F.querySelector('#gTot').innerHTML = `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))} · materiale ${euro(costoMat(r))} → <b>${euro(costoTot(r))}</b>${manca ? ` <span class="txt-ko">· ${manca} ${manca === 1 ? 'prezzo' : 'prezzi'} da mettere</span>` : ''}`;
+      F.querySelector('#gTot').innerHTML = UT.puo('prezzi') ? `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))} · materiale ${euro(costoMat(r))} → <b>${euro(costoTot(r))}</b>${manca ? ` <span class="txt-ko">· ${manca} ${manca === 1 ? 'prezzo' : 'prezzi'} da mettere</span>` : ''}`
+        : `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))}`;
     }
     function collega() {
       const F = f();
@@ -249,6 +250,19 @@ window.GHO = (function () {
       F.querySelectorAll('[data-rmp]').forEach((b) => (b.onclick = () => { leggi(); r.piattaforme.splice(+b.dataset.rmp, 1); disegna(); }));
       F.querySelectorAll('[data-rmm]').forEach((b) => (b.onclick = () => { leggi(); r.materiali.splice(+b.dataset.rmm, 1); disegna(); }));
       F.querySelectorAll('.gho-p [data-pn]').forEach((b) => (b.onclick = () => { leggi(); r.piattaforme[+b.closest('.gho-p').dataset.i].nostra = b.dataset.pn === '1'; disegna(); }));
+      // materiale messo da noi: scrivendo la descrizione (o il codice) compaiono gli articoli del magazzino
+      F.querySelectorAll('.gho-m.nostro').forEach((b) => {
+        const i = +b.dataset.i;
+        const scegli = (a) => {
+          leggi(); const m = r.materiali[i];
+          const gho = S.clienti.find((c) => /\bGHO\b/i.test(CLI.nome(c)));
+          const p = MAG.prezzoCliente(S, a, gho);
+          Object.assign(m, { articoloId: a.id, codice: a.codCostruttore || a.codice, descrizione: a.descrizione, prezzo: p != null ? String(Math.round(p * 100) / 100).replace('.', ',') : m.prezzo });
+          disegna();
+        };
+        MAG.collegaRicerca(b.querySelector('[data-k="descrizione"]'), scegli, { soloSe: () => !r.materiali[i]?.articoloId });
+        MAG.collegaRicerca(b.querySelector('[data-k="codice"]'), scegli, { soloSe: () => !r.materiali[i]?.articoloId });
+      });
       F.querySelectorAll('.gho-m [data-mn]').forEach((b) => (b.onclick = () => { leggi(); r.materiali[+b.closest('.gho-m').dataset.i].nostro = b.dataset.mn === '1'; disegna(); }));
       const salva = async (wa) => {
         if (ore.some((x) => x.value && RAP.ora15(x.value) === null)) return UI.toast('C\'è un orario non valido', 'err');
@@ -263,7 +277,7 @@ window.GHO = (function () {
         if (!nostroMezzo(r)) r.mezzoId = '';
         try { await UI.salva('oreGho', JSON.parse(JSON.stringify(r))); } catch (e) { return; }
         const manca = r.materiali.filter(senzaPrezzo).length;
-        UI.toast(manca ? `Salvato · ricordati il prezzo di ${manca} ${manca === 1 ? 'materiale' : 'materiali'}` : 'Salvato', manca ? '' : 'ok');
+        UI.toast(manca && UT.puo('prezzi') ? `Salvato · ricordati il prezzo di ${manca} ${manca === 1 ? 'materiale' : 'materiali'}` : 'Salvato', manca ? '' : 'ok');
         meseScelto = meseDi(r) || meseScelto;
         location.hash = '#/gho/ore?mese=' + meseScelto;
         if (wa) setTimeout(() => apriMessaggio(S, r), 300);

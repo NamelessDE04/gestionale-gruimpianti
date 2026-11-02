@@ -104,7 +104,13 @@ window.UT = (function () {
     { g: 'Lavoro', k: 'ctr.fare', nome: 'Fare i controlli (gru, sottoganci, pinze, magneti, funi, bozzelli…)', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'ctr.elimina', nome: 'Eliminare o azzerare un controllo già fatto', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'ctr.voci', nome: 'Cambiare le voci di controllo di un impianto', def: LAVORO, scrive: true },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.ddt', nome: 'Documenti di trasporto (DDT)', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.magazzino', nome: 'Magazzino ricambi (codici, ubicazioni e quantità, senza prezzi)', def: TUTTI },
+    { g: 'Lavoro', k: 'ctr.fili', nome: 'Campo «Fili rotti» sulle funi nei controlli dei sottoganci', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'firma.grande', nome: 'Firma a tutto schermo (rapportini e DDT)', def: TUTTI },
     { g: 'Lavoro', k: 'rap.scrivere', nome: 'Scrivere e firmare i rapportini', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'ddt.scrivere', nome: 'Scrivere e firmare i DDT', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'mag.modifica', nome: 'Magazzino: aggiungere articoli, caricare merce, modificare quantità e ubicazioni', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'gho.ore', nome: 'Registrare le ore GHO', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.modifica', nome: 'Aggiungere e modificare clienti, impianti, sottoganci, attrezzi e mezzi', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.eliminaTutto', nome: 'Spostare o eliminare un cliente o una sede con tutti i suoi dati', def: ['master'], scrive: true },
@@ -114,6 +120,7 @@ window.UT = (function () {
     { g: 'Impostazioni', k: 'ctr.modelloSede', nome: 'Cambiare il modello di scheda di una sede, salvare voci come modello, azzerare i controlli di una sede', def: ['master'], scrive: true },
     { g: 'Impostazioni', k: 'imp.tipi', nome: 'Tipi di impianto (voci dell\'anagrafica impianti)', def: ['master'], scrive: true },
     { g: 'Impostazioni', k: 'cablaggio.modifica', nome: 'Modificare il configuratore cablaggio', def: ['master'], scrive: true },
+    { g: 'Ufficio', k: 'prezzi', nome: 'Listino prezzi: vedere e modificare prezzi e maggiorazioni (anche dei clienti)', def: ['master'] },
     { g: 'Ufficio', k: 'stampa', nome: 'Stampare e salvare in PDF (schede, elenchi, rapportini, layout)', def: UFFICIO },
     { g: 'Ufficio', k: 'invio', nome: 'Invia e archivia (email ai clienti)', def: UFFICIO },
     { g: 'Ufficio', k: 'ordini', nome: 'N° d\'ordine dei clienti', def: UFFICIO },
@@ -151,7 +158,7 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO', promemoria: 'Promemoria' };
+  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO', promemoria: 'Promemoria', articoli: 'Articolo di magazzino', ddt: 'DDT' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
@@ -169,6 +176,8 @@ window.UT = (function () {
       case 'rapportini': return `Rapportino ${d.numero || ''}/${d.anno || ''} – ${sede(d.sedeId)}`;
       case 'mezzi': return `Mezzo ${MEZ.nome(d)} ${d.targa || ''}`;
       case 'oreGho': return `Registro ore GHO ${d.data || ''} – ${d.cliente || ''}`;
+      case 'articoli': return `Articolo ${d.codice || ''} ${d.descrizione || ''}`;
+      case 'ddt': return `DDT ${d.numero || ''}/${String(d.anno || '').slice(-2)}/${d.rev || 'A'} – ${(d.destinatario || '').split('\n')[0]}`;
       case 'attrezzi': return `${d.tipo === 'magnete' ? 'Magnete' : 'Pinza / gancio a C'} ${d.nInterno ? 'n° ' + d.nInterno + ' ' : ''}– ${sede(d.sedeId)}`;
       case 'controlliAttrezzi': { const a = S.attrezzi?.find((x) => x.id === d.attrezzoId); return `Controllo ${d.slot}° ${d.anno} ${a ? (a.tipoDesc || '') + (a.nInterno ? ' n° ' + a.nInterno : '') : ''} – ${sede(d.sedeId)}`; }
       case 'schedeApprofondite': return `${({ fune: 'Scheda fune e carrucole', bozzello: 'Scheda controllo gancio', indagine: 'Indagine approfondita' })[d.tipo] || 'Controllo approfondito'} ${d.data || ''} – ${sede(d.sedeId)}`;
@@ -486,7 +495,12 @@ window.UT = (function () {
       // il riquadro della firma compare solo col tasto: così non si firma per sbaglio scorrendo la pagina
       let pad = null;
       const box = el.querySelector('#boxFirmaP'), apri = el.querySelector('#boxApriFirma');
-      el.querySelector('#btnApriFirma').onclick = () => {
+      el.querySelector('#btnApriFirma').onclick = async () => {
+        if (puo('firma.grande')) {
+          const img = await UI.firmaGrande({ titolo: 'La tua firma', sotto: 'Va sui rapportini, sui DDT e sulle schede' });
+          if (img) { await UI.salva('utenti', { ...attuale(), firma: img }); UI.toast('Firma salvata', 'ok'); setTimeout(() => App.ridisegna(), 50); }
+          return;
+        }
         box.hidden = false; apri.hidden = true;
         pad = pad || UI.firmaPad(el.querySelector('#cvP')); pad.pulisci();
         box.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -962,16 +976,19 @@ window.UT = (function () {
     // stampa e invio ai clienti: solo Master e Risorse Umane
     const stampa = ['controlli', 'sottoganci', 'approfonditi', 'gho', 'impianti', 'rapportini'].includes(parti[0]) && parti.includes('stampa');
     const no = (k) => !puo(k);
-    const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', controlli: 'sez.schede', sottoganci: 'sez.schede', approfonditi: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', gho: 'sez.gho', cablaggio: 'sez.gho' };
+    const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', controlli: 'sez.schede', sottoganci: 'sez.schede', approfonditi: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', magazzino: 'sez.magazzino', gho: 'sez.gho', cablaggio: 'sez.gho' };
     const nonAbil = 'Questa funzione non è abilitata per te. Se ti serve, chiedi al Master di accenderla in «Gestione utenti › 🔑 Funzioni».';
     if (SEZ[parti[0]] && no(SEZ[parti[0]])) return nonAbil;
     if (parti[0] === 'invio' && no('invio')) return nonAbil;
+    if (parti[0] === 'rapportini' && parti[1] === 'ddt' && no('sez.ddt')) return nonAbil;
+    if (parti[0] === 'magazzino' && parti[1] === 'listino' && no('prezzi')) return nonAbil;
     if (parti[0] === 'ordini' && no('ordini')) return nonAbil;
     if (parti[0] === 'conflitti' && no('conflitti')) return nonAbil;
     if (stampa && no('stampa')) return nonAbil;
     if (r !== 'ru' && r !== 'developer') {
       if (/^(controlli\/s\/[^/]+\/giro|controlli\/i\/[^/]+\/\d{4}\/\d$|sottoganci\/c\/[^/]+\/giro|approfonditi\/[^/]+\/(a\/[^/]+\/controllo|nuovo|s\/[^/]+$))/.test(p) && no('ctr.fare')) return nonAbil;
       if (/^rapportini\/(nuovo|r\/[^/]+\/modifica)/.test(p) && no('rap.scrivere')) return nonAbil;
+      if (/^rapportini\/ddt\/(nuovo|[^/]+\/modifica)/.test(p) && no('ddt.scrivere')) return nonAbil;
       if (/^gho\/ore\/(?!stampa)[^/]+$/.test(p) && no('gho.ore')) return nonAbil;
       if (/^(clienti|impianti|mezzi)\/(nuovo|.*\/modifica)|^sottoganci\/(s\/|c\/[^/]+\/nuovo|cartella)|^approfonditi\/[^/]+\/a\/[^/]+\/modifica|^approfonditi\/[^/]+\/a-nuovo/.test(p) && no('anag.modifica')) return nonAbil;
       if (p === 'controlli/modelli' && no('ctr.modelli')) return nonAbil;

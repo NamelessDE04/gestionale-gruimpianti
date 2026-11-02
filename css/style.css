@@ -1158,7 +1158,7 @@ input.ora-ko { border-color: var(--ko, #c0392b) !important; background: #fff1f0 
 .sg2-altri .cod-btn { min-height: 42px; font-size: 14px; }
 .sg2-altri .cod-btn small { font-weight: 500; font-size: 11px; }
 .sg2-gi .notina, .sg2-uno .notina { font-size: 12px; color: #8a6500; margin: 6px 0 0 48px; overflow-wrap: anywhere; }
-.sg2-gi .notina[hidden] { display: none; }
+.sg2-gi .notina[hidden], .sg2-uno .notina[hidden] { display: none; }
 .sg2-gi .gi-nota { margin-top: 8px; }
 .sg2-ng { margin-bottom: 14px; }
 .sg2-piede { position: fixed; left: 0; right: 0; bottom: 0; z-index: 20; display: flex; align-items: center; gap: 12px; background: #fff; padding: 10px max(12px, calc((100vw - 900px) / 2)); padding-bottom: max(10px, env(safe-area-inset-bottom)); box-shadow: 0 -2px 10px rgba(0,0,0,.12); }
@@ -1605,3 +1605,115 @@ body.consulta .oss-riga, body.consulta [data-modoss] { cursor: default; }
 .consulta-fs .dati-vis summary .link, .consulta-fs #btnOssLibera, .consulta-fs [data-anom], .consulta-fs .voc-via { display: none !important; }
 .consulta-fs .cod-btn:not(.on) { opacity: .4; }
 .consulta-fs .cod-btn, .consulta-fs input, .consulta-fs textarea, .consulta-fs select { cursor: default; }
+
+/* fili rotti (funi) nel menu «altro» dei sottoganci */
+.sg2-fili { grid-column: 1 / -1; display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; padding: 6px 10px; border: 1px dashed var(--linea); border-radius: 10px; background: var(--card); margin: 0; }
+.sg2-fili input { flex: 1; min-width: 0; min-height: 40px; font-size: 16px; margin: 0; }
+
+/* firma a tutto schermo */
+html.fg-aperta, html.fg-aperta body { overflow: hidden; }
+.fg-over { position: fixed; inset: 0; z-index: 9999; background: #fff; display: flex; flex-direction: column; padding: 8px 10px; padding-top: max(8px, env(safe-area-inset-top)); padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+.fg-testa { display: flex; align-items: center; gap: 6px 12px; flex-wrap: wrap; padding-bottom: 6px; }
+.fg-tit { flex: 1 1 180px; min-width: 0; display: flex; flex-direction: column; }
+.fg-tit b { font-size: 16px; color: var(--navy); } .fg-tit small { color: var(--muted); font-size: 13px; }
+.fg-bt { display: flex; gap: 6px; flex: 0 1 auto; margin-left: auto; }
+.fg-testa .btn { min-height: 38px; padding-left: 12px; padding-right: 12px; }
+.fg-area { flex: 1; position: relative; min-height: 0; }
+.fg-area canvas { width: 100%; height: 100% !important; border: 2px dashed #b9c4d1; border-radius: 14px; background: #fcfdfe; touch-action: none; display: block; }
+.fg-riga { position: absolute; left: 6%; right: 6%; bottom: 26%; border-bottom: 2px solid #8a99ab; pointer-events: none; }
+.fg-riga span { position: absolute; left: -2px; bottom: 2px; font-size: 22px; color: #8a99ab; font-weight: 700; }
+.fg-hint { position: absolute; left: 0; right: 0; bottom: calc(26% - 26px); text-align: center; color: #b2bdca; pointer-events: none; font-size: 14px; }
+.fg-area.firmata .fg-hint { display: none; }
+.fg-gira { display: none; text-align: center; color: var(--muted); font-size: 13px; padding-top: 6px; }
+@media (orientation: portrait) and (max-width: 700px) { .fg-gira { display: block; } }
+
+/* ===== v0.43: magazzino, listino, DDT ===== */
+.tabs-rapddt { margin-bottom: 10px; }
+/* ricerca articolo del magazzino dentro i documenti */
+.art-host { position: relative; }
+.art-pop { position: absolute; left: 0; right: 0; top: 100%; z-index: 40; background: var(--card); border: 1px solid var(--linea); border-radius: 12px; box-shadow: 0 10px 28px rgba(16, 24, 40, .2); padding: 4px; display: flex; flex-direction: column; max-height: 50vh; overflow-y: auto; }
+.art-pop[hidden] { display: none; }
+.art-pop button { display: grid; grid-template-columns: auto 1fr auto; gap: 2px 8px; align-items: baseline; text-align: left; border: 0; background: none; padding: 8px 10px; border-radius: 8px; cursor: pointer; font: inherit; color: var(--testo); }
+.art-pop button:hover, .art-pop button:focus { background: var(--grigio-bg); }
+.art-pop button b { font-size: 14px; color: var(--navy); } .art-pop button small { color: var(--muted); font-size: 12px; grid-column: 2; grid-row: 2; }
+.art-pop button span { font-size: 14px; overflow-wrap: anywhere; } .art-pop button em { font-size: 12px; font-style: normal; color: var(--muted); white-space: nowrap; }
+.art-tag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: var(--info); background: var(--info-bg); border-radius: 99px; padding: 1px 8px; margin-left: 6px; }
+.art-tag .link { font-size: 12px; padding: 0; }
+.art-cerca { margin-top: 8px; display: block; }
+/* magazzino */
+.mag-riga { gap: 12px; }
+.mag-riga.basso { border-left: 5px solid var(--ko); }
+.mag-cod { display: flex; flex-direction: column; min-width: 74px; } .mag-cod b { color: var(--navy); font-size: 15px; } .mag-cod small { color: var(--muted); font-size: 12px; overflow-wrap: anywhere; }
+.mag-desc { overflow-wrap: anywhere; }
+.mag-qta { display: flex; flex-direction: column; align-items: center; min-width: 56px; } .mag-qta b { font-size: 20px; } .mag-qta small { font-size: 11px; color: var(--muted); }
+.mag-riord { padding: 10px 14px; margin-bottom: 12px; border-left: 5px solid var(--ko); } .mag-riord summary { cursor: pointer; font-size: 16px; } .mag-riord .elenco { margin-top: 10px; }
+.mag-tutti { display: flex; align-items: center; gap: 8px; font-size: 14px; margin: 0 0 10px; }
+.mag-mov { display: flex; flex-direction: column; }
+.mag-mov-r { display: flex; align-items: center; gap: 10px; padding: 9px 2px; border-bottom: 1px solid var(--linea); color: inherit; text-decoration: none; }
+.mag-mov-r .grow { overflow-wrap: anywhere; min-width: 0; }
+.txt-ok { color: var(--ok); }
+/* listino */
+.lis-testa { display: grid; grid-template-columns: 1fr 2fr; gap: 0 12px; align-items: end; }
+.lis-testa .lis-nota { grid-column: 1 / -1; margin: 0; }
+.lis-righe { display: flex; flex-direction: column; gap: 8px; }
+.lis-r { display: grid; grid-template-columns: minmax(0, 1fr) 100px 90px 100px; gap: 8px; align-items: end; background: var(--card); border-radius: 14px; box-shadow: var(--ombra); padding: 10px 12px; }
+.lis-r label { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0; } .lis-r input { margin-top: 3px; min-height: 40px; padding: 6px 8px; text-align: right; }
+.lis-desc { display: flex; flex-direction: column; color: inherit; text-decoration: none; min-width: 0; align-self: center; }
+.lis-desc b { color: var(--navy); } .lis-desc small { color: var(--muted); font-size: 12px; } .lis-desc span { overflow-wrap: anywhere; font-size: 14px; } .lis-desc .pill { align-self: flex-start; margin-top: 3px; }
+.lis-percli { grid-column: 1 / -1; display: flex; justify-content: flex-end; gap: 8px; align-items: baseline; border-top: 1px dashed var(--linea); padding-top: 6px; } .lis-percli small { color: var(--muted); }
+@media (max-width: 640px) {
+  .lis-testa { grid-template-columns: 1fr; }
+  .lis-r { grid-template-columns: 1fr 1fr 1fr; } .lis-desc { grid-column: 1 / -1; }
+}
+/* rapportino: DDT da abbinare e materiale */
+.ddt-abb { margin-top: 10px; padding: 10px 12px; border-radius: 12px; background: var(--info-bg); font-size: 14px; }
+.ddt-abb.on { background: var(--ok-bg); }
+.ddt-abb-l { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.ddt-abb-l .chip-s { max-width: 100%; white-space: normal; text-align: left; }
+.mat-r { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--linea); }
+.mat-r input { width: 64px; margin: 0; text-align: center; min-height: 40px; }
+.mat-r .grow { min-width: 0; overflow-wrap: anywhere; font-size: 14px; }
+.mat-r .link { white-space: nowrap; font-size: 13px; }
+/* DDT: modulo */
+.ddt-num { display: flex; align-items: flex-end; gap: 6px; flex-wrap: wrap; }
+.ddt-num label { margin: 0 0 12px; } .ddt-num span { padding-bottom: 22px; font-weight: 700; color: var(--muted); }
+.ddt-num label:nth-of-type(1) input { width: 82px; } .ddt-num label:nth-of-type(2) input { width: 82px; } .ddt-num label:nth-of-type(3) input { width: 56px; text-transform: uppercase; }
+.ddt-num .grow { min-width: 160px; }
+.cli-pick { position: relative; margin-top: 5px; }
+.cli-pick .cli-btn { width: 100%; display: flex; flex-direction: column; align-items: flex-start; gap: 1px; border: 1.5px solid var(--linea); border-radius: 12px; background: var(--card); padding: 8px 12px; min-height: 50px; text-align: left; cursor: pointer; font: inherit; color: var(--testo); }
+.cli-pick .cli-btn b { font-size: 16px; } .cli-pick .cli-btn small { font-size: 12.5px; color: var(--muted); font-weight: 400; overflow-wrap: anywhere; }
+.cli-pick .cli-pop { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 30; background: var(--card); border: 1px solid var(--linea); border-radius: 12px; box-shadow: 0 10px 28px rgba(16, 24, 40, .2); padding: 8px; display: flex; flex-direction: column; gap: 6px; }
+.cli-pick .cli-pop[hidden] { display: none; }
+.cli-pick .cli-q { margin: 0; }
+.cli-pick .cli-list { max-height: min(340px, 50vh); overflow-y: auto; display: flex; flex-direction: column; }
+.cli-pick .cli-list button { display: flex; flex-direction: column; align-items: flex-start; border: 0; background: none; padding: 8px 10px; border-radius: 8px; text-align: left; cursor: pointer; font: inherit; color: var(--testo); }
+.cli-pick .cli-list button:hover { background: var(--grigio-bg); }
+.cli-pick .cli-list b { font-size: 15px; } .cli-pick .cli-list small { font-size: 12px; color: var(--muted); font-weight: 400; overflow-wrap: anywhere; }
+.ddt-r { display: grid; grid-template-columns: 74px 80px minmax(0, 1fr) auto; gap: 8px; align-items: end; padding: 8px 0; border-bottom: 1px solid var(--linea); }
+.ddt-r label { margin: 0; } .ddt-r textarea { resize: vertical; min-height: 44px; }
+.ddt-r input { text-transform: uppercase; }
+.ddt-x { align-self: center; margin-top: 18px; }
+@media (max-width: 560px) { .ddt-r { grid-template-columns: 70px 74px 1fr; } .ddt-d { grid-column: 1 / -1; grid-row: 2; } .ddt-x { grid-column: 3; grid-row: 1; justify-self: end; } }
+.ddt-firme .firma-salvata { margin-bottom: 6px; }
+.ddt-fbt { display: flex; gap: 12px; align-items: center; }
+.ddt-firme .link { display: block; margin-top: 6px; }
+/* DDT: foglio stampato */
+.ddt-pag { margin: 0 auto 6mm; }
+.ddt-pag + .ddt-pag { break-before: page; }
+.dd-logo { position: absolute; left: 12mm; top: 11mm; width: 30mm; height: 21mm; object-fit: contain; }
+.dd-30 { position: absolute; left: 172mm; top: 18mm; width: 26mm; height: 20mm; object-fit: contain; }
+.dd-intest { position: absolute; left: 47mm; top: 12mm; font-size: 7.6pt; line-height: 1.42; }
+.dd-l { position: absolute; border-top: .2mm solid #000; height: 0; }
+.dd-l.dd-pt { border-top: .15mm dotted #777; }
+.dd-v { position: absolute; border-left: .2mm solid #000; width: 0; }
+.dd-lab { font-style: italic; font-size: 8.6pt; }
+.dd-lab.dx { justify-content: flex-end; }
+.dd-lab.dd-pic { font-style: normal; font-size: 6.8pt; letter-spacing: .1px; }
+.dd-forte { font-size: 9.2pt; font-weight: 700; }
+.dd-val { font-style: italic; font-size: 9.6pt; font-weight: 700; font-family: "Trebuchet MS", Arial, sans-serif; }
+.dd-val.dd-sotto { font-weight: 400; }
+.dd-dest { font-size: 9.6pt; }
+.dd-gr { font-size: 13pt; font-weight: 400; }
+.dd-o { display: inline-block; margin-left: 2mm; font-style: normal; font-size: 9pt; }
+.dd-vett { font-size: 8.5pt; }
+@media print { .ddt-pag { margin: 0 !important; } }

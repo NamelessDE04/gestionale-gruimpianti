@@ -1,8 +1,8 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.42.86';
-  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria'];
-  const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [] };
+  const VERSIONE = '0.43.0';
+  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt'];
+  const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
   const el = document.getElementById('app');
   let vistaLive = true, pronti = 0;
@@ -102,6 +102,7 @@ window.App = (function () {
     else if (parti[0] === 'clienti') info = CLI.route(el, S, parti, query) || info;
     else if (parti[0] === 'impianti') info = IMP.route(el, S, parti, query) || info;
     else if (parti[0] === 'mezzi') info = MEZ.route(el, S, parti) || info;
+    else if (parti[0] === 'magazzino') info = MAG.route(el, S, parti) || info;
     else if (parti[0] === 'controlli') info = CTR.route(el, S, parti, query) || info;
     else if (parti[0] === 'layout') info = LAY.route(el, S, parti, query) || info;
     else if (parti[0] === 'schede') info = HOME.renderSchede(el, S, parti) || info;

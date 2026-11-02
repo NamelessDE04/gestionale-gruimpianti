@@ -132,6 +132,27 @@ window.UI = (function () {
     };
   }
 
+  // --- firma a tutto schermo: si apre sopra a tutto, con la riga dove firmare. Ritorna l'immagine (o null se annulli) ---
+  function firmaGrande({ titolo = 'Firma', sotto = '' } = {}) {
+    return new Promise((fine) => {
+      const d = document.createElement('div'); d.className = 'fg-over';
+      d.innerHTML = `<div class="fg-testa"><div class="fg-tit"><b>${esc(titolo)}</b>${sotto ? `<small>${esc(sotto)}</small>` : ''}</div>
+          <div class="fg-bt"><button type="button" class="btn ghost small" data-ann>Annulla</button><button type="button" class="btn ghost small" data-pul>Cancella</button><button type="button" class="btn small" data-ok>✓ Fatto</button></div></div>
+        <div class="fg-area firma"><canvas></canvas><div class="fg-riga"><span>✕</span></div><span class="fg-hint">Firma sopra la riga</span></div>
+        <div class="fg-gira">↻ Gira il telefono in orizzontale per avere più spazio</div>`;
+      document.body.appendChild(d); document.documentElement.classList.add('fg-aperta');
+      const pad = firmaPad(d.querySelector('canvas'));
+      const chiudi = (img) => { document.documentElement.classList.remove('fg-aperta'); d.remove(); window.removeEventListener('popstate', indietro); fine(img); };
+      const indietro = () => chiudi(null);
+      // il tasto indietro del telefono chiude la firma invece di uscire dalla pagina
+      history.pushState({ fg: 1 }, ''); window.addEventListener('popstate', indietro);
+      const esci = (img) => { window.removeEventListener('popstate', indietro); if (history.state?.fg) history.back(); chiudi(img); };
+      d.querySelector('[data-pul]').onclick = () => pad.pulisci();
+      d.querySelector('[data-ann]').onclick = () => esci(null);
+      d.querySelector('[data-ok]').onclick = () => { if (pad.vuota()) return toast('Manca la firma', 'err'); esci(pad.immagine()); };
+    });
+  }
+
   // --- foto: ridotte a max 1280 px e compresse (~100-200 KB) ---
   function comprimiFoto(file, max = 1280, q = 0.62) {
     return new Promise((ok, ko) => {
@@ -308,5 +329,5 @@ window.UI = (function () {
     let m = s.match(/^(\d+)\s*[:h]\s*(\d{1,2})$/i); if (m) return +m[1] * 60 + +m[2];
     m = s.match(/^(\d+)\s*(['’]|min)$/i); if (m) return +m[1];
     const n = +s.replace(',', '.'); return Number.isFinite(n) && n >= 0 ? Math.round(n * 60) : ''; };
-  return { minOre, oreMin, toccoFuori, adattaTesti, menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, comprimiFoto, conferma };
+  return { minOre, oreMin, toccoFuori, adattaTesti, menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, firmaGrande, comprimiFoto, conferma };
 })();

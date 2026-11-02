@@ -87,6 +87,7 @@ window.RAP = (function () {
     elenco.forEach((r) => { const k = primaData(r).slice(0, 7); let g = gruppi.find((x) => x.k === k); if (!g) gruppi.push((g = { k, r: [] })); g.r.push(r); });
     el.innerHTML = `
       <section class="cli">
+        ${DDT.tabs('rap')}
         <div class="sez-head"><h1>Rapportini ${info('I rapportini sono divisi per mese (il mese del primo giorno di lavoro). In cima, con 📌, quelli ancora da firmare: restano lì finché non li chiudi. Il simbolo accanto alla ricerca apre i filtri (anno, mese, cliente, tecnico, stato).')}</h1>
           <a class="btn fab" href="#/rapportini/nuovo" id="btnNuovo" ${UT.puo('rap.scrivere') && !UT.solaLettura() ? '' : 'hidden'}><span class="fab-piu">+</span><span class="fab-txt"> Nuovo rapportino</span></a></div>
         <div class="barra-cerca">
@@ -123,7 +124,7 @@ window.RAP = (function () {
         else App.ridisegna();
       });
     });
-    return { titolo: 'Rapportini di intervento', indietro: '#/', live: true };
+    return { titolo: 'Rapportini e DDT', indietro: '#/', live: true };
   }
   function riga(S, r) {
     const { c, s } = trova(S, r.sedeId);
@@ -188,6 +189,7 @@ window.RAP = (function () {
                 <label>Data DDT<input type="date" name="ddtData" value="${esc(r.ddtData || '')}"></label>
               </div>
             </details>
+            <div id="ddtAbb"></div>
             <div id="aperti"></div>
           </div>
           <div class="card">
@@ -208,6 +210,11 @@ window.RAP = (function () {
             </details>
             <textarea name="eseguiti" rows="6" placeholder="Descrivi i lavori eseguiti (per i controlli usa la frase qui sopra)">${esc(r.eseguiti)}</textarea>
           </div>
+          ${UT.puo('sez.magazzino') ? `<div class="card">
+            <div class="card-head"><h2>Materiale dal magazzino ${info('Scrivi codice o descrizione e tocca l\'articolo: quando salvi la quantità a magazzino scende (e torna su se lo togli). Non va sul foglio del cliente: con «↧ nei lavori» lo scrivi anche in «Lavori eseguiti». Se il rapportino è abbinato a un DDT, il materiale già uscito con il DDT non si scala due volte. Puoi sempre scrivere il materiale liberamente nei lavori eseguiti, anche senza magazzino.')}</h2></div>
+            <div id="matRap"></div>
+            <label class="art-cerca"><input id="matCerca" placeholder="🔍 Aggiungi: scrivi codice o descrizione" autocomplete="off"></label>
+          </div>` : ''}
           <div class="card">
             <div class="card-head"><h2>Lavori da eseguire</h2></div>
             <div class="frasi-rapide"><button type="button" class="chip-s" data-frase-da="COME DA SCHEDE DI CONTROLLO.">＋ Come da schede di controllo</button></div>
@@ -275,7 +282,7 @@ window.RAP = (function () {
     f.referenteId.onchange = mostraRefNome;
     f.clienteId.onchange = () => { r.sedeId = ''; disegnaSedi(); aggiornaSede(); };
     f.sedeId.onchange = () => { r.sedeId = f.sedeId.value; aggiornaSede(); };
-    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); mostraAperti(); propostaCp(); suggOrdine(); };
+    const aggiornaSede = () => { leggiGiorni(); const s = sedeAttuale(); r.giorni.forEach((g) => { if (g.auto) suggerisci(g, s); }); disegnaGiorni(); mostraAperti(); mostraDdt(); propostaCp(); suggOrdine(); };
     // nuovo rapportino per una sede che ne ha già uno aperto: propongo di continuare quello
     const mostraAperti = () => {
       const box = el.querySelector('#aperti'); if (!box) return;
@@ -283,6 +290,42 @@ window.RAP = (function () {
       box.innerHTML = lista.length ? `<div class="avviso-altro">📌 Per questa sede c'è già ${lista.length === 1 ? 'un rapportino aperto' : lista.length + ' rapportini aperti'}: se il lavoro è lo stesso, continua quello.
         ${lista.map((x) => `<div class="aperto-prop"><span><b>N° ${esc(numeroDi(x))}</b> · ${fmt(primaData(x))} · ${esc((x.eseguiti || '').slice(0, 60))}${(x.eseguiti || '').length > 60 ? '…' : ''}</span><a class="btn small" href="#/rapportini/r/${x.id}/modifica?giorno=1">+ Aggiungi un giorno</a></div>`).join('')}</div>` : '';
     };
+
+    // --- DDT dello stesso cliente da abbinare (solo suggerimento: rapportini e DDT restano indipendenti)
+    const mostraDdt = () => {
+      const box = el.querySelector('#ddtAbb'); if (!box || !UT.puo('sez.ddt')) return;
+      const d = r.ddtId && (S.ddt || []).find((x) => x.id === r.ddtId);
+      const sint = () => (el.querySelector('#rifSint').textContent = sintesiRif({ ordine: f.ordine.value.trim(), offerta: f.offerta.value.trim(), ddtNumero: f.ddtNumero.value.trim(), ddtData: f.ddtData.value }));
+      if (d) {
+        box.innerHTML = `<div class="ddt-abb on">🔗 Abbinato al <a href="#/rapportini/ddt/${d.id}"><b>DDT N° ${esc(DDT.numeroDi(d))}</b></a> del ${fmt(d.data)} <button type="button" class="link txt-ko" id="ddtTogli">Togli abbinamento</button></div>`;
+        box.querySelector('#ddtTogli').onclick = () => { if (f.ddtNumero.value === DDT.numeroDi(d)) { f.ddtNumero.value = ''; f.ddtData.value = ''; } r.ddtId = null; sint(); mostraDdt(); };
+        return;
+      }
+      const lista = f.clienteId.value ? DDT.abbinabili(S, f.clienteId.value, r.id) : [];
+      box.innerHTML = lista.length ? `<div class="ddt-abb">🚚 <b>DDT da abbinare</b> <span class="muted small">(stesso cliente, non ancora abbinati)</span><div class="ddt-abb-l">${lista.slice(0, 6).map((x) => `<button type="button" class="chip-s" data-abb="${x.id}">N° ${esc(DDT.numeroDi(x))} · ${fmt(x.data)}${(x.righe || [])[0]?.descrizione ? ' · ' + esc(x.righe[0].descrizione.split('\n')[0].slice(0, 30)) : ''}</button>`).join('')}</div></div>` : '';
+      box.querySelectorAll('[data-abb]').forEach((b) => (b.onclick = () => {
+        const x = (S.ddt || []).find((y) => y.id === b.dataset.abb); if (!x) return;
+        r.ddtId = x.id; f.ddtNumero.value = DDT.numeroDi(x); f.ddtData.value = x.data || ''; sint(); mostraDdt(); UI.toast('DDT abbinato: ricordati di salvare', '');
+      }));
+    };
+
+    // --- materiale dal magazzino
+    r.materiali = r.materiali || [];
+    const leggiMat = () => el.querySelectorAll('.mat-r').forEach((b, i) => { r.materiali[i].qta = b.querySelector('[data-mq]').value.trim(); });
+    function disegnaMat() {
+      const box = el.querySelector('#matRap'); if (!box) return;
+      box.innerHTML = r.materiali.map((m, i) => `<div class="mat-r"><input data-mq inputmode="decimal" value="${esc(m.qta)}" aria-label="Quantità"><span class="grow"><b>${esc(m.codice || '')}</b> ${esc(m.descrizione || '')}</span><button type="button" class="link" data-mlav="${i}">↧ nei lavori</button><button type="button" class="btn ghost small danger" data-mrm="${i}" aria-label="Togli">×</button></div>`).join('') || '<p class="muted small">Nessun materiale dal magazzino.</p>';
+      box.querySelectorAll('[data-mrm]').forEach((b) => (b.onclick = () => { leggiMat(); r.materiali.splice(+b.dataset.mrm, 1); disegnaMat(); }));
+      box.querySelectorAll('[data-mlav]').forEach((b) => (b.onclick = () => {
+        leggiMat(); const m = r.materiali[+b.dataset.mlav], t = f.eseguiti;
+        t.value = (t.value.trim() ? t.value.replace(/\s+$/, '') + '\n' : '') + `N° ${m.qta || 1} ${m.descrizione}`.toUpperCase(); UI.toast('Scritto nei lavori eseguiti', 'ok');
+      }));
+    }
+    MAG.collegaRicerca(el.querySelector('#matCerca'), (a) => {
+      leggiMat(); const ex = r.materiali.find((m) => m.articoloId === a.id);
+      if (ex) ex.qta = String(MAG.num(ex.qta) + 1).replace('.', ','); else r.materiali.push({ articoloId: a.id, codice: a.codice, descrizione: a.descrizione, qta: '1' });
+      el.querySelector('#matCerca').value = ''; disegnaMat();
+    });
 
     // --- giorni
     // piattaforme dell'anagrafica mezzi (più quelle già scelte, anche se nel frattempo dismesse)
@@ -431,7 +474,12 @@ window.RAP = (function () {
         b.innerHTML = r.firmaReferente
           ? `<div class="firma-salvata grande"><img src="${r.firmaReferente}" alt="Firma del referente"></div><button type="button" class="btn ghost" id="btnRifai">✍️ Rifai la firma del referente</button>`
           : `<button type="button" class="btn big btn-firma" id="btnRifai">✍️ Fai firmare il referente</button><p class="muted small">Puoi salvare anche senza firma e farla firmare dopo.</p>`;
-        b.querySelector('#btnRifai').onclick = () => { rifaiFirma = true; disegnaFirma(); };
+        b.querySelector('#btnRifai').onclick = async () => {
+          if (!UT.puo('firma.grande')) { rifaiFirma = true; return disegnaFirma(); }
+          const ref = f.referenteId?.selectedOptions?.[0]?.textContent?.trim();
+          const img = await UI.firmaGrande({ titolo: 'Firma del referente', sotto: ref && !/^—/.test(ref) ? ref : '' });
+          if (img) { r.firmaReferente = img; r.firmatoIl = new Date().toISOString(); f.dispatchEvent(new Event('input', { bubbles: true })); disegnaFirma(); UI.toast('Firma presa: ricordati di salvare', ''); }
+        };
         pad = null; return;
       }
       b.innerHTML = `<div class="firma firma-grande"><div class="firma-head"><b>Firma del referente</b><button type="button" class="link" id="btnPulisci">Cancella</button></div>
@@ -443,7 +491,7 @@ window.RAP = (function () {
       b.scrollIntoView({ behavior: 'smooth', block: 'center' });
     }
 
-    disegnaSedi(); disegnaGiorni(); disegnaFirmaDi(); disegnaFirma(); mostraAperti(); propostaCp(); suggOrdine();
+    disegnaSedi(); disegnaGiorni(); disegnaFirmaDi(); disegnaFirma(); mostraAperti(); mostraDdt(); disegnaMat(); propostaCp(); suggOrdine();
     if (conGiorno) setTimeout(() => { el.querySelector('.giorno-rap:last-child')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); UI.toast('Aggiunto il giorno di oggi: compila gli orari', ''); }, 200);
 
     el.querySelector('#btnElimina')?.addEventListener('click', async () => {
@@ -454,7 +502,9 @@ window.RAP = (function () {
       e.preventDefault();
       const oraKo = [...el.querySelectorAll('[data-ora]')].find((x) => ora15(x.value) === null);
       if (oraKo) { oraKo.classList.add('ora-ko'); oraKo.focus(); return UI.toast('Controlla gli orari: scrivi ad esempio 0800 o 8', 'err'); }
-      leggiGiorni();
+      leggiGiorni(); leggiMat();
+      r.materiali = r.materiali.filter((m) => m.articoloId && MAG.num(m.qta) > 0);
+      if (r.ddtId && !(S.ddt || []).some((x) => x.id === r.ddtId && x.clienteId === f.clienteId.value)) r.ddtId = null;
       if (!f.clienteId.value) return UI.toast('Scegli il cliente', 'err');
       if (!f.sedeId.value) return UI.toast('Scegli la sede', 'err');
       if (r.giorni.some((g) => !g.data)) return UI.toast('Ogni giorno deve avere la data', 'err');
@@ -637,6 +687,7 @@ window.RAP = (function () {
   document.addEventListener('visibilitychange', () => { if (!document.hidden && window.App?.dati) assegnaNumeri(App.dati()); });
 
   function route(el, S, parti, query) {
+    if (parti[1] === 'ddt') return DDT.route(el, S, parti, query);
     if (parti[1] === 'nuovo') return form(el, S, null, query);
     if (parti[1] === 'r') {
       const r = S.rapportini.find((x) => x.id === parti[2]);

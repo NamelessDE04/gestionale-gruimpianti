@@ -14,7 +14,9 @@ window.AZZ = (function () {
     { k: 'lavagna', t: 'Lavagna (impegni e storico)', col: ['lavagnaEventi', 'lavagnaLog'], lavagna: true, si: true },
     { k: 'layouts', t: 'Layout delle sedi', sotto: 'le piante dei capannoni', col: ['layouts'], si: true },
     { k: 'collaudi', t: 'Collaudi del configuratore cablaggio', col: ['collaudi'], si: false },
-    { k: 'mezzi', t: 'Mezzi e piattaforme', col: ['mezzi'], si: false }
+    { k: 'mezzi', t: 'Mezzi e piattaforme', col: ['mezzi'], si: false },
+    { k: 'ddt', t: 'DDT (documenti di trasporto)', col: ['ddt'], si: false },
+    { k: 'magazzino', t: 'Magazzino ricambi e listino prezzi', sotto: 'tutti gli articoli, le quantità e i prezzi', col: ['articoli'], si: false }
   ];
   // lavagna senza cloud: sta nella memoria del dispositivo
   const LAV_LOCALE = { lavagnaEventi: 'lavagna_events', lavagnaLog: 'lavagna_log' };
