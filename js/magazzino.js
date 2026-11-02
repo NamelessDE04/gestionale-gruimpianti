@@ -1,7 +1,6 @@
 // ===== MAGAZZINO RICAMBI E LISTINO PREZZI =====
 // Un solo archivio di articoli (collezione «articoli»): codice nostro progressivo GI0001, codice del costruttore,
 // descrizione, ubicazione, quantità, quantità minima, prezzo nostro, maggiorazione % e prezzo cliente.
-// «Tengo a magazzino» spento = articolo solo su ordinazione (sta nel listino ma non nel magazzino).
 // La quantità NON si scrive a mano nei documenti: è calcolata =
 //   base (quantità iniziale o rettifiche) + carichi − materiale usato in rapportini, interventi GHO e DDT.
 // Così se un documento si modifica o si elimina, la merce torna da sola a magazzino.
@@ -58,14 +57,15 @@ window.MAG = (function () {
   }
   const caricato = (a) => (a.carichi || []).reduce((t, c) => t + num(c.qta), 0);
   const giacenza = (S, a, U) => num(a.base) + caricato(a) - ((U || usi(S))[a.id]?.tot || 0);
-  const sottoScorta = (S, a, U) => a.scorta !== false && numO(a.qtaMin) != null && giacenza(S, a, U) <= num(a.qtaMin);
+  // da riordinare: sotto la quantità minima (uguale alla minima va ancora bene)
+  const sottoScorta = (S, a, U) => numO(a.qtaMin) != null && giacenza(S, a, U) < num(a.qtaMin);
   const daRiordinare = (S) => { const U = usi(S); return articoli(S).filter((a) => !a.eliminato && sottoScorta(S, a, U)); };
   const badge = (S) => { const n = daRiordinare(S).length; return n ? `${n} ${n === 1 ? 'articolo' : 'articoli'} da riordinare` : ''; };
 
   const testoArt = (a) => [a.codice, a.codCostruttore, a.descrizione, a.ubicazione].join(' ').toLowerCase();
-  const cerca = (S, t, soloScorta) => {
+  const cerca = (S, t) => {
     const parole = String(t || '').toLowerCase().split(/\s+/).filter(Boolean);
-    return articoli(S).filter((a) => !a.eliminato && (!soloScorta || a.scorta !== false) && parole.every((p) => testoArt(a).includes(p)))
+    return articoli(S).filter((a) => !a.eliminato && parole.every((p) => testoArt(a).includes(p)))
       .sort((a, b) => (a.descrizione || '').localeCompare(b.descrizione || ''));
   };
 
@@ -82,7 +82,7 @@ window.MAG = (function () {
       if (t.length < 2 || (soloSe && !soloSe())) { box.hidden = true; return; }
       const U = usi(S);
       lista = cerca(S, t).slice(0, 8);
-      box.innerHTML = lista.length ? lista.map((a, i) => `<button type="button" data-i="${i}"><b>${esc(a.codice)}</b>${a.codCostruttore ? ` <small>${esc(a.codCostruttore)}</small>` : ''}<span>${esc(a.descrizione)}</span>${a.scorta !== false ? `<em class="${giacenza(S, a, U) <= 0 ? 'txt-ko' : ''}">${q(giacenza(S, a, U))} a mag.</em>` : '<em>su ordinazione</em>'}</button>`).join('') : '';
+      box.innerHTML = lista.length ? lista.map((a, i) => `<button type="button" data-i="${i}"><b>${esc(a.codice)}</b>${a.codCostruttore ? ` <small>${esc(a.codCostruttore)}</small>` : ''}<span>${esc(a.descrizione)}</span><em class="${giacenza(S, a, U) <= 0 ? 'txt-ko' : ''}">${q(giacenza(S, a, U))} a mag.</em></button>`).join('') : '';
       box.hidden = !lista.length;
       box.querySelectorAll('[data-i]').forEach((b) => b.addEventListener('pointerdown', (e) => { e.preventDefault(); box.hidden = true; scegli(lista[+b.dataset.i]); }));
     };
@@ -92,30 +92,29 @@ window.MAG = (function () {
   }
 
   // ---------- PAGINE ----------
-  let filtro = { q: '', cli: '', tutti: false };
+  let filtro = { q: '', cli: '' };
+  // sotto-schede: Magazzino · Inventario (solo quantità) · Listino prezzi (solo prezzi)
   function tabs(attiva) {
-    if (!UT.puo('prezzi')) return '';
-    return `<nav class="tabs tabs-scheda"><a class="tab ${attiva === 'mag' ? 'on' : ''}" href="#/magazzino"><b>📦 Magazzino</b></a><a class="tab ${attiva === 'listino' ? 'on' : ''}" href="#/magazzino/listino"><b>💶 Listino prezzi</b></a></nav>`;
+    const t = [['mag', '#/magazzino', '📦 Magazzino'], puoModificare() && ['inv', '#/magazzino/inventario', '🔢 Inventario'], UT.puo('prezzi') && ['listino', '#/magazzino/listino', '💶 Listino']].filter(Boolean);
+    return t.length > 1 ? `<nav class="tabs tabs-scheda">${t.map(([k, h, l]) => `<a class="tab ${attiva === k ? 'on' : ''}" href="${h}"><b>${l}</b></a>`).join('')}</nav>` : '';
   }
   const puoModificare = () => UT.puo('mag.modifica') && !UT.solaLettura();
 
   function lista(el, S) {
     const U = usi(S), riord = daRiordinare(S);
-    const elenco = cerca(S, filtro.q, !filtro.tutti);
+    const elenco = cerca(S, filtro.q);
     el.innerHTML = `
       <section class="cli mag">
         ${tabs('mag')}
-        <div class="sez-head"><h1>Magazzino ricambi ${info('Gli articoli che teniamo a scorta. La quantità scende da sola quando il materiale si usa in un rapportino, in un intervento GHO o in un DDT (e torna su se il documento si modifica o si elimina). Quando arriva merce apri l\'articolo e tocca «+ Carico». Con la quantità minima, sotto quella soglia l\'articolo va in «Da riordinare» e compare un avviso in home. Gli articoli solo su ordinazione stanno nel listino prezzi.')}</h1>
+        <div class="sez-head"><h1>Magazzino ricambi ${info('Tutti gli articoli con la quantità che c\'è a magazzino. La quantità scende da sola quando il materiale si usa in un rapportino, in un intervento GHO o in un DDT. Quando arriva merce tocca l\'articolo e poi «+ Carico». Se la quantità scende sotto la minima, l\'articolo va in «Da riordinare» e compare un avviso in home. Per sistemare le quantità dopo un conteggio usa «Inventario».')}</h1>
           ${puoModificare() ? '<button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo articolo</span></button>' : ''}</div>
         ${riord.length ? `<details class="card mag-riord" ${riord.length <= 6 ? 'open' : ''}><summary><b>⚠️ Da riordinare (${riord.length})</b></summary>
           <div class="elenco">${riord.map((a) => riga(S, a, U)).join('')}</div></details>` : ''}
         <div class="barra-cerca"><input type="search" class="cerca" data-f="q" placeholder="Cerca codice, descrizione, posto…" value="${esc(filtro.q)}"></div>
-        <label class="check mag-tutti"><input type="checkbox" id="chkTutti" ${filtro.tutti ? 'checked' : ''}> Mostra anche gli articoli solo su ordinazione</label>
         <div class="elenco">${elenco.map((a) => riga(S, a, U)).join('') || `<p class="nessuno">${articoli(S).length ? 'Nessun articolo trovato.' : 'Ancora nessun articolo. Crea il primo con «+ Nuovo articolo».'}</p>`}</div>
       </section>`;
     collegaFiltri(el);
-    el.querySelector('#chkTutti').onchange = (e) => { filtro.tutti = e.target.checked; App.ridisegna(); };
-    el.querySelector('#btnNuovo')?.addEventListener('click', () => modale(S, null, { scorta: true }));
+    el.querySelector('#btnNuovo')?.addEventListener('click', () => modale(S, null));
     return { titolo: 'Magazzino ricambi', indietro: '#/', live: true };
   }
   function riga(S, a, U) {
@@ -123,8 +122,8 @@ window.MAG = (function () {
     return `<a class="riga mag-riga ${basso ? 'basso' : ''}" href="#/magazzino/a/${a.id}">
       <div class="mag-cod"><b>${esc(a.codice)}</b>${a.codCostruttore ? `<small>${esc(a.codCostruttore)}</small>` : ''}</div>
       <div class="riga-main"><b class="mag-desc">${esc(a.descrizione)}</b>
-        <div class="muted small">${a.ubicazione ? '📍 ' + esc(a.ubicazione) : ''}${a.scorta === false ? ' <span class="pill">su ordinazione</span>' : numO(a.qtaMin) != null ? ` · minimo ${q(num(a.qtaMin))}` : ''}</div></div>
-      ${a.scorta === false ? '' : `<div class="mag-qta ${basso ? 'txt-ko' : ''}"><b>${q(g)}</b><small>a mag.</small></div>`}›</a>`;
+        <div class="muted small">${[a.ubicazione && '📍 ' + esc(a.ubicazione), numO(a.qtaMin) != null && 'minimo ' + q(num(a.qtaMin))].filter(Boolean).join(' · ')}</div></div>
+      <div class="mag-qta ${basso ? 'txt-ko' : ''}"><b>${q(g)}</b><small>a mag.</small></div>›</a>`;
   }
   function collegaFiltri(el) {
     el.querySelectorAll('[data-f]').forEach((x) => x.addEventListener(x.tagName === 'INPUT' ? 'input' : 'change', () => {
@@ -150,13 +149,13 @@ window.MAG = (function () {
             ${campo('Codice costruttore', esc(a.codCostruttore))}
             ${campo('Descrizione', esc(a.descrizione))}
             ${campo('Ubicazione', esc(a.ubicazione))}
-            ${a.scorta === false ? campo('Magazzino', 'Solo su ordinazione') : campo('Quantità a magazzino', `<span class="${sottoScorta(S, a, U) ? 'txt-ko' : ''}">${q(g)}</span>`) + campo('Quantità minima', numO(a.qtaMin) != null ? q(num(a.qtaMin)) : '')}
+            ${campo('Quantità a magazzino', `<span class="${sottoScorta(S, a, U) ? 'txt-ko' : ''}">${q(g)}</span>`) + campo('Quantità minima', numO(a.qtaMin) != null ? q(num(a.qtaMin)) : '')}
             ${pr ? campo('Prezzo nostro', euro(numO(a.prezzoNostro))) + campo('Maggiorazione', maggDi(S, a) != null ? due(maggDi(S, a)) + ' %' + (numO(a.magg) == null ? ' <small class="muted">(normale)</small>' : '') : '') + campo('Prezzo cliente', euro(prezzoCliente(S, a))) : ''}
           </div>
-          ${a.scorta !== false && puoModificare() ? '<div class="azioni-form"><button class="btn" id="btnCarico">+ Carico</button><button class="btn ghost" id="btnConta">🔢 Ho contato: correggi la quantità</button></div>' : ''}
+          ${puoModificare() ? '<div class="azioni-form"><button class="btn" id="btnCarico">+ Carico</button></div>' : ''}
         </div>
-        ${a.scorta !== false ? `<div class="card"><div class="card-head"><h2>Movimenti ${info('Carichi (merce arrivata) e materiale usato nei documenti. Tocca un documento per aprirlo. Il carico iniziale e le correzioni dopo un conteggio non compaiono qui.')}</h2></div>
-          <div class="mag-mov">${mov.map((m) => `<${m.href ? `a href="${m.href}"` : 'div'} class="mag-mov-r"><span class="muted small">${m.data ? fmt(m.data) : ''}</span><span class="grow">${esc(m.t)}</span><b class="${m.qta < 0 ? 'txt-ko' : 'txt-ok'}">${m.qta > 0 ? '+' : ''}${q(m.qta)}</b>${m.id && puoModificare() ? `<button type="button" class="link txt-ko" data-togli="${m.id}" aria-label="Togli carico">✕</button>` : ''}</${m.href ? 'a' : 'div'}>`).join('') || '<p class="muted small">Nessun movimento.</p>'}</div></div>` : ''}
+        ${`<div class="card"><div class="card-head"><h2>Movimenti ${info('Carichi (merce arrivata) e materiale usato nei documenti. Tocca un documento per aprirlo. Le quantità sistemate da «Inventario» non compaiono qui.')}</h2></div>
+          <div class="mag-mov">${mov.map((m) => `<${m.href ? `a href="${m.href}"` : 'div'} class="mag-mov-r"><span class="muted small">${m.data ? fmt(m.data) : ''}</span><span class="grow">${esc(m.t)}</span><b class="${m.qta < 0 ? 'txt-ko' : 'txt-ok'}">${m.qta > 0 ? '+' : ''}${q(m.qta)}</b>${m.id && puoModificare() ? `<button type="button" class="link txt-ko" data-togli="${m.id}" aria-label="Togli carico">✕</button>` : ''}</${m.href ? 'a' : 'div'}>`).join('') || '<p class="muted small">Nessun movimento.</p>'}</div></div>`}
       </section>`;
     el.querySelector('#btnMod')?.addEventListener('click', () => modale(S, a));
     el.querySelector('#btnCarico')?.addEventListener('click', () => UI.modal({
@@ -169,11 +168,6 @@ window.MAG = (function () {
         await UI.salva('articoli', { ...a, carichi: [...(a.carichi || []), { id: uid(), qta: x, data: v.data || oggi(), nota: v.nota || '', da: io?.id || '', daNome: io ? UT.breve(io) : '' }] });
         UI.toast(`Caricati ${q(x)} pezzi`, 'ok');
       }
-    }));
-    el.querySelector('#btnConta')?.addEventListener('click', () => UI.modal({
-      titolo: '🔢 Quantità contata · ' + a.codice, infoTxt: 'Dopo un conteggio in magazzino scrivi quanti pezzi ci sono davvero: la quantità si corregge. I documenti già fatti non cambiano.',
-      campi: [{ k: 'qta', label: 'Pezzi contati', num: true, req: true }], valori: { qta: q(g) },
-      onSalva: async (v) => { const x = numO(v.qta); if (x == null) { UI.toast('Scrivi un numero', 'err'); return false; } await UI.salva('articoli', { ...a, base: num(a.base) + x - g }); UI.toast('Quantità corretta', 'ok'); }
     }));
     el.querySelectorAll('[data-togli]').forEach((b) => (b.onclick = async (e) => {
       e.preventDefault(); if (!UI.conferma('Togliere questo carico? La quantità a magazzino scende.')) return;
@@ -189,13 +183,12 @@ window.MAG = (function () {
     const U = usi(S);
     UI.modal({
       titolo: nuovo ? 'Nuovo articolo · ' + codice(prossimoN(S)) : 'Articolo ' + a.codice,
-      infoTxt: 'Il codice nostro (GI0001, GI0002…) lo dà l\'app. «Tengo a magazzino» spento = articolo solo su ordinazione: sta nel listino ma non nel magazzino.' + (pr ? ' Il prezzo cliente è il prezzo nostro più la maggiorazione: se la lasci vuota vale quella normale del listino. Se scrivi direttamente il prezzo cliente, la maggiorazione si ricalcola.' : ''),
-      valori: nuovo ? { scorta: true, ...pre } : { ...a, scorta: a.scorta !== false, qta: q(giacenza(S, a, U)), qtaMin: a.qtaMin ?? '', prezzoNostro: due(numO(a.prezzoNostro)), magg: due(numO(a.magg)), prezzoCliente: due(prezzoCliente(S, a)) },
+      infoTxt: 'Il codice nostro (GI0001, GI0002…) lo dà l\'app. Quantità minima = la soglia: quando la quantità scende sotto, l\'articolo va in «Da riordinare».' + (pr ? ' Il prezzo cliente è il prezzo nostro più la maggiorazione: se la lasci vuota vale quella normale del listino. Se scrivi direttamente il prezzo cliente, la maggiorazione si ricalcola.' : ''),
+      valori: nuovo ? { ...pre } : { ...a, qta: q(giacenza(S, a, U)), qtaMin: a.qtaMin ?? '', prezzoNostro: due(numO(a.prezzoNostro)), magg: due(numO(a.magg)), prezzoCliente: due(prezzoCliente(S, a)) },
       campi: [
         { k: 'descrizione', label: 'Descrizione', req: true, maiuscolo: true },
         { k: 'codCostruttore', label: 'Codice costruttore', mezza: true, maiuscolo: true, placeholder: 'es. LC1D09' },
         { k: 'ubicazione', label: 'Ubicazione', mezza: true, maiuscolo: true, placeholder: 'es. SCAFFALE 3 · CASSETTO B' },
-        { k: 'scorta', label: 'Tengo a magazzino (scorta)', tipo: 'sino' },
         { k: 'qta', label: nuovo ? 'Quantità a magazzino ora' : 'Quantità a magazzino', num: true, mezza: true },
         { k: 'qtaMin', label: 'Quantità minima (per riordinare)', num: true, mezza: true },
         ...(pr ? [{ k: 'prezzoNostro', label: 'Prezzo nostro €', num: true, mezza: true }, { k: 'magg', label: 'Maggiorazione %', num: true, mezza: true, placeholder: maggNormale(S) != null ? due(maggNormale(S)) + ' (normale)' : '' }, { k: 'prezzoCliente', label: 'Prezzo cliente €', num: true, mezza: true }] : [])
@@ -203,13 +196,13 @@ window.MAG = (function () {
       onSalva: async (v) => {
         const doc = nuovo ? { id: uid(), n: prossimoN(S), creato: new Date().toISOString(), carichi: [], base: 0 } : { ...a };
         if (nuovo) doc.codice = codice(doc.n);
-        Object.assign(doc, { descrizione: v.descrizione, codCostruttore: v.codCostruttore, ubicazione: v.ubicazione, scorta: !!v.scorta, qtaMin: numO(v.qtaMin) });
+        Object.assign(doc, { descrizione: v.descrizione, codCostruttore: v.codCostruttore, ubicazione: v.ubicazione, qtaMin: numO(v.qtaMin) }); delete doc.scorta;
         const qx = numO(v.qta);
         if (qx != null) doc.base = num(doc.base) + qx - (nuovo ? 0 : giacenza(S, a, U));
         if (pr) Object.assign(doc, calcolaPrezzi(S, doc, v, nuovo ? { magg: null } : { prezzoNostro: numO(a.prezzoNostro), magg: numO(a.magg), prezzoCliente: prezzoCliente(S, a) }));
         await UI.salva('articoli', doc);
         UI.toast(nuovo ? `Articolo ${doc.codice} creato` : 'Articolo salvato', 'ok');
-        if (nuovo && location.hash.startsWith('#/magazzino') && !location.hash.includes('listino')) location.hash = '#/magazzino/a/' + doc.id;
+        if (nuovo && /^#\/magazzino\/?$/.test(location.hash)) location.hash = '#/magazzino/a/' + doc.id;
       }
     });
   }
@@ -227,12 +220,12 @@ window.MAG = (function () {
   function listino(el, S) {
     if (!UT.puo('prezzi')) { el.innerHTML = '<section class="vuoto"><h1>🔒 Listino prezzi</h1><p>Il listino non è abilitato per te.</p></section>'; return { titolo: 'Listino prezzi', indietro: '#/magazzino' }; }
     const cli = S.clienti.find((c) => c.id === filtro.cli);
-    const elenco = cerca(S, filtro.q, false);
+    const elenco = cerca(S, filtro.q);
     const mod = puoModificare();
     el.innerHTML = `
       <section class="cli mag listino">
         ${tabs('listino')}
-        <div class="sez-head"><h1>Listino prezzi ${info('Tutti gli articoli: quelli a magazzino e quelli solo su ordinazione. Il prezzo si cambia direttamente nella riga e si salva da solo. Prezzo cliente = prezzo nostro + maggiorazione: se la maggiorazione dell\'articolo è vuota vale quella normale qui sotto. Se scrivi il prezzo cliente la maggiorazione si ricalcola. Scegliendo un cliente vedi i suoi prezzi: se ha una maggiorazione sua in anagrafica, vale quella su tutti gli articoli. I prezzi non compaiono mai su rapportini e DDT e i tecnici non li vedono.')}</h1>
+        <div class="sez-head"><h1>Listino prezzi ${info('Tutti gli articoli, solo con i prezzi. Il prezzo si cambia direttamente nella riga e si salva da solo. Prezzo cliente = prezzo nostro + maggiorazione: se la maggiorazione dell\'articolo è vuota vale quella normale qui sotto. Se scrivi il prezzo cliente la maggiorazione si ricalcola. Scegliendo un cliente vedi i suoi prezzi: se ha una maggiorazione sua in anagrafica, vale quella su tutti gli articoli. I prezzi non compaiono mai su rapportini e DDT e i tecnici non li vedono.')}</h1>
           ${mod ? '<button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo articolo</span></button>' : ''}</div>
         <div class="card form lis-testa">
           <label>Maggiorazione normale %<input id="lisMagg" inputmode="decimal" value="${esc(due(maggNormale(S)))}" placeholder="es. 30" ${mod ? '' : 'disabled'}></label>
@@ -242,7 +235,7 @@ window.MAG = (function () {
         <div class="barra-cerca"><input type="search" class="cerca" data-f="q" placeholder="Cerca codice, descrizione…" value="${esc(filtro.q)}"></div>
         <div class="lis-righe">${elenco.map((a) => `
           <div class="lis-r" data-a="${a.id}">
-            <a class="lis-desc" href="#/magazzino/a/${a.id}"><b>${esc(a.codice)}</b>${a.codCostruttore ? ` <small>${esc(a.codCostruttore)}</small>` : ''}<span>${esc(a.descrizione)}</span>${a.scorta === false ? '<em class="pill">su ordinazione</em>' : ''}</a>
+            <a class="lis-desc" href="#/magazzino/a/${a.id}"><b>${esc(a.codice)}</b>${a.codCostruttore ? ` <small>${esc(a.codCostruttore)}</small>` : ''}<span>${esc(a.descrizione)}</span></a>
             <label>Nostro €<input id="ln-${a.id}" data-p="prezzoNostro" inputmode="decimal" value="${esc(due(numO(a.prezzoNostro)))}" ${mod ? '' : 'disabled'}></label>
             <label>Magg. %<input id="lm-${a.id}" data-p="magg" inputmode="decimal" value="${esc(due(numO(a.magg)))}" placeholder="${esc(due(maggNormale(S)))}" ${mod ? '' : 'disabled'}></label>
             <label>Cliente €<input id="lc-${a.id}" data-p="prezzoCliente" inputmode="decimal" value="${esc(due(prezzoCliente(S, a)))}" ${mod ? '' : 'disabled'}></label>
@@ -250,7 +243,7 @@ window.MAG = (function () {
           </div>`).join('') || `<p class="nessuno">${articoli(S).length ? 'Nessun articolo trovato.' : 'Ancora nessun articolo.'}</p>`}</div>
       </section>`;
     collegaFiltri(el);
-    el.querySelector('#btnNuovo')?.addEventListener('click', () => modale(S, null, { scorta: false }));
+    el.querySelector('#btnNuovo')?.addEventListener('click', () => modale(S, null));
     const lm = el.querySelector('#lisMagg');
     lm.addEventListener('change', async () => { const x = numO(lm.value); await UI.salva('impostazioni', { ...impostazioni(S), maggiorazione: x }); UI.toast('Maggiorazione normale salvata', 'ok'); });
     // prezzo cambiato nella riga: salvo appena esci dalla casella
@@ -271,8 +264,42 @@ window.MAG = (function () {
     return { titolo: 'Listino prezzi', indietro: '#/magazzino', live: false };
   }
 
+  // ---------- INVENTARIO: solo le quantità, da sistemare dopo un conteggio ----------
+  function inventario(el, S) {
+    const U = usi(S), mod = puoModificare();
+    const elenco = cerca(S, filtro.q);
+    el.innerHTML = `
+      <section class="cli mag listino">
+        ${tabs('inv')}
+        <div class="sez-head"><h1>Inventario ${info('Tutti gli articoli, solo con le quantità. Dopo un conteggio in magazzino scrivi quanti pezzi ci sono davvero: si salva da solo appena esci dalla casella. Puoi sistemare anche la quantità minima (sotto quella l\'articolo va in «Da riordinare»). I documenti già fatti non cambiano.')}</h1></div>
+        <div class="barra-cerca"><input type="search" class="cerca" data-f="q" placeholder="Cerca codice, descrizione, posto…" value="${esc(filtro.q)}"></div>
+        <div class="lis-righe">${elenco.map((a) => `
+          <div class="lis-r inv-r ${sottoScorta(S, a, U) ? 'basso' : ''}" data-a="${a.id}">
+            <a class="lis-desc" href="#/magazzino/a/${a.id}"><b>${esc(a.codice)}</b>${a.codCostruttore ? ` <small>${esc(a.codCostruttore)}</small>` : ''}<span>${esc(a.descrizione)}</span>${a.ubicazione ? `<small>📍 ${esc(a.ubicazione)}</small>` : ''}</a>
+            <label>Quantità<input id="iq-${a.id}" data-i="qta" inputmode="decimal" value="${esc(q(giacenza(S, a, U)))}" ${mod ? '' : 'disabled'}></label>
+            <label>Minima<input id="im-${a.id}" data-i="min" inputmode="decimal" value="${esc(numO(a.qtaMin) != null ? q(num(a.qtaMin)) : '')}" ${mod ? '' : 'disabled'}></label>
+          </div>`).join('') || `<p class="nessuno">${articoli(S).length ? 'Nessun articolo trovato.' : 'Ancora nessun articolo.'}</p>`}</div>
+      </section>`;
+    collegaFiltri(el);
+    el.querySelectorAll('.inv-r input').forEach((x) => x.addEventListener('change', async () => {
+      const box = x.closest('.inv-r'), a = trova(S, box.dataset.a); if (!a) return;
+      const v = numO(x.value);
+      if (x.dataset.i === 'qta') {
+        if (v == null) { x.value = q(giacenza(S, a)); return UI.toast('Scrivi un numero', 'err'); }
+        await UI.salva('articoli', { ...a, base: num(a.base) + v - giacenza(S, a) }); x.value = q(v);
+      } else await UI.salva('articoli', { ...a, qtaMin: v });
+      const nuovo = trova(S, a.id) || a; box.classList.toggle('basso', sottoScorta(S, { ...nuovo, qtaMin: x.dataset.i === 'min' ? v : nuovo.qtaMin }));
+      UI.toast(`${a.codice}: ${x.dataset.i === 'qta' ? 'quantità' : 'minima'} salvata`, 'ok');
+    }));
+    return { titolo: 'Inventario', indietro: '#/magazzino', live: false };
+  }
+
+  // testo del materiale sul rapportino stampato: FORNITO E SOSTITUITO QTÀ X, DESCRIZIONE, CODICE FORNITORE [CODICE GI]
+  const rigaStampa = (S, m) => { const a = trova(S, m.articoloId) || m; return `FORNITO E SOSTITUITO QTÀ ${String(m.qta || 1).replace('.', ',')}, ${[a.descrizione || m.descrizione, a.codCostruttore].filter(Boolean).join(', ')} [${a.codice || m.codice || ''}]`; };
+
   function route(el, S, parti) {
     if (parti[1] === 'listino') return listino(el, S);
+    if (parti[1] === 'inventario') return inventario(el, S);
     if (parti[1] === 'a') {
       const a = trova(S, parti[2]);
       if (!a) { el.innerHTML = '<p class="nessuno">Articolo non trovato.</p>'; return { titolo: 'Magazzino', indietro: '#/magazzino' }; }
@@ -281,5 +308,5 @@ window.MAG = (function () {
     return lista(el, S);
   }
 
-  return { route, collegaRicerca, prezzoCliente, giacenza, usi, badge, trova, cerca, num, q };
+  return { route, rigaStampa, collegaRicerca, prezzoCliente, giacenza, usi, badge, trova, cerca, num, q };
 })();

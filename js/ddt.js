@@ -65,6 +65,8 @@ window.DDT = (function () {
       destinazione: '', destinatario: '', righe: [{ qta: '', um: 'PZ', descrizione: '' }], cura: 'mittente', vettore: '', causale: 'fornitura', aspetto: '', colli: '', dataTrasporto: oggi() };
     if (!d.righe?.length) d.righe = [{ qta: '', um: 'PZ', descrizione: '' }];
     let sporco = false;
+    // riga presa dal magazzino: descrizione, codice fornitore [codice GI]
+    const rigaArt = (a, r) => ({ articoloId: a.id, descrizione: `${[a.descrizione, a.codCostruttore].filter(Boolean).join(', ')} [${a.codice}]`, qta: r.qta || '1', um: r.um || 'PZ' });
     const sedi = () => S.clienti.flatMap((c) => (c.sedi || []).map((s) => ({ c, s }))).sort((a, b) => CLI.nome(a.c).localeCompare(CLI.nome(b.c)) || (a.s.nome || '').localeCompare(b.s.nome || ''));
     const etichettaCli = () => { const { c, s } = trovaSede(S, d.sedeId); return c ? `<b>${esc(CLI.nome(c))}</b><small>${esc([s?.nome, indirizzoSede(s).join(', ')].filter(Boolean).join(' · '))}</small>` : '<span class="muted">— tocca per scegliere —</span>'; };
     el.innerHTML = `
@@ -91,9 +93,10 @@ window.DDT = (function () {
             </details>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Merce ${info('Quantità, unità di misura e descrizione. Scrivendo nella descrizione compaiono gli articoli del magazzino: toccandone uno la riga si collega al magazzino (📦) e la quantità a magazzino scende quando salvi. Puoi anche scrivere liberamente. Vai a capo per una seconda riga (es. «per CP14 - S5866010»).')}</h2></div>
+            <div class="card-head"><h2>Merce ${info('Per il materiale del magazzino usa «📦 Dal magazzino»: scrivi codice o descrizione e tocca l\'articolo, si aggiunge una riga collegata (📦) e quando salvi la quantità a magazzino scende. Per tutto il resto scrivi la riga a mano. Vai a capo per una seconda riga (es. «per CP14»). I prezzi non compaiono mai.')}</h2></div>
             <div id="righe"></div>
-            <button type="button" class="btn ghost aggiungi-riga" id="btnRiga">+ Aggiungi riga</button>
+            ${UT.puo('sez.magazzino') ? '<label class="art-cerca">📦 Dal magazzino<input id="ddtMag" placeholder="🔍 Cerca codice o descrizione" autocomplete="off"></label>' : ''}
+            <button type="button" class="btn ghost aggiungi-riga" id="btnRiga">+ Riga scritta a mano</button>
             <datalist id="dlUm">${UM.map((u) => `<option value="${u}">`).join('')}</datalist>
           </div>
           <div class="card">
@@ -165,13 +168,19 @@ window.DDT = (function () {
         ta.addEventListener('input', () => { ta.rows = Math.max(1, ta.value.split('\n').length); });
         MAG.collegaRicerca(ta, (a) => {
           leggiRighe(); const r = d.righe[i];
-          r.articoloId = a.id; r.descrizione = a.descrizione + (a.codCostruttore ? ' - ' + a.codCostruttore : ''); if (!r.qta) r.qta = '1'; sporco = true; disegnaRighe();
+          Object.assign(r, rigaArt(a, r)); sporco = true; disegnaRighe();
         }, { soloSe: () => !d.righe[i]?.articoloId });
       });
       el.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { leggiRighe(); d.righe.splice(+b.dataset.rm, 1); sporco = true; disegnaRighe(); }));
       el.querySelectorAll('[data-scolle]').forEach((b) => (b.onclick = (e) => { e.preventDefault(); leggiRighe(); delete d.righe[+b.dataset.scolle].articoloId; sporco = true; disegnaRighe(); }));
     }
     disegnaRighe();
+    // «Dal magazzino»: aggiunge una riga collegata all'articolo (o riempie l'ultima se è vuota)
+    MAG.collegaRicerca(el.querySelector('#ddtMag'), (a) => {
+      leggiRighe(); const ult = d.righe[d.righe.length - 1];
+      if (ult && !ult.descrizione && !ult.articoloId) Object.assign(ult, rigaArt(a, ult)); else d.righe.push(rigaArt(a, {}));
+      el.querySelector('#ddtMag').value = ''; sporco = true; disegnaRighe(); UI.toast(`${a.codice} aggiunto: controlla la quantità`, '');
+    });
     el.querySelector('#btnRiga').onclick = () => { leggiRighe(); d.righe.push({ qta: '', um: 'PZ', descrizione: '' }); disegnaRighe(); el.querySelector('.ddt-r:last-child textarea')?.focus(); };
 
     // --- scelte a chip (una sola)
@@ -181,10 +190,12 @@ window.DDT = (function () {
 
     // --- firme (a tutto schermo)
     const io = UT.attuale();
+    // firma del conducente: quella del profilo di chi compila (si può rifare a mano)
+    if (!d.firmaConducente && io?.firma) d.firmaConducente = io.firma;
     function disegnaFirma(box, k, titolo, conMia) {
       const b = el.querySelector(box);
       b.innerHTML = d[k] ? `<div class="firma-salvata"><img src="${d[k]}" alt="${esc(titolo)}"></div><div class="ddt-fbt"><button type="button" class="btn ghost small" data-fa>✍️ Rifai</button><button type="button" class="link txt-ko" data-fx>Togli</button></div>`
-        : `<button type="button" class="btn btn-firma" data-fa>✍️ Firma</button>${conMia && io?.firma ? '<button type="button" class="link" data-fm>usa la mia firma salvata</button>' : ''}`;
+        : `<button type="button" class="btn btn-firma" data-fa>✍️ Firma</button>${conMia && !io?.firma ? '<p class="muted small">Salva la tua firma nel profilo: così il conducente firma da solo.</p>' : ''}`;
       b.querySelector('[data-fa]').onclick = async () => {
         const img = UT.puo('firma.grande') ? await UI.firmaGrande({ titolo, sotto: 'DDT N° ' + numeroDi({ numero: f.numero.value, anno: f.anno.value, rev: f.rev.value }) }) : await firmaPiccola(b, titolo);
         if (img) { d[k] = img; sporco = true; disegnaFirma(box, k, titolo, conMia); }

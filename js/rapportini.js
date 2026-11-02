@@ -211,7 +211,7 @@ window.RAP = (function () {
             <textarea name="eseguiti" rows="6" placeholder="Descrivi i lavori eseguiti (per i controlli usa la frase qui sopra)">${esc(r.eseguiti)}</textarea>
           </div>
           ${UT.puo('sez.magazzino') ? `<div class="card">
-            <div class="card-head"><h2>Materiale dal magazzino ${info('Scrivi codice o descrizione e tocca l\'articolo: quando salvi la quantità a magazzino scende (e torna su se lo togli). Non va sul foglio del cliente: con «↧ nei lavori» lo scrivi anche in «Lavori eseguiti». Se il rapportino è abbinato a un DDT, il materiale già uscito con il DDT non si scala due volte. Puoi sempre scrivere il materiale liberamente nei lavori eseguiti, anche senza magazzino.')}</h2></div>
+            <div class="card-head"><h2>Materiale dal magazzino ${info('Scrivi codice o descrizione e tocca l\'articolo: quando salvi la quantità a magazzino scende (e torna su se lo togli). Sul foglio del cliente esce da solo sotto i lavori eseguiti, così: «FORNITO E SOSTITUITO QTÀ 1, DESCRIZIONE, CODICE FORNITORE [GI0001]». Se il rapportino è abbinato a un DDT, il materiale già uscito con il DDT non si scala due volte. Puoi sempre scrivere il materiale liberamente nei lavori eseguiti, anche senza magazzino.')}</h2></div>
             <div id="matRap"></div>
             <label class="art-cerca"><input id="matCerca" placeholder="🔍 Aggiungi: scrivi codice o descrizione" autocomplete="off"></label>
           </div>` : ''}
@@ -314,12 +314,8 @@ window.RAP = (function () {
     const leggiMat = () => el.querySelectorAll('.mat-r').forEach((b, i) => { r.materiali[i].qta = b.querySelector('[data-mq]').value.trim(); });
     function disegnaMat() {
       const box = el.querySelector('#matRap'); if (!box) return;
-      box.innerHTML = r.materiali.map((m, i) => `<div class="mat-r"><input data-mq inputmode="decimal" value="${esc(m.qta)}" aria-label="Quantità"><span class="grow"><b>${esc(m.codice || '')}</b> ${esc(m.descrizione || '')}</span><button type="button" class="link" data-mlav="${i}">↧ nei lavori</button><button type="button" class="btn ghost small danger" data-mrm="${i}" aria-label="Togli">×</button></div>`).join('') || '<p class="muted small">Nessun materiale dal magazzino.</p>';
+      box.innerHTML = r.materiali.map((m, i) => `<div class="mat-r"><input data-mq inputmode="decimal" value="${esc(m.qta)}" aria-label="Quantità"><span class="grow"><b>${esc(m.codice || '')}</b> ${esc(m.descrizione || '')}</span><button type="button" class="btn ghost small danger" data-mrm="${i}" aria-label="Togli">×</button></div>`).join('') || '<p class="muted small">Nessun materiale dal magazzino.</p>';
       box.querySelectorAll('[data-mrm]').forEach((b) => (b.onclick = () => { leggiMat(); r.materiali.splice(+b.dataset.mrm, 1); disegnaMat(); }));
-      box.querySelectorAll('[data-mlav]').forEach((b) => (b.onclick = () => {
-        leggiMat(); const m = r.materiali[+b.dataset.mlav], t = f.eseguiti;
-        t.value = (t.value.trim() ? t.value.replace(/\s+$/, '') + '\n' : '') + `N° ${m.qta || 1} ${m.descrizione}`.toUpperCase(); UI.toast('Scritto nei lavori eseguiti', 'ok');
-      }));
     }
     MAG.collegaRicerca(el.querySelector('#matCerca'), (a) => {
       leggiMat(); const ex = r.materiali.find((m) => m.articoloId === a.id);
@@ -603,7 +599,7 @@ window.RAP = (function () {
             h += box(X[0], YF, X[10], 105.3) + cella(X[0] + 0.6, YF, X[10] - 0.4, 105.3, `Consegnato D.d.T n° ${esc(r.ddtNumero || '')}${r.ddtData ? ' del ' + fmt(r.ddtData) : ''}`);
             // lavori eseguiti / da eseguire: una riga vuota tra il titolo e il testo
             h += box(X[0], 105.3, X[10], 209) + `<div class="r2-tit" style="left:${X[0] + 0.6}mm;top:106.2mm">LAVORI ESEGUITI :</div>`;
-            h += `<div class="r2-testo" data-adatta="0.4" data-blocco style="left:${X[0] + 0.6}mm;top:113.2mm;width:${(X[10] - X[0] - 1.2).toFixed(2)}mm;height:94.8mm">${esc(r.eseguiti || '')}</div>`;
+            h += `<div class="r2-testo" data-adatta="0.4" data-blocco style="left:${X[0] + 0.6}mm;top:113.2mm;width:${(X[10] - X[0] - 1.2).toFixed(2)}mm;height:94.8mm">${esc([r.eseguiti || '', ...(r.materiali || []).map((m) => MAG.rigaStampa(S, m))].filter(Boolean).join('\n'))}</div>`;
             h += box(X[0], 209, X[10], 249) + `<div class="r2-tit" style="left:${X[0] + 0.6}mm;top:209.9mm">LAVORI DA ESEGUIRE :</div>`;
             h += `<div class="r2-testo" data-adatta="0.4" data-blocco style="left:${X[0] + 0.6}mm;top:216.9mm;width:${(X[10] - X[0] - 1.2).toFixed(2)}mm;height:31.2mm">${esc(r.daEseguire || '')}</div>`;
             // data, firme

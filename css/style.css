@@ -1717,3 +1717,11 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .dd-o { display: inline-block; margin-left: 2mm; font-style: normal; font-size: 9pt; }
 .dd-vett { font-size: 8.5pt; }
 @media print { .ddt-pag { margin: 0 !important; } }
+/* inventario: solo quantità */
+.lis-r.inv-r { grid-template-columns: minmax(0, 1fr) 110px 110px; }
+.lis-r.inv-r.basso { border-left: 5px solid var(--ko); }
+@media (max-width: 640px) { .lis-r.inv-r { grid-template-columns: 1fr 1fr; } }
+.mag .tabs-scheda { overflow: visible; }
+.mag .tabs-scheda .tab { flex: 1 1 0; min-width: 0; align-items: center; text-align: center; padding: 6px 8px; }
+.mag .tabs-scheda .tab b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+@media (max-width: 420px) { .mag .tabs-scheda .tab b { font-size: 13px; } }
