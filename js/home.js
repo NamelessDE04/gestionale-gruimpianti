@@ -1,16 +1,21 @@
 // ===== HOME A CASELLE =====
 window.HOME = (function () {
+  // home (stessa per tutti, si vedono solo le caselle abilitate in «Gestione utenti › 🔑 Funzioni»)
   const caselle = [
     { k: 'rapportini', titolo: 'Rapportini e DDT', sotto: 'Interventi firmati dal cliente e documenti di trasporto', ill: 'rapportini', attiva: true },
     { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, sottoganci e controlli approfonditi', ill: 'schede', attiva: true },
+    { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
+    { k: 'anagrafiche', titolo: 'Anagrafiche', sotto: 'Clienti, impianti, layout delle sedi e mezzi', ill: 'clienti', attiva: true, href: '#/anagrafiche' },
+    { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, quantità, da riordinare e listino prezzi', ill: 'magazzino', attiva: true },
+    { k: 'invio', titolo: 'Invia e PDF', sotto: 'Schede, rapportini ed elenchi: mandali ai clienti per email o salvali in PDF e stampali', ill: 'invio', attiva: true, href: '#/invio', soloInvio: true },
+    { k: 'gho', titolo: 'GHO ELIGIO', sotto: 'Registro ore e configuratore cablaggio', ill: 'gho', attiva: true, href: '#/gho' }
+  ];
+  // sotto-voci di «Anagrafiche»
+  const anagrafiche = [
     { k: 'clienti', titolo: 'Anagrafica Clienti', sotto: 'Ditte, sedi e referenti', ill: 'clienti', attiva: true },
     { k: 'impianti', titolo: 'Anagrafica Impianti', sotto: 'Gru, paranchi e carriponte', ill: 'impianti', attiva: true },
     { k: 'layout', titolo: 'Layout delle sedi', sotto: 'Piante dei capannoni con le gru', ill: 'layout', attiva: true },
-    { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, scadenze e documenti', ill: 'furgone', attiva: true },
-    { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, quantità, da riordinare e listino prezzi', ill: 'magazzino', attiva: true },
-    { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
-    { k: 'invio', titolo: 'Invia e archivia', sotto: 'Schede, rapportini ed elenchi: mandali ai clienti per email o salvali in PDF e stampali', ill: 'invio', attiva: true, href: '#/invio', soloInvio: true },
-    { k: 'gho', titolo: 'GHO ELIGIO', sotto: 'Registro ore e configuratore cablaggio', ill: 'gho', attiva: true, href: '#/gho' }
+    { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, piattaforme, scadenze e documenti', ill: 'furgone', attiva: true }
   ];
   // sotto-voci di "Schede di controllo"
   const schede = [
@@ -54,26 +59,22 @@ window.HOME = (function () {
       <span class="grow"><b>${UI.esc(x.l)} ${UI.esc(MEZ.corto(x.m))}</b><span>${x.st.k === 'scaduto' ? 'scaduto il' : 'scade il'} ${UI.fmt(x.d)} · ${UI.esc(x.st.label)}</span></span>›</a>`).join('')}</div>`;
   };
 
-  // il tecnico vede solo il lavoro di tutti i giorni; il resto sta in «Anagrafiche e altro»
-  const PRINCIPALI = ['schede', 'rapportini', 'lavagna', 'gho'];
-  const ALTRO = { k: 'altro', titolo: 'Anagrafiche e altro', sotto: 'Clienti, impianti, layout, mezzi…', ill: 'altro', attiva: true, href: '#/altro' };
-  const ridotta = () => !UT.puo('home.completa');
   // caselle che questa persona può vedere (funzioni abilitate in «Gestione utenti › 🔑 Funzioni»)
   const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', magazzino: 'sez.magazzino', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
-  const vede = (c) => !SEZ[c.k] || UT.puo(SEZ[c.k]);
-  const vociHome = () => (ridotta() ? [...PRINCIPALI.map((k) => caselle.find((c) => c.k === k)).filter(vede), ALTRO] : caselle.filter((c) => vede(c)));
+  const vede = (c) => c.k === 'anagrafiche' ? anagrafiche.some(vede) : !SEZ[c.k] || UT.puo(SEZ[c.k]);
+  const vociHome = () => caselle.filter(vede);
   const nScad = (S) => MEZ.avvisi(S).length;
   const badge = (S, c) => c.k === 'rapportini' ? RAP.badge(S)
     : c.k === 'gho' ? GHO.badge(S)
     : c.k === 'magazzino' ? MAG.badge(S)
-    : (c.k === 'mezzi' || c.k === 'altro') && nScad(S) ? `${nScad(S)} ${nScad(S) === 1 ? 'scadenza mezzi' : 'scadenze mezzi'}`
+    : (c.k === 'mezzi' || c.k === 'anagrafiche') && nScad(S) ? `${nScad(S)} ${nScad(S) === 1 ? 'scadenza mezzi' : 'scadenze mezzi'}`
     : c.k === 'schede' ? [badgeCtr(S), badgeSottoganci(S)].filter(Boolean).join(' · ') : '';
 
-  // pagina «Anagrafiche e altro»: tutte le caselle che non stanno nella home del tecnico
-  function renderAltro(el, S) {
-    const resto = caselle.filter((c) => !PRINCIPALI.includes(c.k) && vede(c));
-    el.innerHTML = `<section class="home"><div class="tiles">${resto.map((c) => tile(c, badge(S, c))).join('')}</div></section>`;
-    return { titolo: 'Anagrafiche e altro', indietro: '#/', live: true };
+  // pagina «Anagrafiche»: clienti, impianti, layout, mezzi
+  function renderAnagrafiche(el, S) {
+    el.innerHTML = `<section class="home"><div class="home-head"><h1>Anagrafiche</h1><p>Cosa vuoi aprire?</p></div>
+      <div class="tiles due-tiles">${anagrafiche.filter(vede).map((c) => tile(c, badge(S, c))).join('')}</div></section>`;
+    return { titolo: 'Anagrafiche', indietro: '#/', live: true };
   }
 
   function render(el, S) {
@@ -86,7 +87,7 @@ window.HOME = (function () {
         ${avvisiMezzi(S)}
         ${UT.puo('ordini') && CLI.ordiniDaAggiornare(S).length ? `<a class="avviso-m st-b-scadenza" href="#/ordini"><span class="av-ico">🧾</span><span class="grow"><b>N° d'ordine ${UI.oggi().slice(0, 4)} da aggiornare: ${CLI.ordiniDaAggiornare(S).length} ${CLI.ordiniDaAggiornare(S).length === 1 ? 'sede' : 'sedi'}</b><span>Il codice del contratto di verifica cambia ogni anno: scrivilo o rimanda l'avviso</span></span>›</a>` : ''}
         <div class="tiles">${vociHome().map((c) => tile(c, badge(S, c))).join('')}</div>
-        <p class="in-arrivo">In arrivo: ${caselle.filter((c) => !c.attiva).map((c) => c.titolo).join(' · ')}</p>
+        ${caselle.some((c) => !c.attiva) ? `<p class="in-arrivo">In arrivo: ${caselle.filter((c) => !c.attiva).map((c) => c.titolo).join(' · ')}</p>` : ''}
       </section>`;
     RAP.collegaMemo(el, S);
   }
@@ -113,5 +114,5 @@ window.HOME = (function () {
       </section>`;
   }
 
-  return { render, renderSchede, renderAltro, prossimamente, caselle };
+  return { render, renderSchede, renderAnagrafiche, prossimamente, caselle: [...caselle, ...anagrafiche] };
 })();

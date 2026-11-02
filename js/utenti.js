@@ -100,7 +100,6 @@ window.UT = (function () {
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.mezzi', nome: 'Anagrafica mezzi', def: TUTTI },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.lavagna', nome: 'Lavagna', def: TUTTI },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.gho', nome: 'GHO ELIGIO (ore e configuratore cablaggio)', def: TUTTI },
-    { g: 'Sezioni dell\'app (vedere)', k: 'home.completa', nome: 'Home completa (tutte le caselle subito, senza «Anagrafiche e altro»)', def: UFFICIO },
     { g: 'Lavoro', k: 'ctr.fare', nome: 'Fare i controlli (gru, sottoganci, pinze, magneti, funi, bozzelli…)', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'ctr.elimina', nome: 'Eliminare o azzerare un controllo già fatto', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'ctr.voci', nome: 'Cambiare le voci di controllo di un impianto', def: LAVORO, scrive: true },

@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.43.0';
+  const VERSIONE = '0.43.1';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [] };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
@@ -106,12 +106,12 @@ window.App = (function () {
     else if (parti[0] === 'controlli') info = CTR.route(el, S, parti, query) || info;
     else if (parti[0] === 'layout') info = LAY.route(el, S, parti, query) || info;
     else if (parti[0] === 'schede') info = HOME.renderSchede(el, S, parti) || info;
-    else if (parti[0] === 'altro') info = HOME.renderAltro(el, S) || info;
+    else if (parti[0] === 'anagrafiche' || parti[0] === 'altro') info = HOME.renderAnagrafiche(el, S) || info;
     else if (parti[0] === 'ordini') info = CLI.paginaOrdini(el, S) || info;
     else if (HOME.caselle.some((c) => c.k === parti[0])) { HOME.prossimamente(el, parti[0]); info = { titolo: '', indietro: '#/' }; }
     else { location.hash = '#/'; return; }
-    // il tecnico arriva a clienti, impianti, layout e mezzi da «Anagrafiche e altro»: «indietro» lo riporta lì
-    if (UT.ruolo() === 'tecnico' && info.indietro === '#/' && ['clienti', 'impianti', 'layout', 'mezzi', 'magazzino'].includes(parti[0])) info.indietro = '#/altro';
+    // clienti, impianti, layout e mezzi stanno dentro «Anagrafiche»: «indietro» riporta lì
+    if (info.indietro === '#/' && ['clienti', 'impianti', 'layout', 'mezzi'].includes(parti[0])) info.indietro = '#/anagrafiche';
     vistaLive = info.live !== false;
     const tit = document.getElementById('pageTitle');
     if (!parti.length) {
