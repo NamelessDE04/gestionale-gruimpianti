@@ -49,7 +49,7 @@ window.GHO = (function () {
     const riga2 = [orari(r).join(' e ') + (r.viaggio ? ` + ${oreTesto(r.viaggio)} di viaggio` : ''),
       r.km ? `${r.km} km${nostroMezzo(r) ? '' : ' (mezzo loro)'}` : '', pn ? `${pn} ${pn === 1 ? 'piattaforma nostra' : 'piattaforme nostre'}` : '',
       `${np} ${np === 1 ? 'persona' : 'persone'}`].filter(Boolean).join(' - ');
-    const mat = (r.materiali || []).filter((m) => m.descrizione || m.codice).map((m) => `${m.qta ? m.qta + ' x ' : ''}${[m.codice, m.descrizione].filter(Boolean).join(' ')}${m.nostro ? ' (di nostra fornitura)' : ''}`);
+    const mat = (r.materiali || []).filter((m) => m.descrizione || m.codice).map((m) => `${m.qta ? m.qta + ' x ' : ''}${[m.codice, m.descrizione].filter(Boolean).join(' ')}${m.nostro ? ` (di nostra fornitura, ${senzaPrezzo(m) ? 'prezzo da definire' : euro(num(m.prezzo)) + ' cad.' + ((num(m.qta) || 1) > 1 ? ', totale ' + euro(num(m.prezzo) * num(m.qta)) : '')})` : ''}`);
     return [
       [giorno.charAt(0).toUpperCase() + giorno.slice(1), r.cliente, r.citta].filter(Boolean).join(' - '),
       riga2,
