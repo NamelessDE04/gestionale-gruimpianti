@@ -698,11 +698,11 @@ window.RAP = (function () {
     if (!UT.puo('promemoria')) return '';
     const lista = (S.promemoria || []).filter((m) => !m.fatto).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
     if (!lista.length) return '';
-    return `<div class="card memo-home"><div class="card-head"><h2>📌 Promemoria da fare <span class="pill st-scadenza">${lista.length}</span> ${info('Li scrivono i tecnici dal rapportino quando il cliente chiede qualcosa (offerte, ricambi, funi…). Restano qui finché qualcuno non tocca «✓ Fatto».')}</h2></div>
+    return `<div class="card memo-home">${UI.tendina('memo', lista.length, `📌 Promemoria da fare <span class="pill st-scadenza">${lista.length}</span> ${info('Li scrivono i tecnici dal rapportino quando il cliente chiede qualcosa (offerte, ricambi, funi…). Restano qui finché qualcuno non tocca «✓ Fatto».')}`, `
       ${lista.map((m) => { const { c, s } = trova(S, m.sedeId), cl = c || S.clienti.find((x) => x.id === m.clienteId), rp = S.rapportini.find((x) => x.id === m.rapportinoId);
         return `<div class="memo-riga"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b>
           <small>${esc(cl ? CLI.nome(cl) : '—')}${s ? ' · ' + esc(s.sigla || s.nome || '') : ''} · ${rp ? `<a href="#/rapportini/r/${rp.id}">rapportino N° ${esc(numeroDi(rp))}</a>` : 'rapportino'} · ${esc(m.daNome || '—')}, ${fmt((m.creato || '').slice(0, 10))}</small></div>
-          ${UT.puo('promemoria.fatto') ? `<button type="button" class="btn ghost small" data-memofatto="${m.id}">✓ Fatto</button>` : ''}</div>`; }).join('')}</div>`;
+          ${UT.puo('promemoria.fatto') ? `<button type="button" class="btn ghost small" data-memofatto="${m.id}">✓ Fatto</button>` : ''}</div>`; }).join('')}`)}</div>`;
   }
   function collegaMemo(el, S) {
     el.querySelectorAll('[data-memofatto]').forEach((b) => (b.onclick = async () => {

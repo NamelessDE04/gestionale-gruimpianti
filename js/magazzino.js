@@ -65,9 +65,9 @@ window.MAG = (function () {
     if (!UT.puo('sez.magazzino')) return '';
     const U = usi(S), l = daRiordinare(S).sort((a, b) => (a.descrizione || '').localeCompare(b.descrizione || ''));
     if (!l.length) return '';
-    return `<div class="card memo-home riord-home"><div class="card-head"><h2>📦 Da ordinare <span class="pill st-scaduto">${l.length}</span> ${info('Articoli del magazzino scesi sotto la quantità minima. Spariscono da qui quando arriva la merce («+ Carico» sull\'articolo) o quando sistemi la quantità in «Inventario».')}</h2></div>
+    return `<div class="card memo-home riord-home">${UI.tendina('riord', l.length, `📦 Da ordinare <span class="pill st-scaduto">${l.length}</span> ${info('Articoli del magazzino scesi sotto la quantità minima. Spariscono da qui quando arriva la merce («+ Carico» sull\'articolo) o quando sistemi la quantità in «Inventario».')}`, `
       ${l.slice(0, 6).map((a) => `<a class="memo-riga riord-riga" href="#/magazzino/a/${a.id}"><span>📦</span><div class="grow"><b>${esc(a.descrizione)}</b><small>${esc([a.codice, a.codCostruttore, a.ubicazione && '📍 ' + a.ubicazione].filter(Boolean).join(' · '))}</small></div><span class="riord-q"><b class="txt-ko">${q(giacenza(S, a, U))}</b><small>min ${q(num(a.qtaMin))}</small></span></a>`).join('')}
-      ${l.length > 6 ? `<a class="link" href="#/magazzino">… e altri ${l.length - 6}: apri il magazzino</a>` : ''}</div>`;
+      ${l.length > 6 ? `<a class="link" href="#/magazzino">… e altri ${l.length - 6}: apri il magazzino</a>` : ''}`)}</div>`;
   }
   const badge = (S) => { const n = daRiordinare(S).length; return n ? `${n} ${n === 1 ? 'articolo' : 'articoli'} da riordinare` : ''; };
 

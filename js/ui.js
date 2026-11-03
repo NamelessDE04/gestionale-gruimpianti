@@ -173,6 +173,16 @@ window.UI = (function () {
 
   // --- "i" cerchiata: spiegazione a scomparsa (si chiude toccando altrove) ---
   document.addEventListener('click', (e) => document.querySelectorAll('details.info[open]').forEach((d) => { if (!d.contains(e.target)) d.open = false; }));
+  // riquadro della home a tendina: da telefono parte sempre chiuso, da PC chiuso solo se le righe sono più di 4.
+  // Se lo apri o lo chiudi, l'app se lo ricorda finché non la chiudi.
+  const TENDINE = {};
+  const tendina = (chiave, n, testa, corpo) => {
+    const aperta = chiave in TENDINE ? TENDINE[chiave] : !matchMedia('(max-width: 760px)').matches && n <= 4;
+    return `<details class="tendina" ${aperta ? 'open' : ''}>
+      <summary class="card-head" onclick="const i = event.target.closest('.info'); if (i) { event.preventDefault(); if (event.target.closest('.info > summary')) i.open = !i.open; } else UI.ricordaTendina('${chiave}', !this.parentNode.open)"><h2>${testa}</h2><span class="tend-fr" aria-hidden="true">▾</span></summary>
+      <div class="tend-corpo">${corpo}</div></details>`;
+  };
+  const ricordaTendina = (k, v) => { TENDINE[k] = v; };
   const info = (testo) => `<details class="info" onclick="event.stopPropagation()"><summary aria-label="Informazioni">i</summary><div class="info-txt">${testo}</div></details>`;
 
   // --- finestra con modulo (per modificare dati senza cambiare pagina) ---
@@ -329,5 +339,5 @@ window.UI = (function () {
     let m = s.match(/^(\d+)\s*[:h]\s*(\d{1,2})$/i); if (m) return +m[1] * 60 + +m[2];
     m = s.match(/^(\d+)\s*(['’]|min)$/i); if (m) return +m[1];
     const n = +s.replace(',', '.'); return Number.isFinite(n) && n >= 0 ? Math.round(n * 60) : ''; };
-  return { minOre, oreMin, toccoFuori, adattaTesti, menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, firmaGrande, comprimiFoto, conferma };
+  return { tendina, ricordaTendina, minOre, oreMin, toccoFuori, adattaTesti, menu, coloreSede, magnete, COLORI_SEDE, info, modal, esc, uid, iso, oggi, addMesi, addGiorni, giorniDa, fmt, toast, salva, firmaPad, firmaGrande, comprimiFoto, conferma };
 })();
