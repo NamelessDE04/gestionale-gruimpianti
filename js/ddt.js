@@ -24,7 +24,9 @@ window.DDT = (function () {
   const abbinabili = (S, clienteId, rapId) => elenco(S).filter((d) => d.clienteId === clienteId && !(S.rapportini || []).some((r) => r.ddtId === d.id && r.id !== rapId))
     .sort((a, b) => (b.data || '').localeCompare(a.data || ''));
   const indirizzoSede = (s) => (s ? [s.indirizzo, [s.cap, s.citta].filter(Boolean).join(' ') + (s.provincia ? ' - ' + s.provincia : '')].filter((x) => x && x.trim()) : []);
-  const testoDest = (c, s, conSede) => c ? [CLI.nome(c), ...(conSede && s && (c.sedi || []).length > 1 && s.nome ? [s.nome] : []), ...indirizzoSede(s)].join('\n') : '';
+  // destinatario = sede legale del cliente (se c'è in anagrafica), destinazione = la sede dove va la merce
+  const legale = (c) => (c?.sedeLegale && (c.sedeLegale.indirizzo || c.sedeLegale.citta) ? c.sedeLegale : null);
+  const testoDest = (c, s, conSede) => c ? [CLI.nome(c), ...(conSede && s && (c.sedi || []).length > 1 && s.nome ? [s.nome] : []), ...indirizzoSede(!conSede && legale(c) ? legale(c) : s)].join('\n') : '';
 
   // ---------- sotto-schede «Rapportini | DDT» ----------
   const tabs = (att) => UT.puo('sez.ddt') ? `<nav class="tabs tabs-scheda tabs-rapddt"><a class="tab ${att === 'rap' ? 'on' : ''}" href="#/rapportini"><b>📝 Rapportini</b></a><a class="tab ${att === 'ddt' ? 'on' : ''}" href="#/rapportini/ddt"><b>🚚 DDT</b></a></nav>` : '';
@@ -80,7 +82,7 @@ window.DDT = (function () {
               <label>Rev.<input name="rev" maxlength="2" value="${esc(d.rev || 'A')}"></label>
               <label class="grow">Data documento<input type="date" name="data" value="${esc(d.data)}"></label>
             </div>
-            <label>Cliente ${info('Tocca e scrivi per cercare. Scegliendo la sede si compilano destinatario e destinazione: puoi cambiarli a mano.')}
+            <label>Cliente ${info('Tocca e scrivi per cercare. Scegliendo la sede si compilano il destinatario (con la sede legale, se è scritta nell\'anagrafica del cliente) e la destinazione (la sede scelta): puoi cambiarli a mano.')}
               <div class="cli-pick"><button type="button" class="cli-btn" id="btnCli">${etichettaCli()}</button>
                 <div class="cli-pop" hidden><input type="search" class="cli-q" placeholder="🔍 Cerca cliente o sede" autocomplete="off"><div class="cli-list"></div></div></div></label>
             <div class="due">

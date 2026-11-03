@@ -141,6 +141,7 @@ window.CLI = (function () {
             ${campo('Telefono', tel(c.telefono))}
             ${campo('Email', mail(c.email))}
             ${campo('PEC', mail(c.pec))}
+            ${c.sedeLegale ? campo('Sede legale', esc(indirizzo(c.sedeLegale))) : ''}
             ${UT.puo('prezzi') && c.maggiorazione != null ? campo('Maggiorazione listino', esc(String(c.maggiorazione).replace('.', ',')) + ' %') : ''}
             ${(c.altreEmail || []).length ? campo('Altre email', c.altreEmail.map((x) => `${mail(x.e)}${x.l ? ` <small class="muted">${esc(x.l)}</small>` : ''}`).join('<br>')) : ''}
           </div>
@@ -207,7 +208,7 @@ window.CLI = (function () {
     UI.modal({
       titolo: nuovo ? 'Nuovo cliente' : 'Dati generali',
       infoTxt: nuovo ? 'Dopo il salvataggio potrai aggiungere sedi e referenti.' : null,
-      valori: c ? { ...c, maggiorazione: c.maggiorazione != null ? String(c.maggiorazione).replace('.', ',') : '', altreEmailTxt: (c.altreEmail || []).map((x) => x.e + (x.l ? ' - ' + x.l : '')).join('\n') } : {},
+      valori: c ? { ...c, slIndirizzo: c.sedeLegale?.indirizzo || '', slCap: c.sedeLegale?.cap || '', slCitta: c.sedeLegale?.citta || '', slProvincia: c.sedeLegale?.provincia || '', maggiorazione: c.maggiorazione != null ? String(c.maggiorazione).replace('.', ',') : '', altreEmailTxt: (c.altreEmail || []).map((x) => x.e + (x.l ? ' - ' + x.l : '')).join('\n') } : {},
       campi: [
         { k: 'logo', label: 'Logo del cliente', tipo: 'immagine', vuoto: 'Nessun logo: si vedono le iniziali' },
         { k: 'ragioneSociale', label: 'Ragione sociale', req: true, maiuscolo: true },
@@ -219,9 +220,17 @@ window.CLI = (function () {
         { k: 'pec', label: 'PEC', tipo: 'email' },
         { k: 'altreEmailTxt', label: 'Altre email', tipo: 'textarea', placeholder: 'una per riga, es.\namministrazione@ditta.it - fatture\nmanutenzione@ditta.it - ufficio tecnico', aiuto: 'Email non legate a un referente. Dopo il trattino puoi scrivere a cosa servono. Compaiono anche nell\'invio ai clienti.' },
         { k: 'note', label: 'Note', tipo: 'textarea', placeholder: 'es. orari di accesso, chi avvisare…' },
+        { tipo: 'titolo', label: 'Sede legale (destinatario dei DDT)' },
+        { k: 'slIndirizzo', label: 'Indirizzo', placeholder: 'es. GALLERIA BUENOS AIRES 13', maiuscolo: true, aiuto: 'Solo se è diversa dalle sedi dove lavoriamo: sui DDT va come destinatario, la sede scelta va come destinazione.' },
+        { k: 'slCap', label: 'CAP', mezza: true },
+        { k: 'slCitta', label: 'Città', mezza: true, maiuscolo: true },
+        { k: 'slProvincia', label: 'Provincia', mezza: true, maiuscolo: true, placeholder: 'es. MI' },
         ...(UT.puo('prezzi') ? [{ k: 'maggiorazione', label: 'Maggiorazione listino %', num: true, mezza: true, placeholder: 'vuoto = prezzi normali', aiuto: 'Solo per i prezzi del listino: se la scrivi, per questo cliente vale su tutti gli articoli (prezzo nostro + questa %). Non compare su rapportini e DDT.' }] : [])
       ],
       onSalva: async (v) => {
+        v.sedeLegale = { indirizzo: v.slIndirizzo || '', cap: v.slCap || '', citta: v.slCitta || '', provincia: v.slProvincia || '' };
+        if (!v.sedeLegale.indirizzo && !v.sedeLegale.citta) v.sedeLegale = null;
+        ['slIndirizzo', 'slCap', 'slCitta', 'slProvincia'].forEach((k) => delete v[k]);
         if ('maggiorazione' in v) { const m = parseFloat(String(v.maggiorazione).replace(',', '.')); v.maggiorazione = isFinite(m) ? m : null; }
         // altre email: una per riga, "indirizzo - a cosa serve"
         const altre = [];
