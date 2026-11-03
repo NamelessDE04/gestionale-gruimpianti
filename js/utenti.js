@@ -104,7 +104,7 @@ window.UT = (function () {
     { g: 'Lavoro', k: 'ctr.elimina', nome: 'Eliminare o azzerare un controllo già fatto', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'ctr.voci', nome: 'Cambiare le voci di controllo di un impianto', def: LAVORO, scrive: true },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.ddt', nome: 'Documenti di trasporto (DDT)', def: TUTTI },
-    { g: 'Sezioni dell\'app (vedere)', k: 'sez.magazzino', nome: 'Magazzino ricambi (codici, ubicazioni e quantità, senza prezzi)', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.magazzino', nome: 'Magazzino ricambi e inventario (codici, ubicazioni e quantità, senza prezzi)', def: TUTTI },
     { g: 'Lavoro', k: 'ctr.fili', nome: 'Campo «Fili rotti» sulle funi nei controlli dei sottoganci', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'firma.grande', nome: 'Firma a tutto schermo (rapportini e DDT)', def: TUTTI },
     { g: 'Lavoro', k: 'rap.scrivere', nome: 'Scrivere e firmare i rapportini', def: LAVORO, scrive: true },
@@ -119,12 +119,15 @@ window.UT = (function () {
     { g: 'Impostazioni', k: 'ctr.modelloSede', nome: 'Cambiare il modello di scheda di una sede, salvare voci come modello, azzerare i controlli di una sede', def: ['master'], scrive: true },
     { g: 'Impostazioni', k: 'imp.tipi', nome: 'Tipi di impianto (voci dell\'anagrafica impianti)', def: ['master'], scrive: true },
     { g: 'Impostazioni', k: 'cablaggio.modifica', nome: 'Modificare il configuratore cablaggio', def: ['master'], scrive: true },
-    { g: 'Ufficio', k: 'prezzi', nome: 'Listino prezzi: vedere e modificare prezzi e maggiorazioni (anche dei clienti)', def: ['master'] },
+    { g: 'Ufficio', k: 'prezzi', nome: 'Listino prezzi: vedere prezzi e maggiorazioni (anche dei clienti)', def: ['master'] },
+    { g: 'Ufficio', k: 'prezzi.modifica', nome: 'Listino prezzi: modificare prezzi e maggiorazioni', def: ['master'], scrive: true, eredita: 'prezzi' },
     { g: 'Ufficio', k: 'gho.prezzi', nome: 'GHO ELIGIO: vedere prezzi e spese (rapportino, messaggio WhatsApp e riepilogo del mese)', def: ['master'] },
     { g: 'Ufficio', k: 'stampa', nome: 'Stampare e salvare in PDF (schede, elenchi, rapportini, layout)', def: UFFICIO },
     { g: 'Ufficio', k: 'invio', nome: 'Invia e archivia (email ai clienti)', def: UFFICIO },
-    { g: 'Ufficio', k: 'ordini', nome: 'N° d\'ordine dei clienti', def: UFFICIO },
-    { g: 'Ufficio', k: 'promemoria', nome: 'Promemoria dei rapportini in home (vedere e segnare fatti)', def: UFFICIO },
+    { g: 'Ufficio', k: 'ordini', nome: 'N° d\'ordine dei clienti: vedere l\'avviso e l\'elenco da aggiornare', def: UFFICIO },
+    { g: 'Ufficio', k: 'ordini.modifica', nome: 'N° d\'ordine dei clienti: scriverli e rimandare l\'avviso', def: UFFICIO, eredita: 'ordini' },
+    { g: 'Ufficio', k: 'promemoria', nome: 'Promemoria dei rapportini in home: vederli', def: TUTTI },
+    { g: 'Ufficio', k: 'promemoria.fatto', nome: 'Promemoria dei rapportini: segnarli come fatti', def: UFFICIO, eredita: 'promemoria' },
     { g: 'Ufficio', k: 'conflitti', nome: 'Risolvere i conflitti tra dispositivi', def: ['master'], scrive: true }
   ];
   const FMAP = Object.fromEntries(FUNZIONI.map((f) => [f.k, f]));
@@ -133,7 +136,9 @@ window.UT = (function () {
     if (r === 'developer') return true;
     const f = FMAP[k]; if (!f) return ALTI.includes(r);
     if (f.scrive && r === 'ru') return false;
-    const o = u?.permessi?.[k];
+    // le funzioni «modifica» nate dallo sdoppiamento: finché non le tocchi seguono la scelta già fatta su «vedere»
+    let o = u?.permessi?.[k];
+    if (typeof o !== 'boolean' && f.eredita && typeof u?.permessi?.[f.eredita] === 'boolean') o = u.permessi[f.eredita];
     return typeof o === 'boolean' ? o : f.def.includes(r);
   }
   const puo = (k) => puoPer(attuale(), ruoloSess(), k);

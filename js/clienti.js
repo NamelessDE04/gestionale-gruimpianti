@@ -225,7 +225,7 @@ window.CLI = (function () {
         { k: 'slCap', label: 'CAP', mezza: true },
         { k: 'slCitta', label: 'Città', mezza: true, maiuscolo: true },
         { k: 'slProvincia', label: 'Provincia', mezza: true, maiuscolo: true, placeholder: 'es. MI' },
-        ...(UT.puo('prezzi') ? [{ k: 'maggiorazione', label: 'Maggiorazione listino %', num: true, mezza: true, placeholder: 'vuoto = prezzi normali', aiuto: 'Solo per i prezzi del listino: se la scrivi, per questo cliente vale su tutti gli articoli (prezzo nostro + questa %). Non compare su rapportini e DDT.' }] : [])
+        ...(UT.puo('prezzi.modifica') ? [{ k: 'maggiorazione', label: 'Maggiorazione listino %', num: true, mezza: true, placeholder: 'vuoto = prezzi normali', aiuto: 'Solo per i prezzi del listino: se la scrivi, per questo cliente vale su tutti gli articoli (prezzo nostro + questa %). Non compare su rapportini e DDT.' }] : [])
       ],
       onSalva: async (v) => {
         v.sedeLegale = { indirizzo: v.slIndirizzo || '', cap: v.slCap || '', citta: v.slCitta || '', provincia: v.slProvincia || '' };
@@ -379,7 +379,7 @@ window.CLI = (function () {
 
   // pagina «N° d'ordine da aggiornare» (Master e Risorse Umane): si scrive il nuovo numero oppure si rimanda l'avviso
   function paginaOrdini(el, S) {
-    const lista = ordiniDaAggiornare(S), anno = annoOggi();
+    const lista = ordiniDaAggiornare(S), anno = annoOggi(), mod = UT.puo('ordini.modifica');
     el.innerHTML = `
       <section class="cli">
         <div class="sez-head"><h1>N° d'ordine ${anno} ${info('Il n° d\'ordine è il codice che il cliente dà ogni anno per il contratto di verifica periodica e va sui rapportini dei controlli. Qui compaiono le sedi che l\'anno scorso l\'avevano e quest\'anno non ancora. Se il cliente è in ritardo, rimanda l\'avviso.')}</h1></div>
@@ -387,15 +387,15 @@ window.CLI = (function () {
           <div class="card ord-riga" data-s="${s.id}" data-c="${c.id}">
             <div class="ord-testa"><b>${esc(nome(c))}</b> <span class="muted">· ${UI.magnete(s)} ${esc(s.nome || s.citta || '')}</span>
               <div class="muted small">${u ? `${u.anno}: <b>${esc(u.numero)}</b>` : ''}</div></div>
-            <div class="ord-azioni">
+            ${mod ? `<div class="ord-azioni">
               <input class="ord-in" placeholder="N° ordine ${anno}" autocomplete="off">
               <button type="button" class="btn small" data-salva>Salva</button>
               ${UI.menu([{ t: '⏰ Rimanda di una settimana', id: 'r7-' + s.id }, { t: '⏰ Rimanda di un mese', id: 'r30-' + s.id }, { t: '🚫 Il cliente non lo dà più', id: 'nd-' + s.id }], 'Rimanda')}
-            </div>
+            </div>` : ''}
           </div>`; }).join('') : `<p class="nessuno">Tutti i n° d'ordine del ${anno} sono a posto ✓</p>`}
       </section>`;
     const aggiorna = async (cId, sId, f) => { const c = S.clienti.find((x) => x.id === cId); const doc = JSON.parse(JSON.stringify(c)); f(doc.sedi.find((x) => x.id === sId)); await salva(doc); };
-    el.querySelectorAll('.ord-riga').forEach((r) => {
+    if (mod) el.querySelectorAll('.ord-riga').forEach((r) => {
       const cId = r.dataset.c, sId = r.dataset.s, inp = r.querySelector('.ord-in');
       r.querySelector('[data-salva]').onclick = async () => {
         const v = inp.value.trim().toUpperCase(); if (!v) { inp.focus(); return UI.toast('Scrivi il n° d\'ordine', 'err'); }

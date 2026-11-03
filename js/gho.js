@@ -32,7 +32,7 @@ window.GHO = (function () {
   const costoTot = (r) => costoKm(r) + costoPiatt(r) + costoMat(r);
   // chi vede i soldi nel GHO (prezzi materiale, spese, totali): funzione «gho.prezzi» in Gestione utenti
   const vp = () => UT.puo('gho.prezzi');
-  const puoPrezzi = () => vp() && UT.puo('prezzi');
+  const puoPrezzi = () => vp() && UT.puo('prezzi.modifica');   // scrivere i prezzi del materiale
   const daPrezzare = (S) => (S.oreGho || []).filter((r) => (r.materiali || []).some(senzaPrezzo));
   const badge = (S) => { if (!puoPrezzi()) return ''; const n = daPrezzare(S).reduce((t, r) => t + r.materiali.filter(senzaPrezzo).length, 0); return n ? `${n} ${n === 1 ? 'prezzo' : 'prezzi'} da controllare` : ''; };
 
@@ -104,7 +104,7 @@ window.GHO = (function () {
     const mese = meseScelto;
     const righe = (S.oreGho || []).filter((r) => meseDi(r) === mese).sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.mattDa || '').localeCompare(b.mattDa || ''));
     const vedeP = puoPrezzi(), vedeSoldi = vp(), prezzi = vedeP ? daPrezzare(S) : [];
-    const tot = righe.reduce((t, r) => ({ uomo: t.uomo + oreUomo(r), km: t.km + num(r.km), costo: t.costo + (vedeP ? costoTot(r) : costoKm(r) + costoPiatt(r)) }), { uomo: 0, km: 0, costo: 0 });
+    const tot = righe.reduce((t, r) => ({ uomo: t.uomo + oreUomo(r), km: t.km + num(r.km), costo: t.costo + costoTot(r) }), { uomo: 0, km: 0, costo: 0 });
     const leggi = UT.solaLettura();
     el.innerHTML = `
       <section class="sg sg2 gho">
@@ -231,8 +231,8 @@ window.GHO = (function () {
       F.querySelector('#gKm').textContent = nostroMezzo(r) ? (vp() ? `= ${euro(costoKm(r))}` : 'mezzo nostro: si conta') : 'non si conta (mezzo loro)';
       F.querySelectorAll('.gho-p').forEach((b, i) => { const p = r.piattaforme[i]; b.querySelector('[data-pc]').innerHTML = p.nostra ? (vp() ? `${num(p.qta) || 1} × ${num(p.ore)} h × 5 € = <b>${euro(num(p.ore) * (num(p.qta) || 1) * EURO_ORA_PIATT)}</b>` : `${num(p.qta) || 1} × ${num(p.ore)} h: si conta`) : 'piattaforma loro: non si conta'; });
       const manca = r.materiali.filter(senzaPrezzo).length;
-      F.querySelector('#gTot').innerHTML = puoPrezzi() ? `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))} · materiale ${euro(costoMat(r))} → <b>${euro(costoTot(r))}</b>${manca ? ` <span class="txt-ko">· ${manca} ${manca === 1 ? 'prezzo' : 'prezzi'} da mettere</span>` : ''}`
-        : vp() ? `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))}` : '';
+      F.querySelector('#gTot').innerHTML = vp() ? `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))} · materiale ${euro(costoMat(r))} → <b>${euro(costoTot(r))}</b>${manca && puoPrezzi() ? ` <span class="txt-ko">· ${manca} ${manca === 1 ? 'prezzo' : 'prezzi'} da mettere</span>` : ''}`
+        : '';
     }
     function collega() {
       const F = f();

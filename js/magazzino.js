@@ -104,7 +104,7 @@ window.MAG = (function () {
   let filtro = { q: '', cli: '' };
   // sotto-schede: Magazzino · Inventario (solo quantità) · Listino prezzi (solo prezzi)
   function tabs(attiva) {
-    const t = [['mag', '#/magazzino', '📦 Magazzino'], puoModificare() && ['inv', '#/magazzino/inventario', '🔢 Inventario'], UT.puo('prezzi') && ['listino', '#/magazzino/listino', '💶 Listino']].filter(Boolean);
+    const t = [['mag', '#/magazzino', '📦 Magazzino'], ['inv', '#/magazzino/inventario', '🔢 Inventario'], UT.puo('prezzi') && ['listino', '#/magazzino/listino', '💶 Listino']].filter(Boolean);
     return t.length > 1 ? `<nav class="tabs tabs-scheda">${t.map(([k, h, l]) => `<a class="tab ${attiva === k ? 'on' : ''}" href="${h}"><b>${l}</b></a>`).join('')}</nav>` : '';
   }
   const puoModificare = () => UT.puo('mag.modifica') && !UT.solaLettura();
@@ -188,7 +188,7 @@ window.MAG = (function () {
   // ---------- nuovo / modifica articolo ----------
   function modale(S, a, pre = {}) {
     if (!UT.serve('mag.modifica')) return;
-    const nuovo = !a, pr = UT.puo('prezzi');
+    const nuovo = !a, pr = UT.puo('prezzi') && UT.puo('prezzi.modifica');
     const U = usi(S);
     UI.modal({
       titolo: nuovo ? 'Nuovo articolo · ' + codice(prossimoN(S)) : 'Articolo ' + a.codice,
@@ -230,12 +230,12 @@ window.MAG = (function () {
     if (!UT.puo('prezzi')) { el.innerHTML = '<section class="vuoto"><h1>🔒 Listino prezzi</h1><p>Il listino non è abilitato per te.</p></section>'; return { titolo: 'Listino prezzi', indietro: '#/magazzino' }; }
     const cli = S.clienti.find((c) => c.id === filtro.cli);
     const elenco = cerca(S, filtro.q);
-    const mod = puoModificare();
+    const mod = UT.puo('prezzi.modifica') && !UT.solaLettura();
     el.innerHTML = `
       <section class="cli mag listino">
         ${tabs('listino')}
         <div class="sez-head"><h1>Listino prezzi ${info('Tutti gli articoli, solo con i prezzi. Il prezzo si cambia direttamente nella riga e si salva da solo. Prezzo cliente = prezzo nostro + maggiorazione: se la maggiorazione dell\'articolo è vuota vale quella normale qui sotto. Se scrivi il prezzo cliente la maggiorazione si ricalcola. Scegliendo un cliente vedi i suoi prezzi: se ha una maggiorazione sua in anagrafica, vale quella su tutti gli articoli. I prezzi non compaiono mai su rapportini e DDT e i tecnici non li vedono.')}</h1>
-          ${mod ? '<button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo articolo</span></button>' : ''}</div>
+          ${puoModificare() ? '<button class="btn fab" id="btnNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo articolo</span></button>' : ''}</div>
         <div class="card form lis-testa">
           <label>Maggiorazione normale %<input id="lisMagg" inputmode="decimal" value="${esc(due(maggNormale(S)))}" placeholder="es. 30" ${mod ? '' : 'disabled'}></label>
           <label>Prezzi per il cliente<select data-f="cli"><option value="">— prezzo normale —</option>${[...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b))).map((c) => `<option value="${c.id}" ${c.id === filtro.cli ? 'selected' : ''}>${esc(CLI.nome(c))}${numO(c.maggiorazione) != null ? ` (+${due(numO(c.maggiorazione))}%)` : ''}</option>`).join('')}</select></label>

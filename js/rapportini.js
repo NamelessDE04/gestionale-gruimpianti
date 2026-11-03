@@ -702,7 +702,7 @@ window.RAP = (function () {
       ${lista.map((m) => { const { c, s } = trova(S, m.sedeId), cl = c || S.clienti.find((x) => x.id === m.clienteId), rp = S.rapportini.find((x) => x.id === m.rapportinoId);
         return `<div class="memo-riga"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b>
           <small>${esc(cl ? CLI.nome(cl) : '—')}${s ? ' · ' + esc(s.sigla || s.nome || '') : ''} · ${rp ? `<a href="#/rapportini/r/${rp.id}">rapportino N° ${esc(numeroDi(rp))}</a>` : 'rapportino'} · ${esc(m.daNome || '—')}, ${fmt((m.creato || '').slice(0, 10))}</small></div>
-          <button type="button" class="btn ghost small" data-memofatto="${m.id}">✓ Fatto</button></div>`; }).join('')}</div>`;
+          ${UT.puo('promemoria.fatto') ? `<button type="button" class="btn ghost small" data-memofatto="${m.id}">✓ Fatto</button>` : ''}</div>`; }).join('')}</div>`;
   }
   function collegaMemo(el, S) {
     el.querySelectorAll('[data-memofatto]').forEach((b) => (b.onclick = async () => {
