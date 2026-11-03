@@ -49,7 +49,7 @@ window.GHO = (function () {
     const riga2 = [orari(r).join(' e ') + (r.viaggio ? ` + ${oreTesto(r.viaggio)} di viaggio` : ''),
       r.km ? `${r.km} km${nostroMezzo(r) ? '' : ' (mezzo loro)'}` : '', pn ? `${pn} ${pn === 1 ? 'piattaforma nostra' : 'piattaforme nostre'}` : '',
       `${np} ${np === 1 ? 'persona' : 'persone'}`].filter(Boolean).join(' - ');
-    const mat = (r.materiali || []).filter((m) => m.descrizione || m.codice).map((m) => `${m.qta ? m.qta + ' x ' : ''}${[m.codice, m.descrizione].filter(Boolean).join(' ')}${m.nostro ? ` (di nostra fornitura, ${senzaPrezzo(m) ? 'prezzo da definire' : euro(num(m.prezzo)) + ' cad.' + ((num(m.qta) || 1) > 1 ? ', totale ' + euro(num(m.prezzo) * num(m.qta)) : '')})` : ''}`);
+    const mat = (r.materiali || []).filter((m) => m.descrizione || m.codice).map((m) => `${m.qta ? m.qta + ' x ' : ''}${[m.codice, m.descrizione].filter(Boolean).join(' ')}${m.nostro ? ` (di nostra fornitura, ${senzaPrezzo(m) ? 'prezzo da definire' : ((num(m.qta) || 1) > 1 ? euro(num(m.prezzo)) + ' cad., totale ' + euro(num(m.prezzo) * num(m.qta)) : euro(num(m.prezzo)))})` : ''}`);
     return [
       [giorno.charAt(0).toUpperCase() + giorno.slice(1), r.cliente, r.citta].filter(Boolean).join(' - '),
       riga2,
@@ -295,7 +295,7 @@ window.GHO = (function () {
   // A4 orizzontale: una riga per intervento, in fondo i totali di ore, costi e materiali
   const COLS = [['DATA', 17], ['CLIENTE / CITTÀ', 34], ['GRU', 13], ['LAVORI SVOLTI · MATERIALE · SEGNALAZIONI', 0], ['ORARI', 22], ['VIAGGIO', 13], ['PERSONE', 17], ['ORE TOT.', 14], ['KM', 11], ['€ KM', 15], ['PIATTAFORME', 27], ['€ PIATT.', 15]];
   function rigaStampa(S, r) {
-    const mat = (r.materiali || []).map((m) => `<div class="${m.nostro ? 'gs-blu' : ''}">${m.qta ? esc(String(m.qta)) + ' × ' : ''}${esc([m.codice, m.descrizione].filter(Boolean).join(' – '))}${m.nostro ? ` <i>(nostra fornitura${senzaPrezzo(m) ? ', prezzo da definire' : ' – ' + euro(num(m.prezzo)) + ' cad.'})</i>` : ' <i>(fornito dal cliente)</i>'}</div>`).join('');
+    const mat = (r.materiali || []).map((m) => `<div class="${m.nostro ? 'gs-blu' : ''}">${m.qta ? esc(String(m.qta)) + ' × ' : ''}${esc([m.codice, m.descrizione].filter(Boolean).join(' – '))}${m.nostro ? ` <i>(nostra fornitura${senzaPrezzo(m) ? ', prezzo da definire' : ' – ' + euro(num(m.prezzo)) + ((num(m.qta) || 1) > 1 ? ' cad.' : '')})</i>` : ' <i>(fornito dal cliente)</i>'}</div>`).join('');
     const piatt = (r.piattaforme || []).map((p) => `${num(p.qta) || 1} × ${esc(p.tipo || 'piattaforma')} ${num(p.ore) ? `(${String(num(p.ore)).replace('.', ',')} h)` : ''} ${p.nostra ? 'NOSTRA' : 'LORO'}`).join('<br>');
     const mz = nostroMezzo(r) ? (mezzoDi(S, r.mezzoId) ? (mezzoDi(S, r.mezzoId).modello || mezzoDi(S, r.mezzoId).marca || 'nostro') : 'nostro mezzo') : 'mezzo loro';
     return `<tr>

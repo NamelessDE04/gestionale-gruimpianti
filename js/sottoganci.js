@@ -586,6 +586,12 @@ window.SG = (function () {
       box.querySelectorAll('.cod-btn[data-c]').forEach((b) => (b.onclick = () => {
         const nuovo = g.righe[v.s.id].codici[v.pi] === b.dataset.c ? '' : b.dataset.c;
         const y0 = box.getBoundingClientRect().top;
+        // correggo un giudizio tra i «Già controllati»: tutto resta fermo dov'è, niente salti verso quelli da fare
+        if (box.closest('#gFatti')) {
+          setCod(i, nuovo);
+          const d = box.getBoundingClientRect().top - y0; if (Math.abs(d) > 1) window.scrollBy(0, d);
+          return;
+        }
         setCod(i, nuovo); riordina(v); if (nuovo) dopoGiudizio(i, y0);
       }));
       const ba = box.querySelector('[data-altro]'); if (ba) ba.onclick = () => { const a = box.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
