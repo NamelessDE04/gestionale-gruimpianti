@@ -120,6 +120,7 @@ window.UT = (function () {
     { g: 'Impostazioni', k: 'imp.tipi', nome: 'Tipi di impianto (voci dell\'anagrafica impianti)', def: ['master'], scrive: true },
     { g: 'Impostazioni', k: 'cablaggio.modifica', nome: 'Modificare il configuratore cablaggio', def: ['master'], scrive: true },
     { g: 'Ufficio', k: 'prezzi', nome: 'Listino prezzi: vedere e modificare prezzi e maggiorazioni (anche dei clienti)', def: ['master'] },
+    { g: 'Ufficio', k: 'gho.prezzi', nome: 'GHO ELIGIO: vedere prezzi e spese (rapportino, messaggio WhatsApp e riepilogo del mese)', def: ['master'] },
     { g: 'Ufficio', k: 'stampa', nome: 'Stampare e salvare in PDF (schede, elenchi, rapportini, layout)', def: UFFICIO },
     { g: 'Ufficio', k: 'invio', nome: 'Invia e archivia (email ai clienti)', def: UFFICIO },
     { g: 'Ufficio', k: 'ordini', nome: 'N° d\'ordine dei clienti', def: UFFICIO },
