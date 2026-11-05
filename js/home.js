@@ -84,6 +84,7 @@ window.HOME = (function () {
       <section class="home">
         <!-- data e saluto ora stanno nella barra in alto -->
         ${UT.puo('conflitti') && CONF.conta(S) ? `<a class="avviso-m st-b-scaduto" href="#/conflitti"><span class="av-ico">⚠️</span><span class="grow"><b>${CONF.conta(S)} ${CONF.conta(S) === 1 ? 'conflitto' : 'conflitti'} tra dispositivi</b><span>Due dispositivi offline hanno lavorato sugli stessi documenti: scegli cosa tenere</span></span>›</a>` : ''}
+        ${AIMP.avvisoHome(S)}
         ${MAG.avvisoHome(S)}
         ${RAP.memoHome(S)}
         ${avvisiMezzi(S)}

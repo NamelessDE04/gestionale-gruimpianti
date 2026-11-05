@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.44.3';
+  const VERSIONE = '0.45.0';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], clientiCongelati: [] };
   // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
@@ -110,6 +110,7 @@ window.App = (function () {
     else if (parti[0] === 'approfonditi') info = APR.route(el, S, parti, query) || info;
     else if (parti[0] === 'clienti') info = CLI.route(el, S, parti, query) || info;
     else if (parti[0] === 'fornitori') info = FORN.route(el, S, parti) || info;
+    else if (parti[0] === 'controlla') info = AIMP.pagina(el, S) || info;
     else if (parti[0] === 'impianti') info = IMP.route(el, S, parti, query) || info;
     else if (parti[0] === 'mezzi') info = MEZ.route(el, S, parti) || info;
     else if (parti[0] === 'magazzino') info = MAG.route(el, S, parti) || info;

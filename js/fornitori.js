@@ -60,7 +60,7 @@ window.FORN = (function () {
         <div class="card cli-head">${CLI.avatar(f, true)}<div class="grow"><h1>${esc(nome(f))}</h1><p class="muted small">🏭 Fornitore</p></div></div>
         <div class="card">
           <div class="card-head"><h2>Dati e sede legale ${info('La sede legale va come DESTINATARIO sul DDT. Se la merce va in un altro posto, aggiungi una destinazione qui sotto.')}</h2>
-            ${puoMod() ? '<button class="btn ghost small" id="btnDati">✏️ Modifica</button>' : ''}</div>
+            <div class="card-azioni">${puoMod() ? '<button class="btn ghost small" id="btnDati">✏️ Modifica</button>' : ''}${UT.puo('anag.scambia') && !UT.solaLettura() ? UI.menu([{ t: '🏢 Sposta tra i clienti', id: 'btnACli' }]) : ''}</div></div>
           <div class="griglia-campi">
             ${campo('Ragione sociale', esc(f.ragioneSociale))}
             ${campo('Partita IVA', esc(f.piva))}
@@ -87,6 +87,7 @@ window.FORN = (function () {
           <div class="elenco">${ddt.slice(0, 30).map((d) => `<a class="riga" href="#/rapportini/ddt/${d.id}"><div class="riga-main"><b>N° ${esc(DDT.numeroDi(d))}</b><small class="muted">${esc(UI.fmt(d.data))}</small></div></a>`).join('')}</div></div>` : ''}
       </section>`;
     el.querySelector('#btnDati')?.addEventListener('click', () => modaleDati(S, f));
+    el.querySelector('#btnACli')?.addEventListener('click', () => AIMP.aCliente(S, f));
     el.querySelector('#btnSede')?.addEventListener('click', () => modaleSede(f, null));
     if (puoMod()) el.querySelectorAll('[data-sede]').forEach((n) => (n.onclick = () => modaleSede(f, f.sedi.find((s) => s.id === n.dataset.sede))));
     return { titolo: nome(f), indietro: '#/fornitori', live: true };

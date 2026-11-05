@@ -155,7 +155,7 @@ window.CLI = (function () {
 
         <div class="card">
           <div class="card-head"><h2>Dati generali ${info('La sigla veloce (es. ABT, FEC V) si mette sede per sede: tocca una sede qui sotto.')}</h2>
-            <div class="card-azioni"><button class="btn ghost small" id="btnDati">✏️ Modifica</button>${!c.congelato && UT.puo('anag.congela') ? UI.menu([{ t: '🗄 Archivia cliente (non lavora più con noi)', id: 'btnCongela' }]) : ''}</div></div>
+            <div class="card-azioni"><button class="btn ghost small" id="btnDati">✏️ Modifica</button>${UT.solaLettura() ? '' : UI.menu([!c.congelato && UT.puo('anag.congela') && { t: '🗄 Archivia cliente (non lavora più con noi)', id: 'btnCongela' }, UT.puo('anag.scambia') && { t: '🏭 Sposta tra i fornitori', id: 'btnAForn' }])}</div></div>
           <div class="griglia-campi">
             ${campo('Ragione sociale', esc(c.ragioneSociale))}
             ${campo('Partita IVA', esc(c.piva))}
@@ -214,6 +214,7 @@ window.CLI = (function () {
     el.querySelector('#btnDati').onclick = () => modaleDati(S, c);
     el.querySelector('#btnScongela')?.addEventListener('click', () => congela(S, c, false));
     el.querySelector('#btnCongela')?.addEventListener('click', () => congela(S, c, true));
+    el.querySelector('#btnAForn')?.addEventListener('click', () => AIMP.aFornitore(S, c));
     if (!UT.puo('anag.modifica')) el.querySelectorAll('#btnDati,#btnSede,#btnRef').forEach((x) => (x.hidden = true));
     el.querySelector('#btnSede').onclick = () => modaleSede(S, c, null);
     el.querySelector('#btnSposta')?.addEventListener('click', () => spostaSede(S, c));

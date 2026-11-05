@@ -1746,3 +1746,16 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .congelati .elenco { margin-top: 10px; }
 .banner-congelato { border: 2px solid #9fb0c3; background: #eef3f8; }
 .banner-congelato p { margin: 6px 0; overflow-wrap: anywhere; }
+
+/* anagrafiche da controllare (file DDT) */
+.ac-testa { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; overflow-wrap: anywhere; }
+.ac-due { margin-top: 10px; gap: 10px; }
+.ac-col { background: var(--sfondo, rgba(0,0,0,.03)); border: 1px solid var(--linea); border-radius: 10px; padding: 10px; min-width: 0; overflow-wrap: anywhere; }
+.ac-col p, .ac-col ul { margin: 4px 0; } .ac-col ul { padding-left: 18px; font-size: 14px; }
+.ac-diff { margin-top: 10px; overflow-wrap: anywhere; } .ac-diff ul { margin: 4px 0; padding-left: 18px; color: var(--ok, #2e9e5b); }
+.ac-az { flex-wrap: wrap; gap: 8px; }
+
+.ac-voci { display: grid; gap: 6px; margin-top: 6px; }
+.ac-v { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--ok, #2e9e5b); overflow-wrap: anywhere; }
+.ac-v input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
+.ac-v em { font-style: normal; font-size: 12.5px; }

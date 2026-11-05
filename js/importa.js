@@ -196,6 +196,8 @@ window.IMPORTA = (function () {
             setTimeout(() => LAY.applica(S, sd.id, dati, () => (location.hash = '#/layout/s/' + sd.id)), 50); }
         });
       }
+      // anagrafiche clienti/fornitori prese dal file dei DDT: confronto con quelle che ci sono già
+      if (dati.formato === 'gid-anagrafiche-ddt') return AIMP.anteprima(el.querySelector('#anteprima'), S, dati);
       if (dati.tipo !== 'gestionale-gruimpianti-import') return UI.toast('Questo file non è un file di importazione del gestionale', 'err');
       const p = piano(S, dati), box = el.querySelector('#anteprima');
       box.innerHTML = `

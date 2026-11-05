@@ -115,6 +115,8 @@ window.UT = (function () {
     { g: 'Anagrafiche', k: 'anag.modifica', nome: 'Aggiungere e modificare clienti, impianti, sottoganci, attrezzi e mezzi', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'forn.modifica', nome: 'Aggiungere e modificare fornitori', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.congela', nome: 'Archiviare e riattivare un cliente (es. ditta fallita: sparisce da tutto ma i dati restano)', def: ['master'], scrive: true },
+    { g: 'Anagrafiche', k: 'anag.scambia', nome: 'Spostare una ditta da cliente a fornitore e viceversa', def: ['master'], scrive: true },
+    { g: 'Anagrafiche', k: 'anag.controlla', nome: 'Controllare le anagrafiche importate (riquadro «📥 Anagrafiche da controllare» in home)', def: ['master'], scrive: true },
     { g: 'Anagrafiche', k: 'anag.eliminaTutto', nome: 'Spostare o eliminare un cliente o una sede con tutti i suoi dati', def: ['master'], scrive: true },
     { g: 'Anagrafiche', k: 'layout.modifica', nome: 'Disegnare e modificare i layout', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'sg.cartelle', nome: 'Cartelle sottoganci: eliminarle e sistemare le righe titolo', def: ['master'], scrive: true },
@@ -991,6 +993,7 @@ window.UT = (function () {
     if (parti[0] === 'invio' && no('invio')) return nonAbil;
     if (parti[0] === 'rapportini' && parti[1] === 'ddt' && no('sez.ddt')) return nonAbil;
     if (parti[0] === 'magazzino' && parti[1] === 'listino' && no('prezzi')) return nonAbil;
+    if (parti[0] === 'controlla' && no('anag.controlla')) return nonAbil;
     if (parti[0] === 'ordini' && no('ordini')) return nonAbil;
     if (parti[0] === 'conflitti' && no('conflitti')) return nonAbil;
     if (stampa && no('stampa')) return nonAbil;
