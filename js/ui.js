@@ -298,6 +298,21 @@ window.UI = (function () {
 
   const conferma = (msg) => window.confirm(msg);
 
+  // REGOLA GENERALE: quando si chiude una finestra in sovraimpressione (modifica, firma, messaggio, blocco…)
+  // si torna esattamente dove si era nella pagina, non in cima. Se intanto si è cambiata pagina, invece, niente.
+  const OVERLAY = '.modal-ov, .fg-over, .blocco-ov, .overlay';
+  let yOv = null, hOv = '';
+  new MutationObserver(() => {
+    const aperto = !!document.querySelector(OVERLAY);
+    if (aperto && yOv === null) { yOv = window.scrollY; hOv = location.hash; }
+    else if (!aperto && yOv !== null) {
+      const y = yOv, h = hOv; yOv = null;
+      if (location.hash !== h) return;
+      const torna = () => { if (location.hash === h && Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y); };
+      torna(); requestAnimationFrame(torna); setTimeout(torna, 120);
+    }
+  }).observe(document.body, { childList: true, subtree: true });
+
   // menu "⋯" con le azioni secondarie: voci = [{ t: 'testo', href } | { t, id }] (le voci vuote si saltano)
   const menu = (voci, titolo = 'Altre azioni') => {
     const v = voci.filter(Boolean);

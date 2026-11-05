@@ -38,6 +38,8 @@ window.CLI = (function () {
     ? `<span class="avatar logo ${big ? 'big' : ''}"><img src="${c.logo}" alt=""></span>`
     : `<span class="avatar ${big ? 'big' : ''}">${esc(nome(c).slice(0, 2).toUpperCase())}</span>`;
   const etichettaSede = (s) => UI.magnete(s) + ' ' + esc(s.nome || s.citta);
+  // la sede ha lo stesso indirizzo della sede legale?
+  const stessaLegale = (c, s) => !!(c.sedeLegale && s && (c.sedeLegale.indirizzo || '').trim().toUpperCase() === (s.indirizzo || '').trim().toUpperCase() && (c.sedeLegale.citta || '').trim().toUpperCase() === (s.citta || '').trim().toUpperCase() && (s.indirizzo || s.citta));
   const salva = (c) => UI.salva('clienti', JSON.parse(JSON.stringify(c)));
   // clienti congelati (es. ditta fallita): spariscono da tutto ma restano salvati con impianti e controlli
   const tutti = (S) => S.clienti.concat(S.clientiCongelati || []);
@@ -186,7 +188,9 @@ window.CLI = (function () {
                 ${s.note ? `<p class="muted small">${esc(s.note)}</p>` : ''}
                 ${s.soloDdt ? '<p class="muted small">🚚 Sede solo per i DDT</p>' : ''}
                 ${s.pianoControlli && !c.congelato && !s.soloDdt ? `<p class="ordine-sede">${ordineDi(s) ? `🧾 N° ordine ${annoOggi()}: <b>${esc(ordineDi(s))}</b>` : s.ordineNonDato ? '<span class="muted">🧾 Il cliente non dà il n° d\'ordine</span>' : `<span class="txt-ko">🧾 N° ordine ${annoOggi()} da inserire</span>${ultimoOrdine(s) ? ` <span class="muted">(${ultimoOrdine(s).anno}: ${esc(ultimoOrdine(s).numero)})</span>` : ''}`}</p>` : ''}
-                ${indirizzo(s) ? `<a class="azione" href="${mappa(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Apri mappa</a>` : ''}
+                <div class="mini-az">${indirizzo(s) ? `<a class="azione" href="${mappa(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Apri mappa</a>` : ''}
+                ${indirizzo(s) && UT.puo('anag.modifica') && !UT.solaLettura() && !stessaLegale(c, s) ? `<button type="button" class="azione link" data-legale="${s.id}">📋 Copia come sede legale</button>` : ''}
+                ${stessaLegale(c, s) ? '<span class="muted small">✓ è la sede legale</span>' : ''}</div>
               </div>`).join('') || '<p class="muted">Nessuna sede. Aggiungi la prima.</p>'}
           </div>
         </div>
@@ -223,6 +227,15 @@ window.CLI = (function () {
     el.querySelector('#btnSposta')?.addEventListener('click', () => spostaSede(S, c));
     el.querySelector('#btnRef').onclick = () => modaleRef(c, null);
     el.querySelectorAll('[data-sede]').forEach((n) => (n.onclick = () => modaleSede(S, c, c.sedi.find((s) => s.id === n.dataset.sede))));
+    // copia l'indirizzo della sede come sede legale (destinatario dei DDT)
+    el.querySelectorAll('[data-legale]').forEach((b) => (b.onclick = async (e) => {
+      e.stopPropagation();
+      const sd = c.sedi.find((x) => x.id === b.dataset.legale); if (!sd) return;
+      if (c.sedeLegale && (c.sedeLegale.indirizzo || c.sedeLegale.citta) && !UI.conferma(`Sostituire la sede legale di adesso (${indirizzo(c.sedeLegale)}) con ${indirizzo(sd)}?`)) return;
+      const doc = JSON.parse(JSON.stringify(c));
+      doc.sedeLegale = { indirizzo: sd.indirizzo || '', cap: sd.cap || '', citta: sd.citta || '', provincia: sd.provincia || '' };
+      await salva(doc); UI.toast('Sede legale aggiornata', 'ok');
+    }));
     el.querySelectorAll('[data-ref]').forEach((n) => (n.onclick = (e) => {
       if (e.target.closest('a')) return; // tocco su telefono / email: lascia chiamare o scrivere
       modaleRef(c, c.referenti.find((r) => r.id === n.dataset.ref));

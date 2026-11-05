@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.45.2';
+  const VERSIONE = '0.45.3';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], clientiCongelati: [] };
   // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
@@ -52,7 +52,14 @@ window.App = (function () {
       pa = a; pb = b;
     }
   }
+  // ridisegno della STESSA pagina (es. dopo aver salvato una finestra): resto esattamente dove ero, non torno in cima
   function ridisegna() {
+    const y = window.scrollY, stessa = location.hash === hashDisegnato;
+    const r = ridisegnaDentro();
+    if (stessa && y) { window.scrollTo(0, y); requestAnimationFrame(() => { if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y); }); }
+    return r;
+  }
+  function ridisegnaDentro() {
     const att = document.activeElement;
     const tieni = att && el.contains(att) && (att.tagName === 'TEXTAREA' || (att.tagName === 'INPUT' && /^(text|search|tel|email|number|url)$/.test(att.type))) ? att : null;
     const k = tieni ? chiaveCampo(tieni) : '';

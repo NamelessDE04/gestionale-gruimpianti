@@ -1760,3 +1760,5 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .ac-v input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
 .ac-v em { font-style: normal; font-size: 12.5px; }
 .ac-annulla { border: 2px dashed var(--linea); } .ac-annulla p { margin: 0 0 8px; overflow-wrap: anywhere; }
+.mini-az { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
+.mini-az .azione.link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
