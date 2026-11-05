@@ -48,7 +48,7 @@ window.SG = (function () {
     return null;
   }
   // cartelle attive: sedi con sottoganci o aperte apposta
-  const cartelleDi = (S) => S.clienti.flatMap((c) => (c.sedi || [])
+  const cartelleDi = (S) => S.clienti.flatMap((c) => CLI.sediDi(c)
     .filter((sd) => sd.cartellaSottoganci || S.sottoganci.some((x) => x.sedeId === sd.id))
     .map((sd) => cliente(S, sd.id)))
     .sort((a, b) => nomeCliente(a).localeCompare(nomeCliente(b)));
@@ -242,7 +242,7 @@ window.SG = (function () {
   function formCartella(el, S, sedeId) {
     const c = sedeId ? cliente(S, sedeId) : null;
     const attive = new Set(cartelleDi(S).map((x) => x.id));
-    const libere = S.clienti.flatMap((cl) => (cl.sedi || []).filter((sd) => !attive.has(sd.id))
+    const libere = S.clienti.flatMap((cl) => CLI.sediDi(cl).filter((sd) => !attive.has(sd.id))
       .map((sd) => ({ id: sd.id, label: `${cl.ragioneSociale} – ${sd.nome || sd.citta}` })))
       .sort((x, y) => x.label.localeCompare(y.label));
     el.innerHTML = `

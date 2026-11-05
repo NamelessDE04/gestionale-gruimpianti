@@ -74,7 +74,7 @@ window.IMP = (function () {
     if (!c) { el.innerHTML = '<p class="nessuno">Cliente non trovato.</p>'; return { titolo: 'Impianti', indietro: '#/impianti' }; }
     const imp = S.impianti.filter((i) => i.clienteId === cliId);
     const ordSt = (a, b) => ((statoImp(a) === 'fsd') - (statoImp(b) === 'fsd')) || ordina(a, b);
-    const gruppi = (c.sedi || []).map((s) => ({ s, lista: imp.filter((i) => i.sedeId === s.id).sort((a, b) => ((statoImp(a) === 'fsd') - (statoImp(b) === 'fsd')) || confronta(s.ordineGru || '')(a, b)) }));
+    const gruppi = CLI.sediDi(c).map((s) => ({ s, lista: imp.filter((i) => i.sedeId === s.id).sort((a, b) => ((statoImp(a) === 'fsd') - (statoImp(b) === 'fsd')) || confronta(s.ordineGru || '')(a, b)) }));
     const orfani = imp.filter((i) => !sede(c, i.sedeId));
     if (orfani.length) gruppi.push({ s: null, lista: orfani });
     el.innerHTML = `
@@ -82,10 +82,10 @@ window.IMP = (function () {
         <div class="card cli-head">
           ${CLI.avatar(c, true)}
           <div class="grow"><h1><a class="link-anag" href="#/clienti/${c.id}">${esc(CLI.nome(c))}</a></h1>
-            <p class="muted">${imp.length} impianti · ${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}</p></div>
+            <p class="muted">${imp.length} impianti · ${CLI.sediDi(c).length} ${CLI.sediDi(c).length === 1 ? 'sede' : 'sedi'}</p></div>
           <a class="btn fab" href="#/impianti/nuovo?cliente=${c.id}" ${UT.puo('anag.modifica') ? '' : 'hidden'}><span class="fab-piu">+</span><span class="fab-txt"> Nuovo impianto</span></a>
         </div>
-        ${gruppi.filter((g) => g.lista.length || (c.sedi || []).length > 1).map((g) => `
+        ${gruppi.filter((g) => g.lista.length || CLI.sediDi(c).length > 1).map((g) => `
           <h2 class="sez">${g.s ? UI.magnete(g.s) + ' ' + esc(g.s.nome || g.s.citta) : 'Senza sede'} <span class="conta">${g.lista.length}</span></h2>
           <div class="elenco">
             ${g.lista.map((i) => `
@@ -98,7 +98,7 @@ window.IMP = (function () {
                 <div class="riga-dx"><b class="portata">${portate(i, S)}</b></div>
               </a>`).join('') || `<p class="muted vuoto-sede">Nessun impianto in questa sede. ${g.s ? `<a class="link" href="#/impianti/nuovo?cliente=${c.id}&sede=${g.s.id}">Aggiungi</a>` : ''}</p>`}
           </div>`).join('') || '<p class="nessuno">Nessun impianto. Aggiungi il primo con «+ Nuovo impianto».</p>'}
-        ${(c.sedi || []).length ? '' : `<p class="nessuno">Questo cliente non ha sedi: <a class="link" href="#/clienti/${c.id}">aggiungile in anagrafica</a>.</p>`}
+        ${CLI.sediDi(c).length ? '' : `<p class="nessuno">Questo cliente non ha sedi: <a class="link" href="#/clienti/${c.id}">aggiungile in anagrafica</a>.</p>`}
       </section>`;
     return { titolo: 'Impianti · ' + CLI.nome(c), indietro: '#/impianti', live: true };
   }
@@ -175,7 +175,7 @@ window.IMP = (function () {
     const f = el.querySelector('#fImp');
     // sede dipende dal cliente
     const sedi = () => {
-      const c = cliente(S, f.clienteId.value), ss = c?.sedi || [];
+      const c = cliente(S, f.clienteId.value), ss = CLI.sediDi(c);
       f.sedeId.innerHTML = ss.length ? (ss.length > 1 ? '<option value="">— scegli —</option>' : '') +
         ss.map((s) => `<option value="${s.id}" ${s.id === i.sedeId ? 'selected' : ''}>${esc(nomeSede(s))}</option>`).join('')
         : '<option value="">(il cliente non ha sedi)</option>';

@@ -189,7 +189,7 @@ window.CTR = (function () {
     const k = oggiS > fine ? 'scaduto' : oggiS.slice(0, 7) === fine.slice(0, 7) ? 'scadenza' : 'ok';
     return { ...v, mese: m, tipo: tipoVisita(p, v.n), k, label: k === 'scaduto' ? `${v.n}° controllo in ritardo (${MESI[m - 1]})` : k === 'scadenza' ? `${v.n}° controllo da fare in ${MESI[m - 1]}` : `Prossimo: ${v.n}° a ${MESI[m - 1]}` };
   }
-  const sediConImpianti = (S) => S.clienti.flatMap((c) => (c.sedi || []).filter((s) => S.impianti.some((i) => i.sedeId === s.id && !i.dismesso)).map((s) => ({ c, s })))
+  const sediConImpianti = (S) => S.clienti.flatMap((c) => CLI.sediDi(c).filter((s) => S.impianti.some((i) => i.sedeId === s.id && !i.dismesso)).map((s) => ({ c, s })))
     .sort((a, b) => (CLI.nome(a.c) + a.s.nome).localeCompare(CLI.nome(b.c) + b.s.nome));
   const nomeSede = (c, s) => `${CLI.nome(c)} · ${s.sigla ? s.sigla + ' · ' : ''}${s.nome || s.citta}`;
   const annoOggi = () => +oggi().slice(0, 4);
@@ -491,7 +491,7 @@ window.CTR = (function () {
       onSalva: async (v) => {
         const pc = { mese1: Math.max(1, MESI.indexOf(v.mese1) + 1), annuale: parseInt(v.annuale, 10) || 1 };
         const d = JSON.parse(JSON.stringify(c));
-        d.sedi.forEach((x) => { if (x.id === s.id || v.tutte) x.pianoControlli = pc; });
+        d.sedi.forEach((x) => { if (x.id === s.id || (v.tutte && !x.soloDdt)) x.pianoControlli = pc; });
         d.sedi.forEach((x) => { if (x.id === s.id || (v.tutte && v.fascette)) { if (v.fascette) x.coloriFascette = true; else if (x.id === s.id) delete x.coloriFascette; } });
         d.sedi.forEach((x) => { if (x.id === s.id) { if (v.ordine === ORDINI[1]) x.ordineGru = 'secondo'; else delete x.ordineGru; } });   // l'ordine vale solo per questa sede
         await UI.salva('clienti', d); UI.toast('Piano salvato', 'ok');

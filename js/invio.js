@@ -53,8 +53,8 @@ window.INVIO = (function () {
   })();
 
   // ---------- dati ----------
-  const sedi = (S) => S.clienti.flatMap((c) => (c.sedi || []).map((s) => ({ c, s }))).sort((a, b) => CLI.nome(a.c).localeCompare(CLI.nome(b.c)));
-  const nomeSede = (c, s) => `${CLI.nome(c)}${(c.sedi || []).length > 1 ? ' · ' + (s.sigla || s.nome || '') : ''}`;
+  const sedi = (S) => S.clienti.flatMap((c) => CLI.sediDi(c).map((s) => ({ c, s }))).sort((a, b) => CLI.nome(a.c).localeCompare(CLI.nome(b.c)));
+  const nomeSede = (c, s) => `${CLI.nome(c)}${CLI.sediDi(c).length > 1 ? ' · ' + (s.sigla || s.nome || '') : ''}`;
   const indirizzi = (c) => {
     const out = [];
     if (c.email) out.push({ e: c.email, l: 'Email generale' });

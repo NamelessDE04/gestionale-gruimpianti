@@ -31,7 +31,7 @@ const gestCloud = {};
 // modalità dimostrazione del gestionale: dati inventati in uno spazio separato
 const leggiG = k => { if (gestCloud[k]) return gestCloud[k]; try { return JSON.parse(localStorage.getItem('gid_demo_' + k)) || []; } catch { return []; } };
 function anagraficaGestionale() {
-  const clients = leggiG('clienti').flatMap(c => (c.sedi || []).map(s => ({
+  const clients = leggiG('clienti').flatMap(c => (c.sedi || []).filter(s => !s.soloDdt).map(s => ({   // le sedi «solo DDT» non vanno in lavagna
     id: s.id,
     frozen: !!c.congelato,   // cliente congelato nel gestionale: resta solo per i controlli già in calendario
     name: (s.sigla || `${c.ragioneSociale || ''} ${s.nome || ''}`).trim().toUpperCase(),

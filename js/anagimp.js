@@ -146,7 +146,7 @@ window.AIMP = (function () {
             <div class="ac-testa"><b>${esc(d.nome)}</b> <span class="muted">${v.somiglianza === 'uguale' ? '=' : '≈'}</span> <b>${t ? esc(t.ragioneSociale) : '—'}</b>
               <span class="pill ${v.tipo === 'cliente' ? 'st-ok' : 'st-mai'}">${v.tipo === 'cliente' ? '🏢 cliente' : '🏭 fornitore'}${t?.congelato ? ' · 🗄 archiviato' : ''}</span></div>
             <div class="due ac-due">${blocco('📄 Nel file dei DDT', d.legale, d.sedi)}${t ? blocco(v.tipo === 'cliente' ? '🏢 Nella tua anagrafica clienti' : '🏭 Nei tuoi fornitori', t.sedeLegale, t.sedi) : '<div class="ac-col muted">Non c\'è più in anagrafica</div>'}</div>
-            ${df ? `<div class="ac-diff">${df.niente ? '<span class="muted">Se è lui non c\'è niente da aggiungere.</span>' : `<b>Se è lui aggiungo</b> <span class="muted small">(togli la spunta a quello che non vuoi)</span>:<div class="ac-voci">${df.legale ? `<label class="ac-v"><input type="checkbox" data-leg checked><span>+ sede legale: ${esc(testoInd(df.legale))}</span></label>` : ''}${df.nuove.map((s, i) => `<label class="ac-v"><input type="checkbox" data-sede="${i}" ${s._forse ? '' : 'checked'}><span>+ sede ${esc(s.nome || '')}: ${esc(testoInd(s))}${s._forse ? ` <em class="txt-ko">forse c'è già («${esc(s._forse)}»)</em>` : ''}</span></label>`).join('')}</div>`}
+            ${df ? `<div class="ac-diff">${df.niente ? '<span class="muted">Se è lui non c\'è niente da aggiungere.</span>' : `<b>Se è lui aggiungo</b> <span class="muted small">(togli la spunta a quello che non vuoi)</span>:<div class="ac-voci">${df.legale ? `<label class="ac-v"><input type="checkbox" data-leg checked><span>+ sede legale: ${esc(testoInd(df.legale))}</span></label>` : ''}${df.nuove.map((s, i) => `<label class="ac-v"><input type="checkbox" data-sede="${i}" ${s._forse ? '' : 'checked'}><span>+ sede ${esc(s.nome || '')}${v.tipo === 'cliente' ? ' (solo per i DDT)' : ''}: ${esc(testoInd(s))}${s._forse ? ` <em class="txt-ko">forse c'è già («${esc(s._forse)}»)</em>` : ''}</span></label>`).join('')}</div>`}
               ${df.legaleDiversa ? `<p class="muted small">⚠️ Nel file la sede legale è diversa (${esc(testoInd(df.legaleDiversa))}): quella in anagrafica non la cambio.</p>` : ''}</div>` : ''}
             <div class="azioni-form ac-az">
               <button type="button" class="btn ghost small danger" data-az="scarta">🗑 Scarta</button><span class="grow"></span>
@@ -175,7 +175,7 @@ window.AIMP = (function () {
         df.niente = !df.nuove.length && !df.legale;
         if (!df.niente) {
           const doc = JSON.parse(JSON.stringify(t));
-          doc.sedi = [...(doc.sedi || []), ...df.nuove.map(sedeNuova)];
+          doc.sedi = [...(doc.sedi || []), ...df.nuove.map((x) => (forn ? sedeNuova(x) : { ...sedeNuova(x), soloDdt: true }))];   // dal file DDT: sono destinazioni della merce
           if (df.legale) doc.sedeLegale = { indirizzo: df.legale.indirizzo || '', cap: df.legale.cap || '', citta: df.legale.citta || '', provincia: df.legale.provincia || '' };
           // copia di com'era prima (solo la prima volta), così «Annulla l'importazione» lo rimette com'era
           const bk = JSON.parse(JSON.stringify(App.dati().impostazioni.find((x) => x.id === BK) || { id: BK, clienti: {}, fornitori: {} }));

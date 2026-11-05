@@ -272,7 +272,7 @@ window.RAP = (function () {
 
     // --- cliente / sede / referenti
     const disegnaSedi = () => {
-      const ss = cliente()?.sedi || [];
+      const ss = CLI.sediDi(cliente());
       f.sedeId.innerHTML = ss.length ? (ss.length > 1 ? '<option value="">— scegli —</option>' : '') + ss.map((s) => `<option value="${s.id}" ${s.id === r.sedeId ? 'selected' : ''}>${esc(s.sigla ? s.sigla + ' – ' + (s.nome || '') : s.nome || 'Sede')}</option>`).join('') : '<option value="">(il cliente non ha sedi)</option>';
       const refs = cliente()?.referenti || [];
       f.referenteId.innerHTML = '<option value="">— nessuno / scrivo il nome —</option>' + refs.map((x) => `<option value="${x.id}" ${x.id === r.referenteId ? 'selected' : ''}>${esc([x.nome, x.cognome].filter(Boolean).join(' '))}</option>`).join('');
@@ -575,7 +575,7 @@ window.RAP = (function () {
             h += `<div class="r2-riga" style="left:85.7mm;top:17.6mm;width:118.6mm"></div>`;
             h += cella(86, 18.6, 204.3, 23, esc(indirizzo.join(' - ')), 'c');
             h += `<div class="r2-riga" style="left:85.7mm;top:23.1mm;width:118.6mm"></div>`;
-            h += cella(86, 23.6, 204.3, 28, (c?.sedi || []).length > 1 && s ? esc(s.nome || '') : '', 'c piccolo');
+            h += cella(86, 23.6, 204.3, 28, CLI.sediDi(c).length > 1 && s ? esc(s.nome || '') : '', 'c piccolo');
             // tabella delle ore
             h += box(X[0], 30.2, X[5], 36) + box(X[5], 30.2, X[9], 36) + box(X[9], 30.2, X[10], 36);
             h += cella(X[0] + 0.6, 30.2, X[5] - 0.4, 36, `<b>RAPPORTO INTERVENTO</b> &nbsp;N° ${esc(numeroDi(r))}`);

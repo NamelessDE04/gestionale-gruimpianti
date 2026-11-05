@@ -83,7 +83,7 @@ window.APR = (function () {
   // scelta della sede del cliente
   function sceltaSede(S, sedeId) {
     const op = [...S.clienti].sort((a, b) => a.ragioneSociale.localeCompare(b.ragioneSociale))
-      .map((c) => `<optgroup label="${esc(c.ragioneSociale)}">${(c.sedi || []).map((s) => `<option value="${s.id}" ${s.id === sedeId ? 'selected' : ''}>${esc(c.ragioneSociale)} – ${esc(s.nome || s.citta || 'sede')}</option>`).join('')}</optgroup>`).join('');
+      .map((c) => `<optgroup label="${esc(c.ragioneSociale)}">${CLI.sediDi(c).map((s) => `<option value="${s.id}" ${s.id === sedeId ? 'selected' : ''}>${esc(c.ragioneSociale)} – ${esc(s.nome || s.citta || 'sede')}</option>`).join('')}</optgroup>`).join('');
     return `<label>Cliente e sede *<select name="sede" required><option value="">— scegli —</option>${op}</select></label>`;
   }
   const portate = (i) => (i.paranchi || []).map((p) => p.portata).filter(Boolean).map((k) => (!/^\s*\d+([.,]\d+)?\s*$/.test(String(k)) ? String(k).trim() : +String(k).replace(',', '.') >= 1000 ? fmtN(+String(k).replace(',', '.') / 1000, 1) + ' t' : k + ' kg')).join(' + ');

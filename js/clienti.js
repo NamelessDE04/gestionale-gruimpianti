@@ -14,13 +14,15 @@ window.CLI = (function () {
     if (ps) { const vecchio = ps.clienteId && (App.dati?.().clienti || []).find((x) => x.id === ps.clienteId); return vecchio ? nomeAl(vecchio, d) : ps.nome; }
     return (prima(c.nomiPrecedenti) || {}).nome || c.ragioneSociale || '';
   }
+  // sedi di lavoro: senza quelle «solo per i DDT» (es. il magazzino di un altro dove mandiamo la merce)
+  const sediDi = (c) => (c?.sedi || []).filter((s) => !s.soloDdt);
   const exNomi = (c) => (c.nomiPrecedenti || []).map((x) => x.nome);
   // N° ordine del contratto annuale di verifica periodica: uno per sede e per anno (sede.ordini = { 2026: 'ABR...' })
   const annoOggi = () => +UI.oggi().slice(0, 4);
   const ordineDi = (s, anno = annoOggi()) => (s?.ordini || {})[anno] || '';
   const ultimoOrdine = (s) => { const k = Object.keys(s?.ordini || {}).map(Number).filter((a) => s.ordini[a]).sort((a, b) => b - a)[0]; return k ? { anno: k, numero: s.ordini[k] } : null; };
   // sedi a cui va aggiornato il n° d'ordine: hanno i controlli periodici, di solito ce lo danno, quest'anno manca e l'avviso non è rimandato
-  const ordiniDaAggiornare = (S) => S.clienti.flatMap((c) => (c.sedi || []).map((s) => ({ c, s }))).filter(({ s }) => {
+  const ordiniDaAggiornare = (S) => S.clienti.flatMap((c) => sediDi(c).map((s) => ({ c, s }))).filter(({ s }) => {
     if (!s.pianoControlli || s.ordineNonDato || ordineDi(s)) return false;
     if (s.ordineRimanda && s.ordineRimanda > UI.oggi()) return false;
     const u = ultimoOrdine(s); return !!u && u.anno < annoOggi();
@@ -182,7 +184,8 @@ window.CLI = (function () {
                 <p>${esc(indirizzo(s)) || '<span class="muted">Indirizzo da inserire</span>'}</p>
                 ${(s.km !== undefined && s.km !== '') || s.viaggio ? `<p class="km">🚚 ${[s.km !== undefined && s.km !== '' ? esc(s.km) + ' km' : '', s.viaggio ? esc(UI.minOre(s.viaggio)) + ' h di viaggio' : ''].filter(Boolean).join(' · ')} dalla nostra sede</p>` : ''}
                 ${s.note ? `<p class="muted small">${esc(s.note)}</p>` : ''}
-                ${s.pianoControlli && !c.congelato ? `<p class="ordine-sede">${ordineDi(s) ? `🧾 N° ordine ${annoOggi()}: <b>${esc(ordineDi(s))}</b>` : s.ordineNonDato ? '<span class="muted">🧾 Il cliente non dà il n° d\'ordine</span>' : `<span class="txt-ko">🧾 N° ordine ${annoOggi()} da inserire</span>${ultimoOrdine(s) ? ` <span class="muted">(${ultimoOrdine(s).anno}: ${esc(ultimoOrdine(s).numero)})</span>` : ''}`}</p>` : ''}
+                ${s.soloDdt ? '<p class="muted small">🚚 Sede solo per i DDT</p>' : ''}
+                ${s.pianoControlli && !c.congelato && !s.soloDdt ? `<p class="ordine-sede">${ordineDi(s) ? `🧾 N° ordine ${annoOggi()}: <b>${esc(ordineDi(s))}</b>` : s.ordineNonDato ? '<span class="muted">🧾 Il cliente non dà il n° d\'ordine</span>' : `<span class="txt-ko">🧾 N° ordine ${annoOggi()} da inserire</span>${ultimoOrdine(s) ? ` <span class="muted">(${ultimoOrdine(s).anno}: ${esc(ultimoOrdine(s).numero)})</span>` : ''}`}</p>` : ''}
                 ${indirizzo(s) ? `<a class="azione" href="${mappa(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Apri mappa</a>` : ''}
               </div>`).join('') || '<p class="muted">Nessuna sede. Aggiungi la prima.</p>'}
           </div>
@@ -306,6 +309,7 @@ window.CLI = (function () {
         { k: 'ordine', label: `N° ordine ${annoOggi()}`, mezza: true, maiuscolo: true, placeholder: 'es. ABR2500013',
           aiuto: (sd && ultimoOrdine(sd) && ultimoOrdine(sd).anno !== annoOggi() ? `${ultimoOrdine(sd).anno}: ${ultimoOrdine(sd).numero} · ` : '') + 'Codice del cliente per il contratto annuale di verifica: si cambia ogni anno' },
         { k: 'ordineNonDato', label: 'Il cliente non ci dà il n° d\'ordine', tipo: 'sino', mezza: true },
+        { k: 'soloDdt', label: 'Sede solo per i DDT', tipo: 'sino', aiuto: 'Si sceglie solo come destinazione nei DDT (es. il magazzino di un\'altra ditta dove mandiamo la merce). Non compare in impianti, controlli, sottoganci, rapportini, invii, n° d\'ordine e lavagna.' },
         { k: 'km', label: 'Km dalla nostra sede', tipo: 'number', mezza: true, placeholder: 'es. 25', aiuto: 'Solo andata: si cambia quando serve' },
         { k: 'viaggio', label: 'Viaggio (ore)', num: true, mezza: true, placeholder: 'es. 0,5 oppure 1:30', aiuto: 'Tempo di viaggio solo andata, in ore (0,5 = mezz\'ora · 1:15 = un\'ora e un quarto): lo propone il rapportino' },
         { k: 'note', label: 'Note sulla sede', tipo: 'textarea', placeholder: 'es. ingresso carraio, orari, chiave in portineria…' }
@@ -436,5 +440,5 @@ window.CLI = (function () {
     return { titolo: 'N° d\'ordine da aggiornare', indietro: '#/', live: true };
   }
 
-  return { route, tutti, congelato, sedeCongelata, nome, nomeAl, indirizzo, avatar, ordineDi, ordiniDaAggiornare, paginaOrdini };
+  return { route, sediDi, tutti, congelato, sedeCongelata, nome, nomeAl, indirizzo, avatar, ordineDi, ordiniDaAggiornare, paginaOrdini };
 })();
