@@ -1,12 +1,12 @@
 // ===== DOCUMENTI DI TRASPORTO (DDT) =====
 // Stanno nella sezione «Rapportini e DDT» (sotto-scheda DDT). Numero progressivo/anno/revisione, es. 100/26/A:
-// il progressivo riparte da 1 ogni anno (nel 2026 l'app parte da 100: gli altri sono stati fatti a mano), la revisione
+// il progressivo riparte da 1 ogni anno (nel 2026 l'app parte da 93: gli altri sono stati fatti a mano), la revisione
 // è quasi sempre A. Il PDF ricalca il modulo cartaceo di Gru Impianti (A4, misure in mm).
 // Rapportini e DDT sono indipendenti: un rapportino dello stesso cliente può «abbinare» un DDT (r.ddtId sul rapportino).
 // Le righe scelte dal magazzino scalano la quantità (vedi MAG.usi). I prezzi non compaiono mai.
 window.DDT = (function () {
   const { esc, uid, oggi, fmt, info } = UI;
-  const PRIMO = { 2026: 100 };   // da che numero parte l'app in un anno (gli altri anni da 1)
+  const PRIMO = { 2026: 93 };   // da che numero parte l'app in un anno (gli altri anni da 1)
   const CAUSALI = [['fornitura', 'FORNITURA E MONTAGGIO'], ['lavorazione', 'CONTO LAVORAZIONE'], ['visione', 'VISIONE'], ['riparato', 'RESO RIPARATO'], ['nonRiparato', 'NON RIPARATO'], ['nonConforme', 'RESO NON CONFORME']];
   const CURA = [['mittente', 'MITTENTE'], ['destinatario', 'DESTINATARIO'], ['vettore', 'VETTORE']];
   const UM = ['PZ', 'NR', 'MT', 'KG', 'LT', 'CF', 'KIT', 'CORPO'];
