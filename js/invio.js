@@ -77,6 +77,13 @@ window.INVIO = (function () {
     .sort((a, b) => String(a.numeroInterno).localeCompare(String(b.numeroInterno), 'it', { numeric: true }))
     .map((i) => { const n = Object.keys(CTR.schedaDi(S, i.id, anno).visite || {}).length, d = ultimaData(S, i.id, anno);
       return { id: i.id, data: d, t: `${i.numeroInterno ? 'N° ' + i.numeroInterno + ' · ' : ''}${IMP.titolo(i)}`, sub: `${n} ${n === 1 ? 'controllo' : 'controlli'}${d ? ' · ultimo ' + fmt(d) : ''}` }; });
+  // DDT: di un cliente (tutte le sue sedi, anche quelle «solo DDT») o di un fornitore; quelli già inviati solo nell'anno scelto
+  const eFornitore = (S, id) => (S.fornitori || []).some((f) => f.id === id);
+  const ddtDi = (S, c, anno) => !c || !UT.puo('sez.ddt') ? [] : (S.ddt || []).filter((d) => (eFornitore(S, c.id) ? d.fornitoreId === c.id : d.clienteId === c.id) && (+d.anno === +anno || !d.inviatoIl))
+    .sort((a, b) => (b.anno - a.anno) || (b.numero - a.numero))
+    .map((d) => { const s = (c.sedi || []).find((x) => x.id === d.sedeId);
+      return { id: d.id, t: `DDT N° ${DDT.numeroDi(d)}`, sub: `${fmt(d.data)} · ${d.firmaDestinatario ? 'firmato' : 'da firmare'}${s?.nome ? ' · ' + s.nome : ''}${d.inviatoIl ? ' · ✉️ inviato il ' + fmt(d.inviatoIl.slice(0, 10)) : ''}`,
+        on: !d.inviatoIl && !!d.firmaDestinatario }; });
   const haElenco = (S, sedeId) => S.sottoganci.some((x) => x.sedeId === sedeId);
 
   // testo della mail in base a cosa c'è dentro
@@ -86,6 +93,8 @@ window.INVIO = (function () {
     const og = [], tx = [];
     if (p.imp.length) { og.push(`Schede di controllo ${anno}${p.data ? ' (controllo del ' + fmt(p.data) + ')' : ''}`); tx.push(`le schede di controllo degli apparecchi di sollevamento (D.Lgs. 81/08) dell'anno ${anno}${p.data ? ', controllo del ' + fmt(p.data) : ''}`); }
     if (rr.length) { og.push(rr.length === 1 ? `Rapportino N° ${rr[0].numero}/${rr[0].anno}` : `Rapportini di intervento (${rr.length})`); tx.push(rr.length === 1 ? `il rapportino di intervento N° ${rr[0].numero}/${rr[0].anno}` : 'i rapportini di intervento ' + rr.map((r) => `N° ${r.numero}/${r.anno}`).join(', ')); }
+    const dd = (p.ddt || []).map((id) => (S.ddt || []).find((d) => d.id === id)).filter(Boolean);
+    if (dd.length) { og.push(dd.length === 1 ? `DDT N° ${DDT.numeroDi(dd[0])}` : `Documenti di trasporto (${dd.length})`); tx.push(dd.length === 1 ? `il documento di trasporto N° ${DDT.numeroDi(dd[0])}` : 'i documenti di trasporto ' + dd.map((d) => 'N° ' + DDT.numeroDi(d)).join(', ')); }
     if (p.sg) { og.push(`Elenco accessori di sollevamento ${anno}`); tx.push(`l'elenco aggiornato degli accessori di sollevamento (funi, catene, brache) dell'anno ${anno}`); }
     return { oggetto: og.join(' · '), testo: `Buongiorno,\nin allegato${tx.length > 1 ? ':\n' + tx.map((t) => '- ' + t).join(';\n') : ' ' + (tx[0] || '')}.${firma}` };
   };
@@ -93,7 +102,9 @@ window.INVIO = (function () {
   // ---------- PDF ----------
   const pulito = (t) => String(t || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^A-Za-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
   async function creaPdf(S, sedeId, anno, p) {
-    const { c, s } = CTR.trovaSede(S, sedeId), nome = pulito(c ? CLI.nome(c) : 'cliente') + (s?.sigla ? '_' + pulito(s.sigla) : '');
+    let { c, s } = CTR.trovaSede(S, sedeId);
+    if (!c) c = (S.fornitori || []).find((f) => f.id === sedeId);   // fornitore (solo DDT)
+    const nome = pulito(c ? CLI.nome(c) : 'cliente') + (s?.sigla ? '_' + pulito(s.sigla) : '');
     const out = [];
     if (p.imp.length && p.separati) {
       // un PDF per ogni scheda, col numero interno dell'impianto nel nome
@@ -110,6 +121,10 @@ window.INVIO = (function () {
       const r = S.rapportini.find((x) => x.id === id);
       out.push({ nome: `Rapportino_${r.numero}-${r.anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => RAP.route(el, S, ['rapportini', 'r', id], new URLSearchParams()), '.recap', true) });
     }
+    for (const id of p.ddt || []) {
+      const d = (S.ddt || []).find((x) => x.id === id);
+      out.push({ nome: `DDT_${pulito(DDT.numeroDi(d)).replace(/_/g, '-')}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => DDT.route(el, S, ['rapportini', 'ddt', id], new URLSearchParams()), '.ddt-pag', true) });
+    }
     if (p.sg) { const cs = SG.cliente(S, sedeId); out.push({ nome: `${pulito(cs?.titoloElenco || 'ELENCO_SOTTOGANCI')}_${anno}_${nome}.pdf`, bytes: await PDFX.daStampa((el) => SGStampa.render(el, S, sedeId, anno), '.foglio', false) }); }
     return out;
   }
@@ -121,10 +136,10 @@ window.INVIO = (function () {
   // le email da mandare: tutto insieme, oppure una per ogni data di controllo (rapportini ed elenco vanno nella prima)
   function piano(S, st, sch) {
     const imp = sch.filter((x) => st.imp.has(x.id));
-    const base = { rap: [...st.rap], sg: st.sg, separati: st.separati };
+    const base = { rap: [...st.rap], ddt: [...st.ddt], sg: st.sg, separati: st.separati };
     if (st.modo !== 'date' || !imp.length) return [{ ...base, imp: imp.map((x) => x.id), data: '' }];
     const date = [...new Set(imp.map((x) => x.data))].sort();
-    return date.map((d, k) => ({ separati: st.separati, rap: k ? [] : base.rap, sg: k ? false : base.sg, imp: imp.filter((x) => x.data === d).map((x) => x.id), data: d }));
+    return date.map((d, k) => ({ separati: st.separati, rap: k ? [] : base.rap, ddt: k ? [] : base.ddt, sg: k ? false : base.sg, imp: imp.filter((x) => x.data === d).map((x) => x.id), data: d }));
   }
 
   // ---------- STAMPA E PDF: mese per mese, per cliente e stabilimento ----------
@@ -234,7 +249,7 @@ window.INVIO = (function () {
   const segVista = (st) => `<div class="seg inv-vista"><button type="button" data-vista="invio" class="${st.vista !== 'pdf' ? 'on' : ''}">📧 Invia per email</button><button type="button" data-vista="pdf" class="${st.vista === 'pdf' ? 'on' : ''}">🖨️ Stampa e PDF</button></div>`;
 
   // ---------- pagina ----------
-  const stato = { rap: new Set(), imp: new Set(), sg: false, modo: 'una', chiave: '', separati: false, vista: 'invio' };
+  const stato = { rap: new Set(), imp: new Set(), ddt: new Set(), sg: false, modo: 'una', chiave: '', separati: false, vista: 'invio' };
   function pagina(el, S, query) {
     if (!UT.puo('invio')) { el.innerHTML = '<p class="nessuno">Invia e archivia non è abilitato per te.</p>'; return { titolo: 'Invio', indietro: '#/' }; }
     const st = stato;
@@ -243,14 +258,18 @@ window.INVIO = (function () {
     if (query.get('anno')) st.anno = +query.get('anno');
     st.anno = st.anno || new Date().getFullYear();
     if (query.get('sede') || query.get('anno')) history.replaceState(null, '', '#/invio');
-    const tutte = sedi(S);
+    const soloClienti = sedi(S);
+    // per l'invio dei DDT nell'elenco ci sono anche i fornitori (solo DDT, niente schede o rapportini)
+    const forn = UT.puo('sez.ddt') ? [...(S.fornitori || [])].sort((a, b) => a.ragioneSociale.localeCompare(b.ragioneSociale)).map((f) => ({ c: f, s: { id: f.id }, forn: true })) : [];
+    const tutte = st.vista === 'pdf' ? soloClienti : soloClienti.concat(forn);
     if (!tutte.some((x) => x.s.id === st.sede)) st.sede = tutte[0]?.s.id || '';
-    const { c } = tutte.find((x) => x.s.id === st.sede) || {};
+    const { c, forn: eForn } = tutte.find((x) => x.s.id === st.sede) || {};
     if (st.vista === 'pdf') return paginaPdf(el, S, st, tutte, c);
-    const rap = st.sede ? rapportiniDi(S, st.sede, st.anno) : [], sch = st.sede ? schedeDi(S, st.sede, st.anno) : [], elenco = st.sede && haElenco(S, st.sede);
+    const rap = st.sede && !eForn ? rapportiniDi(S, st.sede, st.anno) : [], sch = st.sede && !eForn ? schedeDi(S, st.sede, st.anno) : [], elenco = st.sede && !eForn && haElenco(S, st.sede);
+    const ddt = ddtDi(S, c, st.anno);
     // cambiando cliente o anno riparte la scelta proposta
     if (st.chiave !== st.sede + '|' + st.anno) {
-      st.chiave = st.sede + '|' + st.anno; st.rap = new Set(rap.filter((d) => d.on).map((d) => d.id)); st.imp = new Set(); st.sg = false; st.modo = 'una'; st.testoMio = false;
+      st.chiave = st.sede + '|' + st.anno; st.rap = new Set(rap.filter((d) => d.on).map((d) => d.id)); st.ddt = new Set(ddt.filter((d) => d.on).map((d) => d.id)); st.imp = new Set(); st.sg = false; st.modo = 'una'; st.testoMio = false;
     }
     const date = [...new Set(sch.map((x) => x.data))].filter(Boolean).sort();
     const ind = c ? indirizzi(c) : [];
@@ -260,14 +279,15 @@ window.INVIO = (function () {
     const voce = (gr, d, on) => `<label class="spunta ${d.senza ? 'spenta' : ''}"><input type="checkbox" data-gr="${gr}" value="${d.id}" ${on ? 'checked' : ''} ${d.senza ? 'disabled' : ''}><span><b>${esc(d.t)}</b><small>${esc(d.sub)}</small></span></label>`;
     el.innerHTML = `
       <section class="cli invio">
-        <div class="sez-head"><h1>Invia e archivia ${info('Con «📧 Invia per email» mandi i documenti ai clienti; con «🖨️ Stampa e PDF» li salvi in archivio o li stampi, mese per mese. Scegli il cliente e spunta quello che vuoi mandare: schede di controllo, rapportini ed elenco sottoganci possono partire insieme nella stessa email. L\'app crea i PDF (gli stessi della stampa) e li spedisce dalla tua casella Gmail. Se le schede sono tante puoi mandare una email per ogni data di controllo; se una email supera il limite di Gmail l\'app la divide da sola in più parti.')}</h1></div>
+        <div class="sez-head"><h1>Invia e archivia ${info('Con «📧 Invia per email» mandi i documenti ai clienti; con «🖨️ Stampa e PDF» li salvi in archivio o li stampi, mese per mese. Scegli il cliente e spunta quello che vuoi mandare: schede di controllo, rapportini, DDT ed elenco sottoganci possono partire insieme nella stessa email. Nell\'elenco dei clienti ci sono anche i fornitori, per mandare loro i DDT. L\'app crea i PDF (gli stessi della stampa) e li spedisce dalla tua casella Gmail. Se le schede sono tante puoi mandare una email per ogni data di controllo; se una email supera il limite di Gmail l\'app la divide da sola in più parti.')}</h1></div>
         ${segVista(st)}
         <div class="card form"><div class="due">
-          <label>Cliente<select id="selSede">${tutte.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}</select></label>
+          <label>Cliente<select id="selSede">${soloClienti.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(nomeSede(c, s))}</option>`).join('')}
+            ${forn.length ? `<optgroup label="🏭 Fornitori (solo DDT)">${forn.map(({ c, s }) => `<option value="${s.id}" ${s.id === st.sede ? 'selected' : ''}>${esc(c.ragioneSociale)}</option>`).join('')}</optgroup>` : ''}</select></label>
           <label>Anno<select id="selAnno">${anni.map((a) => `<option ${a === st.anno ? 'selected' : ''}>${a}</option>`).join('')}</select></label>
         </div></div>
 
-        <div class="card">
+        ${eForn ? '' : `<div class="card">
           <div class="card-head"><h2>📋 Schede di controllo ${st.anno}</h2>${sch.length > 1 ? '<button type="button" class="link" data-tutti="imp">Tutte / nessuna</button>' : ''}</div>
           ${date.length > 1 ? `<div class="inv-date"><span class="muted small">Scegli per data di controllo:</span>${date.map((d) => { const n = sch.filter((x) => x.data === d).length, tutteOn = sch.filter((x) => x.data === d).every((x) => st.imp.has(x.id));
             return `<button type="button" class="inv-chip ${tutteOn ? 'on' : ''}" data-data="${d}">${esc(fmt(d))} <small>${n}</small></button>`; }).join('')}</div>` : ''}
@@ -277,7 +297,11 @@ window.INVIO = (function () {
         <div class="card">
           <div class="card-head"><h2>🧾 Rapportini</h2>${rap.length > 1 ? '<button type="button" class="link" data-tutti="rap">Tutti / nessuno</button>' : ''}</div>
           <div class="spunte inv-lista">${rap.map((d) => voce('rap', d, st.rap.has(d.id))).join('') || '<p class="muted">Nessun rapportino da inviare.</p>'}</div>
-        </div>
+        </div>`}
+        ${UT.puo('sez.ddt') ? `<div class="card">
+          <div class="card-head"><h2>🚚 DDT</h2>${ddt.length > 1 ? '<button type="button" class="link" data-tutti="ddt">Tutti / nessuno</button>' : ''}</div>
+          <div class="spunte inv-lista">${ddt.map((d) => voce('ddt', d, st.ddt.has(d.id))).join('') || `<p class="muted">Nessun DDT da inviare${eForn ? ' a questo fornitore' : ''}.</p>`}</div>
+        </div>` : ''}
 
         ${elenco ? `<div class="card"><h2>⛓️ Elenco sottoganci</h2><div class="spunte">${voce('sg', { id: 'sg', t: `${SG.cliente(S, st.sede)?.titoloElenco || 'ELENCO SOTTOGANCI'} ${st.anno}`, sub: `${S.sottoganci.filter((x) => x.sedeId === st.sede && !x.dismesso).length} sottoganci` }, st.sg)}</div></div>` : ''}
 
@@ -298,8 +322,8 @@ window.INVIO = (function () {
         ${storico.length ? `<div class="card"><h2>Ultimi invii a questo cliente</h2>${storico.map((x) => `<p class="small">✉️ <b>${fmt(x.data.slice(0, 10))}</b> · ${esc(x.oggetto)}<br><span class="muted">a ${esc(x.a.join(', '))} · da ${esc(x.da)}</span></p>`).join('')}</div>` : ''}
       </section>`;
 
-    const totale = () => ({ rap: [...st.rap], imp: [...st.imp], sg: st.sg });
-    const vuoto = () => !st.rap.size && !st.imp.size && !st.sg;
+    const totale = () => ({ rap: [...st.rap], ddt: [...st.ddt], imp: [...st.imp], sg: st.sg });
+    const vuoto = () => !st.rap.size && !st.ddt.size && !st.imp.size && !st.sg;
     const disegnaModo = () => {
       const scelte = sch.filter((x) => st.imp.has(x.id)), nd = new Set(scelte.map((x) => x.data)).size;
       if (nd < 2 && st.modo === 'date') st.modo = 'una';
@@ -312,7 +336,7 @@ window.INVIO = (function () {
         <div class="seg"><button type="button" class="${st.separati ? '' : 'on'}" data-sep="0">Tutte in un PDF</button>
           <button type="button" class="${st.separati ? 'on' : ''}" data-sep="1">Un PDF per ogni scheda</button></div>
         ${st.separati ? '<p class="muted small">Ogni PDF ha nel nome il numero interno dell\'impianto (es. Scheda_M-C27_2026_…pdf).</p>' : ''}` : ''}
-        <ol class="inv-piano">${pp.map((p) => `<li>${[p.imp.length && `${p.imp.length} ${p.imp.length === 1 ? 'scheda' : 'schede'}${p.data ? ' del ' + fmt(p.data) : ''}`, p.rap.length && `${p.rap.length} ${p.rap.length === 1 ? 'rapportino' : 'rapportini'}`, p.sg && 'elenco sottoganci'].filter(Boolean).join(' · ')}</li>`).join('')}</ol>
+        <ol class="inv-piano">${pp.map((p) => `<li>${[p.imp.length && `${p.imp.length} ${p.imp.length === 1 ? 'scheda' : 'schede'}${p.data ? ' del ' + fmt(p.data) : ''}`, p.rap.length && `${p.rap.length} ${p.rap.length === 1 ? 'rapportino' : 'rapportini'}`, (p.ddt || []).length && `${p.ddt.length} DDT`, p.sg && 'elenco sottoganci'].filter(Boolean).join(' · ')}</li>`).join('')}</ol>
         <p class="muted small">${pp.length === 1 ? 'Parte 1 email.' : `Partono ${pp.length} email.`} Se una supera il limite di Gmail (circa 18 MB di allegati) viene divisa da sola in più parti.</p>`;
       el.querySelectorAll('[data-modo]').forEach((b) => (b.onclick = () => { st.modo = b.dataset.modo; disegnaModo(); testi(); }));
       el.querySelectorAll('[data-sep]').forEach((b) => (b.onclick = () => { st.separati = b.dataset.sep === '1'; disegnaModo(); }));
@@ -350,7 +374,9 @@ window.INVIO = (function () {
         const al = await creaPdf(S, st.sede, st.anno, p);
         if (peso(al) <= MAX) { pronte.push({ p, al }); continue; }
         if (p.imp.length > 1) { const m = Math.ceil(p.imp.length / 2); coda.unshift({ ...p, imp: p.imp.slice(0, m), diviso: true }, { ...p, imp: p.imp.slice(m), rap: [], sg: false, diviso: true }); continue; }
-        if (p.imp.length && (p.rap.length || p.sg)) { coda.unshift({ ...p, rap: [], sg: false }, { ...p, imp: [], data: '' }); continue; }
+        if (p.imp.length && (p.rap.length || p.ddt.length || p.sg)) { coda.unshift({ ...p, rap: [], ddt: [], sg: false }, { ...p, imp: [], data: '' }); continue; }
+        if (p.rap.length && p.ddt.length) { coda.unshift({ ...p, ddt: [] }, { ...p, imp: [], rap: [], sg: false }); continue; }
+        if (p.ddt.length > 1) { const m = Math.ceil(p.ddt.length / 2); coda.unshift({ ...p, ddt: p.ddt.slice(0, m) }, { ...p, imp: [], rap: [], ddt: p.ddt.slice(m), sg: false }); continue; }
         if (p.rap.length > 1) { const m = Math.ceil(p.rap.length / 2); coda.unshift({ ...p, rap: p.rap.slice(0, m) }, { ...p, imp: [], rap: p.rap.slice(m), sg: false }); continue; }
         throw new Error('grande:' + al.map((x) => x.nome).join(', ') + ' (' + mb(peso(al)) + ')');
       }
@@ -386,9 +412,10 @@ window.INVIO = (function () {
           await MAIL.invia({ da: acc.email, nome: `${io?.nome || ''} – Gru Impianti`, a, oggetto: ogg, testo: txt, allegati: al });
           fatte++;
           const ora = new Date().toISOString();
-          await UI.salva('invii', { id: uid(), tipo: 'misto', tipi: [p.imp.length && 'controlli', p.rap.length && 'rapportini', p.sg && 'sottoganci'].filter(Boolean), sedeId: st.sede, clienteId: c?.id || '', anno: st.anno,
-            docIds: [...p.imp, ...p.rap, ...(p.sg ? [st.sede] : [])], a, da: acc.email, oggetto: ogg, data: ora, utente: io?.id || '', allegati: al.map((x) => x.nome) });
+          await UI.salva('invii', { id: uid(), tipo: 'misto', tipi: [p.imp.length && 'controlli', p.rap.length && 'rapportini', p.ddt.length && 'ddt', p.sg && 'sottoganci'].filter(Boolean), sedeId: st.sede, clienteId: eForn ? '' : c?.id || '', fornitoreId: eForn ? c.id : '', anno: st.anno,
+            docIds: [...p.imp, ...p.rap, ...p.ddt, ...(p.sg ? [st.sede] : [])], a, da: acc.email, oggetto: ogg, data: ora, utente: io?.id || '', allegati: al.map((x) => x.nome) });
           for (const id of p.rap) { const r = S.rapportini.find((x) => x.id === id); if (r) await UI.salva('rapportini', { ...r, inviatoIl: ora, inviatoA: a }); }
+          for (const id of p.ddt) { const d = (S.ddt || []).find((x) => x.id === id); if (d) await UI.salva('ddt', { ...d, inviatoIl: ora, inviatoA: a }); }
         }
         UI.toast(N > 1 ? `${N} email inviate a ${a.join(', ')}` : `Email inviata a ${a.join(', ')}`, 'ok');
         st.chiave = ''; App.ridisegna();

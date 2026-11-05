@@ -52,7 +52,7 @@ window.DDT = (function () {
           return `<a class="riga cli-riga" href="#/rapportini/ddt/${d.id}">
             ${c ? CLI.avatar(c) : '<span class="avatar">🚚</span>'}
             <div class="riga-main"><div class="riga-top"><b>N° ${esc(numeroDi(d))}</b> · ${esc(c ? CLI.nome(c) : (d.destinatario || '').split('\n')[0] || '—')}${s?.sigla ? ` <span class="muted">${esc(s.sigla)}</span>` : ''}
-              <span class="pill ${firmato(d) ? 'st-ok' : 'st-ko'}">${firmato(d) ? 'Firmato' : 'Da firmare'}</span>${rp ? `<span class="pill st-inv">🔗 Rapp. ${esc(rp.numero ? rp.numero + '/' + rp.anno : '')}</span>` : ''}</div>
+              <span class="pill ${firmato(d) ? 'st-ok' : 'st-ko'}">${firmato(d) ? 'Firmato' : 'Da firmare'}</span>${d.inviatoIl ? `<span class="pill st-inv" title="Inviato a ${esc((d.inviatoA || []).join(', '))}">✉️ Inviato</span>` : ''}${rp ? `<span class="pill st-inv">🔗 Rapp. ${esc(rp.numero ? rp.numero + '/' + rp.anno : '')}</span>` : ''}</div>
               <div class="muted small">${fmt(d.data)} · ${nr} ${nr === 1 ? 'riga' : 'righe'}${(d.righe || [])[0]?.descrizione ? ' · ' + esc(d.righe[0].descrizione.split('\n')[0].slice(0, 50)) : ''}</div></div>›</a>`; }).join('')
           || `<p class="nessuno">${elenco(S).length ? 'Nessun DDT trovato.' : 'Ancora nessun DDT. Crea il primo con «+ Nuovo DDT».'}</p>`}</div>
       </section>`;
