@@ -10,6 +10,7 @@
 window.AIMP = (function () {
   const { esc, uid, info } = UI;
   const ID = 'anagDaControllare';
+  const BK = 'anagBackupDdt';   // com'erano clienti e fornitori prima di «È lui: aggiungi» (per annullare tutto)
 
   // ---------- confronto nomi e indirizzi ----------
   const FORME = /\b(S\.?\s?R\.?\s?L\.?\s?S?\.?|S\.?\s?P\.?\s?A\.?|S\.?\s?N\.?\s?C\.?|S\.?\s?A\.?\s?S\.?|SR\s?L|SOCIO UNICO|UNIPERSONALE)(?=\s|$|[^A-Z0-9])/g;
@@ -135,6 +136,10 @@ window.AIMP = (function () {
       <section class="cli acontr">
         <div class="sez-head"><h1>Anagrafiche da controllare ${info('Ditte del file dei DDT che somigliano a un cliente o a un fornitore che hai già. Guarda le due schede affiancate e scegli: «È lui» aggiunge solo quello che manca (sede legale e sedi nuove), senza cancellare niente. «Non è lui» crea un fornitore nuovo. «Scarta» la toglie dall\'elenco senza salvare niente. Se poi ti accorgi che una ditta è un cliente e non un fornitore (o il contrario) usa il tasto nella sua scheda.')}</h1></div>
         ${lista.length ? '' : '<p class="nessuno">Tutto controllato 👍</p>'}
+        ${UT.puo('anag.controlla') && !UT.solaLettura() && daAnnullare(S).n ? `<div class="card ac-annulla"><p>Non sei convinto? <b>Annulla l'importazione</b> e torni a clienti e fornitori com'erano prima di caricare il file.</p>
+          <div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnAnnullaImp">↩ Annulla l'importazione del file DDT</button><span class="grow"></span>
+          ${lista.length ? '' : '<button type="button" class="btn small" id="btnTieni">✓ Va bene così</button>'}</div>
+          <p class="muted small">«Va bene così» rende definitiva l'importazione: dopo non si può più annullare in un colpo solo.</p></div>` : ''}
         ${lista.map((v) => {
           const t = targetDi(S, v), d = v.ditta, df = t ? differenze(t, d, v.tipo === 'fornitore') : null;
           return `<div class="card ac-card" data-v="${v.id}">
@@ -149,6 +154,15 @@ window.AIMP = (function () {
               ${t ? `<button type="button" class="btn small" data-az="lui">✓ È lui${df && !df.niente ? ': aggiungi' : ''}</button>` : ''}
             </div></div>`; }).join('')}
       </section>`;
+    el.querySelector('#btnAnnullaImp')?.addEventListener('click', () => annulla(S));
+    el.querySelector('#btnTieni')?.addEventListener('click', async () => {
+      if (!UI.conferma('Tenere tutto così? L\'importazione diventa definitiva.')) return;
+      const marcati = (S.fornitori || []).filter((f) => f.daFileDdt).map((f) => { const x = { ...f }; delete x.daFileDdt; return x; });
+      if (marcati.length) await Backend.saveMany('fornitori', marcati);
+      for (const id of [ID, BK]) if (S.impostazioni.some((x) => x.id === id)) await Backend.remove('impostazioni', id);
+      UT.registra('modifica', 'Importazione del file DDT resa definitiva');
+      UI.toast('Fatto: importazione definitiva', 'ok'); location.hash = '#/fornitori';
+    });
     el.querySelectorAll('.ac-card [data-az]').forEach((b) => (b.onclick = async () => {
       const v = lista.find((x) => x.id === b.closest('[data-v]').dataset.v); if (!v) return;
       b.disabled = true;
@@ -163,7 +177,11 @@ window.AIMP = (function () {
           const doc = JSON.parse(JSON.stringify(t));
           doc.sedi = [...(doc.sedi || []), ...df.nuove.map(sedeNuova)];
           if (df.legale) doc.sedeLegale = { indirizzo: df.legale.indirizzo || '', cap: df.legale.cap || '', citta: df.legale.citta || '', provincia: df.legale.provincia || '' };
-          await UI.salva(forn ? 'fornitori' : 'clienti', doc);
+          // copia di com'era prima (solo la prima volta), così «Annulla l'importazione» lo rimette com'era
+          const bk = JSON.parse(JSON.stringify(App.dati().impostazioni.find((x) => x.id === BK) || { id: BK, clienti: {}, fornitori: {} }));
+          const col = forn ? 'fornitori' : 'clienti';
+          if (!bk[col][t.id]) { bk[col][t.id] = JSON.parse(JSON.stringify(t)); await UI.salva('impostazioni', bk); }
+          await UI.salva(col, doc);
         }
         UT.registra('modifica', `Anagrafiche dal file DDT: ${v.ditta.nome} = ${t.ragioneSociale}${df.niente ? '' : ` (+${df.nuove.length} sedi${df.legale ? ', sede legale' : ''})`}`);
       } else if (az === 'nuovo') {
@@ -174,6 +192,30 @@ window.AIMP = (function () {
       UI.toast(az === 'lui' ? 'Aggiornato' : az === 'nuovo' ? 'Fornitore creato' : 'Scartato', 'ok');
     }));
     return { titolo: 'Anagrafiche da controllare', indietro: '#/', live: true };
+  }
+
+  // ---------- ANNULLA L'IMPORTAZIONE ----------
+  // toglie i fornitori nati dal file (anche quelli creati con «Non è lui»), rimette com'erano clienti e fornitori
+  // modificati con «È lui: aggiungi» e svuota l'elenco da controllare. Non tocca nient'altro.
+  function daAnnullare(S) {
+    const bk = S.impostazioni.find((x) => x.id === BK) || { clienti: {}, fornitori: {} };
+    const forn = (S.fornitori || []).filter((f) => f.daFileDdt && !bk.fornitori[f.id]);
+    const conDdt = forn.filter((f) => (S.ddt || []).some((d) => d.fornitoreId === f.id));
+    const rip = Object.keys(bk.clienti || {}).length + Object.keys(bk.fornitori || {}).length;
+    return { forn, conDdt, bk, rip, n: forn.length + rip + voci(S).length };
+  }
+  async function annulla(S) {
+    const a = daAnnullare(S);
+    const via = a.forn.filter((f) => !a.conDdt.includes(f));
+    if (!UI.conferma(`Annullare l'importazione del file DDT?\n\n• tolgo ${via.length} fornitori arrivati dal file${a.conDdt.length ? ` (ne tengo ${a.conDdt.length} perché hanno già dei DDT: ${a.conDdt.map((f) => f.ragioneSociale).join(', ')})` : ''}\n• rimetto com'erano ${a.rip} clienti/fornitori a cui avevi aggiunto sedi\n• svuoto le ${voci(S).length} ditte da controllare\n\nI clienti non vengono mai cancellati.`)) return;
+    if (Backend.mode === 'cloud' && !navigator.onLine) return UI.toast('Serve internet', 'err');
+    if (via.length) await Backend.removeMany('fornitori', via.map((f) => f.id));
+    for (const [col, docs] of [['clienti', a.bk.clienti || {}], ['fornitori', a.bk.fornitori || {}]]) {
+      for (const [id, doc] of Object.entries(docs)) if ((col === 'clienti' ? CLI.tutti(S) : S.fornitori).some((x) => x.id === id)) await UI.salva(col, doc);
+    }
+    for (const id of [ID, BK]) if (S.impostazioni.some((x) => x.id === id)) await Backend.remove('impostazioni', id);
+    UT.registra('eliminazione', `Annullata l'importazione del file DDT: tolti ${via.length} fornitori, ripristinati ${a.rip} clienti/fornitori`);
+    UI.toast('Importazione annullata', 'ok'); location.hash = '#/clienti';
   }
 
   // ---------- CLIENTE ↔ FORNITORE ----------
@@ -214,5 +256,5 @@ window.AIMP = (function () {
     UI.toast('Ora è un cliente', 'ok'); location.hash = '#/clienti/' + c.id;
   }
 
-  return { piano, anteprima, avvisoHome, pagina, aFornitore, aCliente, somiglia, chiave };
+  return { piano, anteprima, avvisoHome, pagina, daAnnullare, annulla, aFornitore, aCliente, somiglia, chiave };
 })();

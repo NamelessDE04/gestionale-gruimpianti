@@ -1759,3 +1759,4 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .ac-v { display: flex; gap: 8px; align-items: flex-start; font-size: 14px; color: var(--ok, #2e9e5b); overflow-wrap: anywhere; }
 .ac-v input { width: 20px; height: 20px; flex-shrink: 0; margin-top: 1px; }
 .ac-v em { font-style: normal; font-size: 12.5px; }
+.ac-annulla { border: 2px dashed var(--linea); } .ac-annulla p { margin: 0 0 8px; overflow-wrap: anywhere; }

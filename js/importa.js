@@ -162,12 +162,16 @@ window.IMPORTA = (function () {
           <label>File da importare (.json)<input type="file" id="fImp"></label>
           <div id="anteprima"></div>
         </div>
+        ${UT.puo('anag.controlla') && AIMP.daAnnullare(S).n ? `<div class="card form"><h2>📥 Anagrafiche dal file DDT</h2>
+          <p>C'è un'importazione del file DDT ancora da confermare.</p>
+          <div class="azioni-form"><a class="btn ghost small" href="#/controlla">Apri il controllo</a><span class="grow"></span><button type="button" class="btn ghost small danger" id="btnAnnullaDdt">↩ Annulla l'importazione</button></div></div>` : ''}
         ${(() => { const d = doppi(S); return d.via.length || d.restano ? `<div class="card form">
           <h2>🧹 Impianti doppi</h2>
           <p>${d.via.length ? `Trovati <b>${d.via.length}</b> impianti doppi (stessa gru importata due volte nella stessa sede).` : ''}${d.restano ? ` <span class="muted small">${d.restano} doppi hanno già controlli o layout collegati: quelli vanno guardati a mano.</span>` : ''}</p>
           ${d.via.length ? '<div class="azioni-form"><span class="grow"></span><button type="button" class="btn danger" id="btnDoppi">🧹 Elimina i doppi</button></div>' : ''}
         </div>` : ''; })()}
       </section>`;
+    el.querySelector('#btnAnnullaDdt')?.addEventListener('click', () => AIMP.annulla(S));
     el.querySelector('#btnDoppi')?.addEventListener('click', async (ev) => {
       const d = doppi(S);
       if (!UI.conferma(`Eliminare ${d.via.length} impianti doppi?\n\nResta una sola copia di ogni gru. Vengono eliminati solo i doppi senza controlli, layout o schede collegati.`)) return;
