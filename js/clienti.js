@@ -37,6 +37,19 @@ window.CLI = (function () {
     : `<span class="avatar ${big ? 'big' : ''}">${esc(nome(c).slice(0, 2).toUpperCase())}</span>`;
   const etichettaSede = (s) => UI.magnete(s) + ' ' + esc(s.nome || s.citta);
   const salva = (c) => UI.salva('clienti', JSON.parse(JSON.stringify(c)));
+  // clienti congelati (es. ditta fallita): spariscono da tutto ma restano salvati con impianti e controlli
+  const tutti = (S) => S.clienti.concat(S.clientiCongelati || []);
+  const congelato = (S, clienteId) => !!clienteId && (S.clientiCongelati || []).some((c) => c.id === clienteId);
+  const sedeCongelata = (S, sedeId) => !!sedeId && (S.clientiCongelati || []).some((c) => (c.sedi || []).some((s) => s.id === sedeId));
+  async function congela(S, c, si) {
+    if (!UT.serve('anag.congela')) return;
+    if (si && !UI.conferma(`Congelare ${nome(c)}?\n\nSparisce da elenchi, ricerche, lavagna, controlli da fare e invii. I suoi dati, gli impianti e i controlli restano salvati: li ritrovi in fondo all'Anagrafica clienti, alla voce «🧊 Clienti congelati».`)) return;
+    const doc = JSON.parse(JSON.stringify(c));
+    if (si) doc.congelato = { dal: UI.oggi(), da: UT.attuale()?.nome || '' }; else delete doc.congelato;
+    await salva(doc);
+    UT.registra('modifica', `Cliente ${nome(c)} ${si ? 'congelato' : 'scongelato'}`);
+    UI.toast(si ? 'Cliente congelato' : 'Cliente di nuovo attivo', 'ok');
+  }
   // quanti dati (sottoganci, impianti) sono collegati a una sede: se ce ne sono non si può togliere
   const usaSede = (S, sedeId) => S.sottoganci.filter((x) => x.sedeId === sedeId).length + S.impianti.filter((x) => x.sedeId === sedeId).length
     + (S.attrezzi || []).filter((x) => x.sedeId === sedeId).length + (S.schedeApprofondite || []).filter((x) => x.sedeId === sedeId).length;
@@ -106,6 +119,11 @@ window.CLI = (function () {
               <div class="riga-dx muted small">${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}<br>${(c.referenti || []).length} ${(c.referenti || []).length === 1 ? 'referente' : 'referenti'}</div>
             </a>`).join('') : (S.clienti.length ? '<p class="nessuno">Nessun cliente trovato.</p>' : '<p class="nessuno">Nessun cliente ancora. Inizia con «+ Nuovo cliente».</p>')}
         </div>
+        ${(S.clientiCongelati || []).length ? `<details class="card congelati"><summary onclick="const i = event.target.closest('.info'); if (i) { event.preventDefault(); if (event.target.closest('.info > summary')) i.open = !i.open; }">🧊 Clienti congelati <span class="conta">${S.clientiCongelati.length}</span> ${info('Clienti che non lavorano più con noi (es. ditte fallite): non compaiono da nessuna parte, ma i loro dati, impianti e controlli restano salvati. Aprili per scongelarli o per spostare una sede a un nuovo cliente.')}</summary>
+          <div class="elenco">${[...S.clientiCongelati].sort((a, b) => nome(a).localeCompare(nome(b))).map((c) => `
+            <a class="riga cli-riga grigio" href="#/clienti/${c.id}">${avatar(c)}
+              <div class="riga-main"><div class="riga-top"><b>${esc(nome(c))}</b></div><small class="muted">🧊 congelato dal ${UI.fmt(c.congelato.dal)}</small></div>
+              <div class="riga-dx muted small">${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}</div></a>`).join('')}</div></details>` : ''}
       </section>`;
     const fc = el.querySelector('#fCerca');
     fc.oninput = () => { cerca = fc.value; const p = fc.selectionStart; App.ridisegna(); const n = document.getElementById('fCerca'); n.focus(); n.setSelectionRange(p, p); };
@@ -121,7 +139,12 @@ window.CLI = (function () {
     const campo = (l, v) => `<div class="campo"><span>${l}</span><b>${v || '<i class="muted">—</i>'}</b></div>`;
         el.innerHTML = `
       <section class="cli">
-        <div class="card cli-head">
+        ${c.congelato ? `<div class="card banner-congelato"><b>🧊 Cliente congelato dal ${UI.fmt(c.congelato.dal)}</b>
+          <p>Non compare da nessuna parte (elenchi, lavagna, controlli da fare, invii), ma dati, impianti e controlli restano salvati qui.</p>
+          <p class="muted small">Se un nuovo gestore ci richiama: crea il nuovo cliente, poi qui sotto in «Sedi» usa «↪ Sposta una sede in un altro cliente». Impianti e controlli passano al nuovo cliente e si riparte da dove eravamo.</p>
+          <div class="card-azioni">${UT.puo('sez.impianti') ? `<a class="btn ghost small" href="#/impianti/c/${c.id}">🏗 Impianti e schede (${S.impianti.filter((i) => i.clienteId === c.id).length})</a>` : ''}
+          ${UT.puo('anag.congela') ? '<button type="button" class="btn ghost small" id="btnScongela">♨️ Scongela: torna attivo</button>' : ''}</div></div>` : ''}
+        <div class="card cli-head ${c.congelato ? 'grigio' : ''}">
           ${avatar(c, true)}
           <div class="grow">
             <h1>${esc(c.ragioneSociale)}</h1>
@@ -132,7 +155,7 @@ window.CLI = (function () {
 
         <div class="card">
           <div class="card-head"><h2>Dati generali ${info('La sigla veloce (es. ABT, FEC V) si mette sede per sede: tocca una sede qui sotto.')}</h2>
-            <button class="btn ghost small" id="btnDati">✏️ Modifica</button></div>
+            <div class="card-azioni"><button class="btn ghost small" id="btnDati">✏️ Modifica</button>${!c.congelato && UT.puo('anag.congela') ? UI.menu([{ t: '🧊 Congela cliente (non lavora più con noi)', id: 'btnCongela' }]) : ''}</div></div>
           <div class="griglia-campi">
             ${campo('Ragione sociale', esc(c.ragioneSociale))}
             ${campo('Partita IVA', esc(c.piva))}
@@ -159,7 +182,7 @@ window.CLI = (function () {
                 <p>${esc(indirizzo(s)) || '<span class="muted">Indirizzo da inserire</span>'}</p>
                 ${(s.km !== undefined && s.km !== '') || s.viaggio ? `<p class="km">🚚 ${[s.km !== undefined && s.km !== '' ? esc(s.km) + ' km' : '', s.viaggio ? esc(UI.minOre(s.viaggio)) + ' h di viaggio' : ''].filter(Boolean).join(' · ')} dalla nostra sede</p>` : ''}
                 ${s.note ? `<p class="muted small">${esc(s.note)}</p>` : ''}
-                ${s.pianoControlli ? `<p class="ordine-sede">${ordineDi(s) ? `🧾 N° ordine ${annoOggi()}: <b>${esc(ordineDi(s))}</b>` : s.ordineNonDato ? '<span class="muted">🧾 Il cliente non dà il n° d\'ordine</span>' : `<span class="txt-ko">🧾 N° ordine ${annoOggi()} da inserire</span>${ultimoOrdine(s) ? ` <span class="muted">(${ultimoOrdine(s).anno}: ${esc(ultimoOrdine(s).numero)})</span>` : ''}`}</p>` : ''}
+                ${s.pianoControlli && !c.congelato ? `<p class="ordine-sede">${ordineDi(s) ? `🧾 N° ordine ${annoOggi()}: <b>${esc(ordineDi(s))}</b>` : s.ordineNonDato ? '<span class="muted">🧾 Il cliente non dà il n° d\'ordine</span>' : `<span class="txt-ko">🧾 N° ordine ${annoOggi()} da inserire</span>${ultimoOrdine(s) ? ` <span class="muted">(${ultimoOrdine(s).anno}: ${esc(ultimoOrdine(s).numero)})</span>` : ''}`}</p>` : ''}
                 ${indirizzo(s) ? `<a class="azione" href="${mappa(s)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">📍 Apri mappa</a>` : ''}
               </div>`).join('') || '<p class="muted">Nessuna sede. Aggiungi la prima.</p>'}
           </div>
@@ -189,6 +212,8 @@ window.CLI = (function () {
       if (UI.conferma(`Togliere il nome precedente «${x.nome}»?\n\nI documenti fatti prima del cambio usciranno con il nome attuale.`)) togliEx(+b.dataset.togliex); }));
     el.querySelector('#btnTogliTuttiEx')?.addEventListener('click', () => { if (UI.conferma(`Togliere tutti i ${c.nomiPrecedenti.length} nomi precedenti di ${c.ragioneSociale}?\n\nTutti i documenti usciranno con il nome attuale.`)) togliEx(null); });
     el.querySelector('#btnDati').onclick = () => modaleDati(S, c);
+    el.querySelector('#btnScongela')?.addEventListener('click', () => congela(S, c, false));
+    el.querySelector('#btnCongela')?.addEventListener('click', () => congela(S, c, true));
     if (!UT.puo('anag.modifica')) el.querySelectorAll('#btnDati,#btnSede,#btnRef').forEach((x) => (x.hidden = true));
     el.querySelector('#btnSede').onclick = () => modaleSede(S, c, null);
     el.querySelector('#btnSposta')?.addEventListener('click', () => spostaSede(S, c));
@@ -252,6 +277,7 @@ window.CLI = (function () {
       },
       onElimina: nuovo ? null : async () => {
         const n = (c.sedi || []).reduce((t, s) => t + usaSede(S, s.id), 0);
+        if (n && !c.congelato && UT.puo('anag.congela') && UI.conferma(`${nome(c)} ha impianti, sottoganci o controlli salvati (${n}).\n\nSe non lavora più con noi (es. è fallito) è meglio CONGELARLO: sparisce da tutto ma i dati restano, e se un domani ci richiamano si riparte da dove eravamo.\n\nOK = congela (consigliato)\nAnnulla = voglio eliminarlo davvero`)) { await congela(S, c, true); return true; }
         if (n && UT.puo('anag.eliminaTutto')) return eliminaTutto(S, c);
         if (n) { UI.toast(`Non si può eliminare: ha impianti, sottoganci o controlli collegati (${n}). Può farlo solo il Master.`, 'err'); return false; }
         if (!UI.conferma(`Eliminare ${nome(c)} con tutte le sue sedi e referenti?`)) return false;
@@ -409,5 +435,5 @@ window.CLI = (function () {
     return { titolo: 'N° d\'ordine da aggiornare', indietro: '#/', live: true };
   }
 
-  return { route, nome, nomeAl, indirizzo, avatar, ordineDi, ordiniDaAggiornare, paginaOrdini };
+  return { route, tutti, congelato, sedeCongelata, nome, nomeAl, indirizzo, avatar, ordineDi, ordiniDaAggiornare, paginaOrdini };
 })();

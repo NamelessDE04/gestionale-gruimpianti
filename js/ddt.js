@@ -16,7 +16,8 @@ window.DDT = (function () {
   const aa = (anno) => String(anno || '').slice(-2);
   const numeroDi = (d) => (d.numero ? `${d.numero}/${aa(d.anno)}/${d.rev || 'A'}` : '—');
   const prossimo = (S, anno) => Math.max((PRIMO[anno] || 1) - 1, ...elenco(S).filter((d) => +d.anno === +anno).map((d) => +d.numero || 0)) + 1;
-  const trovaSede = (S, sedeId) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return { c: null, s: null }; };
+  // la sede può essere di un cliente (anche congelato) o di un fornitore (anagrafica fornitori, solo per i DDT)
+  const trovaSede = (S, sedeId) => { for (const c of CLI.tutti(S)) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return FORN.trovaSede(S, sedeId); };
   const firmato = (d) => !!d.firmaDestinatario;
   // a quale rapportino è abbinato (il collegamento sta sul rapportino)
   const rapportinoDi = (S, id) => (S.rapportini || []).find((r) => r.ddtId === id);
@@ -69,7 +70,8 @@ window.DDT = (function () {
     let sporco = false;
     // riga presa dal magazzino: descrizione, codice fornitore [codice GI]
     const rigaArt = (a, r) => ({ articoloId: a.id, descrizione: `${[a.descrizione, a.codCostruttore].filter(Boolean).join(', ')} [${a.codice}]`, qta: r.qta || '1', um: r.um || 'PZ' });
-    const sedi = () => S.clienti.flatMap((c) => (c.sedi || []).map((s) => ({ c, s }))).sort((a, b) => CLI.nome(a.c).localeCompare(CLI.nome(b.c)) || (a.s.nome || '').localeCompare(b.s.nome || ''));
+    const sedi = () => S.clienti.flatMap((c) => (c.sedi || []).map((s) => ({ c, s }))).concat((S.fornitori || []).flatMap((c) => FORN.sediDi(c).map((s) => ({ c, s, forn: true }))))
+      .sort((a, b) => CLI.nome(a.c).localeCompare(CLI.nome(b.c)) || (a.s.nome || '').localeCompare(b.s.nome || ''));
     const etichettaCli = () => { const { c, s } = trovaSede(S, d.sedeId); return c ? `<b>${esc(CLI.nome(c))}</b><small>${esc([s?.nome, indirizzoSede(s).join(', ')].filter(Boolean).join(' · '))}</small>` : '<span class="muted">— tocca per scegliere —</span>'; };
     el.innerHTML = `
       <section class="cli ddt-form">
@@ -82,9 +84,9 @@ window.DDT = (function () {
               <label>Rev.<input name="rev" maxlength="2" value="${esc(d.rev || 'A')}"></label>
               <label class="grow">Data documento<input type="date" name="data" value="${esc(d.data)}"></label>
             </div>
-            <label>Cliente ${info('Tocca e scrivi per cercare. Scegliendo la sede si compilano il destinatario (con la sede legale, se è scritta nell\'anagrafica del cliente) e la destinazione (la sede scelta): puoi cambiarli a mano.')}
+            <label>Cliente o fornitore ${info('Tocca e scrivi per cercare: ci sono i clienti e i fornitori (🏭). Scegliendo la sede si compilano il destinatario (con la sede legale, se è scritta in anagrafica) e la destinazione (la sede scelta): puoi cambiarli a mano.')}
               <div class="cli-pick"><button type="button" class="cli-btn" id="btnCli">${etichettaCli()}</button>
-                <div class="cli-pop" hidden><input type="search" class="cli-q" placeholder="🔍 Cerca cliente o sede" autocomplete="off"><div class="cli-list"></div></div></div></label>
+                <div class="cli-pop" hidden><input type="search" class="cli-q" placeholder="🔍 Cerca cliente, fornitore o sede" autocomplete="off"><div class="cli-list"></div></div></div></label>
             <div class="due">
               <label>Destinatario<textarea name="destinatario" rows="4" placeholder="Ragione sociale e indirizzo">${esc(d.destinatario)}</textarea></label>
               <label>Destinazione<textarea name="destinazione" rows="4" placeholder="Dove va la merce">${esc(d.destinazione)}</textarea></label>
@@ -138,7 +140,7 @@ window.DDT = (function () {
     const disegnaCli = () => {
       const parole = cq.value.toLowerCase().split(/\s+/).filter(Boolean);
       const tutte = sedi().filter(({ c, s }) => parole.every((p) => [CLI.nome(c), s.nome, s.sigla, s.citta, s.indirizzo].join(' ').toLowerCase().includes(p)));
-      cl.innerHTML = tutte.slice(0, 60).map(({ c, s }) => `<button type="button" data-s="${s.id}"><b>${esc(CLI.nome(c))}</b><small>${esc([s.nome, s.sigla, indirizzoSede(s).join(', ')].filter(Boolean).join(' · '))}</small></button>`).join('') || '<p class="muted small">Nessun cliente trovato.</p>';
+      cl.innerHTML = tutte.slice(0, 60).map(({ c, s, forn }) => `<button type="button" data-s="${s.id}"><b>${forn ? '🏭 ' : ''}${esc(CLI.nome(c))}</b><small>${esc([forn ? 'fornitore' : '', s.legale ? 'sede legale' : '', s.nome, s.sigla, indirizzoSede(s).join(', ')].filter(Boolean).join(' · '))}</small></button>`).join('') || '<p class="muted small">Nessun cliente o fornitore trovato.</p>';
       cl.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => scegliSede(b.dataset.s)));
     };
     const scegliSede = (sid) => {
@@ -146,7 +148,8 @@ window.DDT = (function () {
       // destinatario e destinazione si riscrivono solo se erano vuoti o compilati dall'app
       if (!f.destinatario.value.trim() || f.destinatario.value === testoDest(vecchio.c, vecchio.s, false)) f.destinatario.value = testoDest(c, s, false);
       if (!f.destinazione.value.trim() || f.destinazione.value === testoDest(vecchio.c, vecchio.s, true)) f.destinazione.value = testoDest(c, s, true);
-      d.sedeId = sid; d.clienteId = c?.id || ''; sporco = true;
+      const forn = (S.fornitori || []).some((x) => x.id === c?.id);
+      d.sedeId = sid; d.clienteId = forn ? '' : c?.id || ''; d.fornitoreId = forn ? c.id : ''; sporco = true;
       el.querySelector('#btnCli').innerHTML = etichettaCli(); pop.hidden = true;
     };
     el.querySelector('#btnCli').onclick = () => { pop.hidden = !pop.hidden; if (!pop.hidden) { cq.value = ''; disegnaCli(); cq.focus(); } };

@@ -42,7 +42,7 @@ window.RAP = (function () {
   const oreLavoro = (g) => durata(g.mattDa, g.mattA) + durata(g.pomDa, g.pomA);
   const hhmm = (m) => (m ? `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}` : '');
   const testoOre = (m) => (m ? `${Math.floor(m / 60)} h${m % 60 ? ' ' + String(m % 60).padStart(2, '0') + '\'' : ''}` : '');
-  const trova = (S, sedeId) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return { c: null, s: null }; };
+  const trova = (S, sedeId) => { for (const c of CLI.tutti(S)) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return { c: null, s: null }; };
   const nomeSede = (c, s) => (s ? (s.sigla || `${CLI.nome(c)} ${s.nome || ''}`.trim()) : '');
   const dateDi = (r) => (r.giorni || []).map((g) => g.data).filter(Boolean).sort();
   const primaData = (r) => dateDi(r)[0] || r.dataConsegna || (r.creato || '').slice(0, 10);
@@ -175,7 +175,7 @@ window.RAP = (function () {
           <div class="card">
             <h2>${nuovo ? 'Nuovo rapportino' : 'Rapportino N° ' + esc(numeroDi(r))}</h2>
             <div class="due">
-              <label>Cliente *<select name="clienteId"><option value="">— scegli —</option>${[...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b))).map((c) => `<option value="${c.id}" ${c.id === r.clienteId ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
+              <label>Cliente *<select name="clienteId"><option value="">— scegli —</option>${[...S.clienti, ...(S.clientiCongelati || []).filter((c) => c.id === r.clienteId)].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b))).map((c) => `<option value="${c.id}" ${c.id === r.clienteId ? 'selected' : ''}>${esc(CLI.nome(c))}</option>`).join('')}</select></label>
               <label>Sede *<select name="sedeId"></select></label>
             </div>
             <details class="rif-rap" ${r.ordine || r.offerta || r.ddtNumero ? 'open' : ''}>
@@ -696,7 +696,7 @@ window.RAP = (function () {
   // ---------- promemoria nella home (Master, Risorse Umane, Developer): restano finché non sono fatti ----------
   function memoHome(S) {
     if (!UT.puo('promemoria')) return '';
-    const lista = (S.promemoria || []).filter((m) => !m.fatto).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
+    const lista = (S.promemoria || []).filter((m) => !m.fatto && !CLI.congelato(S, m.clienteId) && !CLI.sedeCongelata(S, m.sedeId)).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
     if (!lista.length) return '';
     return `<div class="card memo-home">${UI.tendina('memo', lista.length, `📌 Promemoria da fare <span class="pill st-scadenza">${lista.length}</span> ${info('Li scrivono i tecnici dal rapportino quando il cliente chiede qualcosa (offerte, ricambi, funi…). Restano qui finché qualcuno non tocca «✓ Fatto».')}`, `
       ${lista.map((m) => { const { c, s } = trova(S, m.sedeId), cl = c || S.clienti.find((x) => x.id === m.clienteId), rp = S.rapportini.find((x) => x.id === m.rapportinoId);

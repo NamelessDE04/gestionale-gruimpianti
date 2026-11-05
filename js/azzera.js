@@ -16,6 +16,7 @@ window.AZZ = (function () {
     { k: 'collaudi', t: 'Collaudi del configuratore cablaggio', col: ['collaudi'], si: false },
     { k: 'mezzi', t: 'Mezzi e piattaforme', col: ['mezzi'], si: false },
     { k: 'ddt', t: 'DDT (documenti di trasporto)', col: ['ddt'], si: false },
+    { k: 'fornitori', t: 'Anagrafica fornitori', col: ['fornitori'], si: false },
     { k: 'magazzino', t: 'Magazzino ricambi e listino prezzi', sotto: 'tutti gli articoli, le quantità e i prezzi', col: ['articoli'], si: false }
   ];
   // lavagna senza cloud: sta nella memoria del dispositivo

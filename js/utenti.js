@@ -98,6 +98,7 @@ window.UT = (function () {
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.impianti', nome: 'Anagrafica impianti', def: TUTTI },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.layout', nome: 'Layout delle sedi', def: TUTTI },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.mezzi', nome: 'Anagrafica mezzi', def: TUTTI },
+    { g: 'Sezioni dell\'app (vedere)', k: 'sez.fornitori', nome: 'Anagrafica fornitori (per i DDT)', def: TUTTI },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.lavagna', nome: 'Lavagna', def: TUTTI },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.gho', nome: 'GHO ELIGIO (ore e configuratore cablaggio)', def: TUTTI },
     { g: 'Lavoro', k: 'ctr.fare', nome: 'Fare i controlli (gru, sottoganci, pinze, magneti, funi, bozzelli…)', def: LAVORO, scrive: true },
@@ -112,6 +113,8 @@ window.UT = (function () {
     { g: 'Lavoro', k: 'mag.modifica', nome: 'Magazzino: aggiungere articoli, caricare merce, modificare quantità e ubicazioni', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'gho.ore', nome: 'Registrare le ore GHO', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.modifica', nome: 'Aggiungere e modificare clienti, impianti, sottoganci, attrezzi e mezzi', def: LAVORO, scrive: true },
+    { g: 'Anagrafiche', k: 'forn.modifica', nome: 'Aggiungere e modificare fornitori', def: LAVORO, scrive: true },
+    { g: 'Anagrafiche', k: 'anag.congela', nome: 'Congelare e scongelare un cliente (es. ditta fallita: sparisce da tutto ma i dati restano)', def: ['master'], scrive: true },
     { g: 'Anagrafiche', k: 'anag.eliminaTutto', nome: 'Spostare o eliminare un cliente o una sede con tutti i suoi dati', def: ['master'], scrive: true },
     { g: 'Anagrafiche', k: 'layout.modifica', nome: 'Disegnare e modificare i layout', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'sg.cartelle', nome: 'Cartelle sottoganci: eliminarle e sistemare le righe titolo', def: ['master'], scrive: true },
@@ -163,12 +166,12 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO', promemoria: 'Promemoria', articoli: 'Articolo di magazzino', ddt: 'DDT' };
+  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO', promemoria: 'Promemoria', articoli: 'Articolo di magazzino', ddt: 'DDT', fornitori: 'Fornitore' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
     const imp = (id) => { const i = S.impianti.find((x) => x.id === id); return i ? `${i.numeroInterno ? 'N° ' + i.numeroInterno + ' ' : ''}${IMP.titolo(i)}${i.matricola ? ' (matr. ' + i.matricola + ')' : ''}` : ''; };
-    const sede = (id) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === id); if (s) return `${CLI.nome(c)} ${s.nome || ''}`; } return ''; };
+    const sede = (id) => { for (const c of CLI.tutti(S)) { const s = (c.sedi || []).find((x) => x.id === id); if (s) return `${CLI.nome(c)} ${s.nome || ''}`; } return ''; };
     switch (col) {
       case 'clienti': return `Cliente ${d.ragioneSociale || ''}`;
       case 'impianti': return `Impianto ${d.numeroInterno ? 'N° ' + d.numeroInterno + ' ' : ''}${IMP.titolo(d)} – ${cli(d.clienteId)}`;
@@ -181,6 +184,7 @@ window.UT = (function () {
       case 'rapportini': return `Rapportino ${d.numero || ''}/${d.anno || ''} – ${sede(d.sedeId)}`;
       case 'mezzi': return `Mezzo ${MEZ.nome(d)} ${d.targa || ''}`;
       case 'oreGho': return `Registro ore GHO ${d.data || ''} – ${d.cliente || ''}`;
+      case 'fornitori': return `Fornitore ${d.ragioneSociale || ''}`;
       case 'articoli': return `Articolo ${d.codice || ''} ${d.descrizione || ''}`;
       case 'ddt': return `DDT ${d.numero || ''}/${String(d.anno || '').slice(-2)}/${d.rev || 'A'} – ${(d.destinatario || '').split('\n')[0]}`;
       case 'attrezzi': return `${d.tipo === 'magnete' ? 'Magnete' : 'Pinza / gancio a C'} ${d.nInterno ? 'n° ' + d.nInterno + ' ' : ''}– ${sede(d.sedeId)}`;
@@ -981,7 +985,7 @@ window.UT = (function () {
     // stampa e invio ai clienti: solo Master e Risorse Umane
     const stampa = ['controlli', 'sottoganci', 'approfonditi', 'gho', 'impianti', 'rapportini'].includes(parti[0]) && parti.includes('stampa');
     const no = (k) => !puo(k);
-    const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', controlli: 'sez.schede', sottoganci: 'sez.schede', approfonditi: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', magazzino: 'sez.magazzino', gho: 'sez.gho', cablaggio: 'sez.gho' };
+    const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', controlli: 'sez.schede', sottoganci: 'sez.schede', approfonditi: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', fornitori: 'sez.fornitori', magazzino: 'sez.magazzino', gho: 'sez.gho', cablaggio: 'sez.gho' };
     const nonAbil = 'Questa funzione non è abilitata per te. Se ti serve, chiedi al Master di accenderla in «Gestione utenti › 🔑 Funzioni».';
     if (SEZ[parti[0]] && no(SEZ[parti[0]])) return nonAbil;
     if (parti[0] === 'invio' && no('invio')) return nonAbil;

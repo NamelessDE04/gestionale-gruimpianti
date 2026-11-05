@@ -202,6 +202,14 @@ window.ILL = (function () {
       <circle cx="112" cy="107" r="1.8" fill="${V}"/><circle cx="112" cy="112" r="1.8" fill="${R}"/>`),
 
     // furgone a tetto alto (tipo furgone grande da cantiere)
+    fornitori: svg(`
+      <ellipse cx="80" cy="104" rx="68" ry="5" fill="${L}"/>
+      <path d="M14 98 V46 L44 30 V46 L74 30 V46 L104 30 V98 z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <rect x="112" y="16" width="12" height="82" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <rect x="26" y="62" width="16" height="14" fill="${L}" stroke="${N}" stroke-width="2"/><rect x="54" y="62" width="16" height="14" fill="${L}" stroke="${N}" stroke-width="2"/>
+      <rect x="80" y="70" width="16" height="28" fill="${Y}" stroke="${N}" stroke-width="2"/>
+      <rect x="120" y="76" width="22" height="22" fill="${O}" stroke="${N}" stroke-width="2.5"/><path d="M120 87 H142 M131 76 V98" stroke="${N}" stroke-width="1.5"/>
+      <rect x="128" y="58" width="18" height="18" fill="${Y}" stroke="${N}" stroke-width="2.5"/><path d="M128 67 H146" stroke="${N}" stroke-width="1.5"/>`),
     furgone: svg(`
       <ellipse cx="80" cy="104" rx="68" ry="5" fill="${L}"/>
       <path d="M12 92 V30 q0 -8 8 -8 H108 q6 0 9 5 L132 54 L145 61 q4 2 4 7 V92 z" fill="${W}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>

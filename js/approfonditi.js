@@ -114,7 +114,7 @@ window.APR = (function () {
 
   // ================= HUB =================
   function hub(el, S) {
-    const conta = (k) => (TIPI[k].fam === 'a' ? S.attrezzi.filter((a) => a.tipo === k && !a.dismesso).length : S.schedeApprofondite.filter((d) => d.tipo === k).length);
+    const conta = (k) => (TIPI[k].fam === 'a' ? S.attrezzi.filter((a) => a.tipo === k && !a.dismesso && !CLI.sedeCongelata(S, a.sedeId)).length : S.schedeApprofondite.filter((d) => d.tipo === k).length);
     el.innerHTML = `
       <section class="home">
         <div class="home-head"><h1>Altri controlli approfonditi <span class="pill-beta">BETA</span></h1><p>Che controllo devi fare?</p></div>
@@ -133,7 +133,7 @@ window.APR = (function () {
     let corpo = '';
     if (T.fam === 'a') {
       const anno = anno0();
-      const tutti = S.attrezzi.filter((a) => a.tipo === tipo);
+      const tutti = S.attrezzi.filter((a) => a.tipo === tipo && !CLI.sedeCongelata(S, a.sedeId));   // i clienti congelati non compaiono
       const lista = tutti.filter((a) => !q || [a.nInterno, a.tipoDesc, a.casa, a.portata, a.nFabbrica, a.matricola, nomeCli(cliDi(S, a.sedeId))].join(' ').toLowerCase().includes(q));
       const gruppi = {};
       lista.forEach((a) => (gruppi[a.sedeId] = gruppi[a.sedeId] || []).push(a));

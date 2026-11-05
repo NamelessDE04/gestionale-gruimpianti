@@ -41,7 +41,7 @@ window.SG = (function () {
   // Una "cartella" = una sede di un cliente dell'anagrafica.
   // Restituisce i dati presi DIRETTAMENTE dall'anagrafica: se cambi il nome lì, cambia anche qui e sulle stampe.
   function cliente(S, sedeId) {
-    for (const c of S.clienti) {
+    for (const c of CLI.tutti(S)) {
       const sd = (c.sedi || []).find((x) => x.id === sedeId);
       if (sd) return { id: sd.id, clienteId: c.id, nome: c.ragioneSociale, localita: sd.nome || sd.citta || '', titoloElenco: sd.titoloElenco || 'ELENCO SOTTOGANCI', sigla: sd.sigla || '', sede: sd, anagrafica: c };
     }

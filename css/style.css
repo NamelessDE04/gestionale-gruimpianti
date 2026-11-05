@@ -1738,3 +1738,11 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .tend-fr { flex-shrink: 0; width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--sfondo, rgba(0,0,0,.05)); font-size: 16px; transition: transform .15s; }
 .tendina:not([open]) .tend-fr { transform: rotate(-90deg); }
 .tendina[open] > .tend-corpo { margin-top: 8px; }
+
+/* clienti congelati */
+.grigio { filter: grayscale(1); opacity: .65; }
+.congelati { margin-top: 14px; }
+.congelati > summary { cursor: pointer; font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.congelati .elenco { margin-top: 10px; }
+.banner-congelato { border: 2px solid #9fb0c3; background: #eef3f8; }
+.banner-congelato p { margin: 6px 0; overflow-wrap: anywhere; }

@@ -5,7 +5,7 @@ window.HOME = (function () {
     { k: 'rapportini', titolo: 'Rapportini e DDT', sotto: 'Interventi firmati dal cliente e documenti di trasporto', ill: 'rapportini', attiva: true },
     { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, sottoganci e controlli approfonditi', ill: 'schede', attiva: true },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
-    { k: 'anagrafiche', titolo: 'Anagrafiche', sotto: 'Clienti, impianti, layout delle sedi e mezzi', ill: 'clienti', attiva: true, href: '#/anagrafiche' },
+    { k: 'anagrafiche', titolo: 'Anagrafiche', sotto: 'Clienti, fornitori, impianti, layout e mezzi', ill: 'clienti', attiva: true, href: '#/anagrafiche' },
     { k: 'magazzino', titolo: 'Magazzino ricambi', sotto: 'Ricambi, quantità, da riordinare e listino prezzi', ill: 'magazzino', attiva: true },
     { k: 'invio', titolo: 'Invia e PDF', sotto: 'Schede, rapportini ed elenchi: mandali ai clienti per email o salvali in PDF e stampali', ill: 'invio', attiva: true, href: '#/invio', soloInvio: true },
     { k: 'gho', titolo: 'GHO ELIGIO', sotto: 'Registro ore e configuratore cablaggio', ill: 'gho', attiva: true, href: '#/gho' }
@@ -15,7 +15,8 @@ window.HOME = (function () {
     { k: 'clienti', titolo: 'Anagrafica Clienti', sotto: 'Ditte, sedi e referenti', ill: 'clienti', attiva: true },
     { k: 'impianti', titolo: 'Anagrafica Impianti', sotto: 'Gru, paranchi e carriponte', ill: 'impianti', attiva: true },
     { k: 'layout', titolo: 'Layout delle sedi', sotto: 'Piante dei capannoni con le gru', ill: 'layout', attiva: true },
-    { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, piattaforme, scadenze e documenti', ill: 'furgone', attiva: true }
+    { k: 'mezzi', titolo: 'Anagrafica mezzi', sotto: 'Furgoni, piattaforme, scadenze e documenti', ill: 'furgone', attiva: true },
+    { k: 'fornitori', titolo: 'Anagrafica fornitori', sotto: 'Ditte a cui mandiamo merce con il DDT', ill: 'fornitori', attiva: true }
   ];
   // sotto-voci di "Schede di controllo"
   const schede = [
@@ -60,7 +61,7 @@ window.HOME = (function () {
   };
 
   // caselle che questa persona può vedere (funzioni abilitate in «Gestione utenti › 🔑 Funzioni»)
-  const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', magazzino: 'sez.magazzino', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
+  const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', fornitori: 'sez.fornitori', magazzino: 'sez.magazzino', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
   const vede = (c) => c.k === 'anagrafiche' ? anagrafiche.some(vede) : !SEZ[c.k] || UT.puo(SEZ[c.k]);
   const vociHome = () => caselle.filter(vede);
   const nScad = (S) => MEZ.avvisi(S).length;

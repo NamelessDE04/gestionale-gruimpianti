@@ -23,7 +23,7 @@ window.IMP = (function () {
   };
   const confronta = (modo) => (a, b) => chiaveNum(a, modo).localeCompare(chiaveNum(b, modo), 'it', { numeric: true }) || (a.matricola || '').localeCompare(b.matricola || '');
   const ordina = confronta('');
-  const ordineSede = (S, sedeId) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return s.ordineGru || ''; } return ''; };
+  const ordineSede = (S, sedeId) => { for (const c of CLI.tutti(S)) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return s.ordineGru || ''; } return ''; };
   const ordinaSede = (S, sedeId, lista) => lista.sort(confronta(ordineSede(S, sedeId)));
   const cliente = (S, id) => S.clienti.find((c) => c.id === id);
   // stato: in servizio · fuori servizio provvisorio (si controlla ancora) · fuori servizio definitivo (dismesso: grigio, non si controlla più)
@@ -113,7 +113,7 @@ window.IMP = (function () {
       id: uid(), clienteId: query.get('cliente') || '', sedeId: query.get('sede') || '', tipologia: '', marca: '', modello: query.get('tipo') || 'ponte',
       paranchi: [{ ruolo: 'Primario', portata: '' }], annoCostruzione: '', matricola: '', numeroSerie: '', numeroInterno: ''
     };
-    const clientiOrd = [...S.clienti].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b)));
+    const clientiOrd = [...S.clienti, ...(S.clientiCongelati || []).filter((c) => c.id === i.clienteId)].sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b)));
     const MODELLI = MIMP.tutti(S);
     i.modello = MIMP.di(S, i).id;
     const M = () => MODELLI.find((m) => m.id === i.modello) || MODELLI[0];

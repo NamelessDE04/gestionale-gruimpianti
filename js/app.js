@@ -1,8 +1,17 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.43.9';
-  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt'];
-  const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [] };
+  const VERSIONE = '0.44.0';
+  const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori'];
+  const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], clientiCongelati: [] };
+  // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
+  // S.clienti = solo quelli attivi; S.clienti.find(...) però li trova tutti, così i documenti vecchi mostrano ancora il nome.
+  const TUTTI = {};
+  const soloAttivi = (dati) => {
+    const a = dati.filter((c) => !c.congelato);
+    Object.defineProperty(a, 'find', { value: (fn) => dati.find(fn), enumerable: false });
+    S.clientiCongelati = dati.filter((c) => c.congelato);
+    return a;
+  };
   const VERSIONE_AZZERAMENTO = '7'; // dalla 0.6.0 si parte da zero: niente più dati di esempio
   const el = document.getElementById('app');
   let vistaLive = true, pronti = 0;
@@ -100,6 +109,7 @@ window.App = (function () {
     else if (parti[0] === 'gho') info = GHO.route(el, S, parti, query) || info;
     else if (parti[0] === 'approfonditi') info = APR.route(el, S, parti, query) || info;
     else if (parti[0] === 'clienti') info = CLI.route(el, S, parti, query) || info;
+    else if (parti[0] === 'fornitori') info = FORN.route(el, S, parti) || info;
     else if (parti[0] === 'impianti') info = IMP.route(el, S, parti, query) || info;
     else if (parti[0] === 'mezzi') info = MEZ.route(el, S, parti) || info;
     else if (parti[0] === 'magazzino') info = MAG.route(el, S, parti) || info;
@@ -111,7 +121,7 @@ window.App = (function () {
     else if (HOME.caselle.some((c) => c.k === parti[0])) { HOME.prossimamente(el, parti[0]); info = { titolo: '', indietro: '#/' }; }
     else { location.hash = '#/'; return; }
     // clienti, impianti, layout e mezzi stanno dentro «Anagrafiche»: «indietro» riporta lì
-    if (info.indietro === '#/' && ['clienti', 'impianti', 'layout', 'mezzi'].includes(parti[0])) info.indietro = '#/anagrafiche';
+    if (info.indietro === '#/' && ['clienti', 'impianti', 'layout', 'mezzi', 'fornitori'].includes(parti[0])) info.indietro = '#/anagrafiche';
     vistaLive = info.live !== false;
     const tit = document.getElementById('pageTitle');
     if (!parti.length) {
@@ -130,8 +140,9 @@ window.App = (function () {
   let ruoliFatti = false;
   const PER_LAVAGNA = { clienti: (c) => ({ ...c, logo: null }), utenti: (u) => ({ id: u.id, nome: u.nome, nomeBreve: u.nomeBreve || '', ruolo: u.ruolo, attivo: u.attivo }), mezzi: (m) => m };
   const aggiornaDati = (col) => (dati) => {
-    const prima = S[col];
-    S[col] = dati;
+    const prima = TUTTI[col] || S[col];
+    TUTTI[col] = dati;
+    S[col] = col === 'clienti' ? soloAttivi(dati) : dati;
     CONF.verifica(col, prima, dati);   // due dispositivi hanno lavorato in parallelo sullo stesso documento?
     if (col === 'rapportini') RAP.assegnaNumeri(S);
     if (Backend.mode === 'cloud') {
@@ -226,7 +237,7 @@ window.App = (function () {
 
 
   function esporta() {
-    const dati = { app: 'gestionale-gruimpianti-demo', versione: VERSIONE, esportato: new Date().toISOString(), ...Object.fromEntries(COLLEZIONI.map((c) => [c, S[c]])) };
+    const dati = { app: 'gestionale-gruimpianti-demo', versione: VERSIONE, esportato: new Date().toISOString(), ...Object.fromEntries(COLLEZIONI.map((c) => [c, TUTTI[c] || S[c]])) };
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([JSON.stringify(dati, null, 1)], { type: 'application/json' }));
     a.download = `backup-demo-gruimpianti-${UI.oggi()}.json`;

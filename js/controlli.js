@@ -101,7 +101,7 @@ window.CTR = (function () {
   };
   const vociPerImpianto = (S, imp) => modelloDi(S, imp).voci.filter((v) => !(imp.controllo?.escluse || []).includes(v.id));
 
-  const trovaSede = (S, sedeId) => { for (const c of S.clienti) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return {}; };
+  const trovaSede = (S, sedeId) => { for (const c of CLI.tutti(S)) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return {}; };
   const piano = (sede) => ({ mese1: 1, annuale: 1, impostato: false, ...(sede?.pianoControlli || {}), ...(sede?.pianoControlli ? { impostato: true } : {}) });
   const meseVisita = (p, n) => ((p.mese1 - 1 + 3 * (n - 1)) % 12) + 1;           // 1..12
   const tipoVisita = (p, n) => (n === p.annuale ? 'A' : n === ((p.annuale + 1) % 4) + 1 ? 'S' : 'T');

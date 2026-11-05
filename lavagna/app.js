@@ -33,6 +33,7 @@ const leggiG = k => { if (gestCloud[k]) return gestCloud[k]; try { return JSON.p
 function anagraficaGestionale() {
   const clients = leggiG('clienti').flatMap(c => (c.sedi || []).map(s => ({
     id: s.id,
+    frozen: !!c.congelato,   // cliente congelato nel gestionale: resta solo per i controlli già in calendario
     name: (s.sigla || `${c.ragioneSociale || ''} ${s.nome || ''}`).trim().toUpperCase(),
     full: [c.ragioneSociale, s.nome].filter(Boolean).join(' · ').toUpperCase(),   // nome completo, per i menu a tendina
     ditta: (c.ragioneSociale || '').toUpperCase(),
@@ -575,8 +576,8 @@ function renderPanel() {
       <button class="btn primary full mt" data-action="gest" data-href="${GEST}clienti">Aggiungili nel gestionale</button>`;
     return;
   }
-  const due = byName(state.clients.filter(c => c.color === col));
-  const others = byName(state.clients.filter(c => c.color !== col));
+  const due = byName(state.clients.filter(c => c.color === col && !c.frozen));
+  const others = byName(state.clients.filter(c => c.color !== col && !c.frozen));
   const checks = state.events.filter(e => e.type === 'check' && inMonth(e));
   const da = [], pian = [], fatti = [];
   due.forEach(c => {
@@ -797,7 +798,7 @@ function clientPicker(id, sel, vuoto) {
 function attivaClientPicker(box, vuoto) {
   if (!box) return;
   const hid = box.querySelector('input[type=hidden]'), btn = box.querySelector('.cli-btn'), pop = box.querySelector('.cli-pop'), q = box.querySelector('.cli-q'), list = box.querySelector('.cli-list');
-  const tutti = [...state.clients].sort((x, y) => nomeCli(x).localeCompare(nomeCli(y), 'it') || sedeCli(x).localeCompare(sedeCli(y), 'it'));
+  const tutti = state.clients.filter(c => !c.frozen).sort((x, y) => nomeCli(x).localeCompare(nomeCli(y), 'it') || sedeCli(x).localeCompare(sedeCli(y), 'it'));
   const disegna = () => {
     const t = q.value.trim().toLowerCase().split(/\s+/).filter(Boolean);
     const vis = tutti.filter(c => { const h = [nomeCli(c), c.sede, c.name, c.full].join(' ').toLowerCase(); return t.every(w => h.includes(w)); });
@@ -988,7 +989,7 @@ function renderAnagList() {
   document.querySelectorAll('[data-count]').forEach(s => { s.textContent = state[s.dataset.count].length || ''; });
   const t = state.anagTab;
   if (t === 'clients') {
-    const list = [...state.clients].sort((a, b) => ORDINE.indexOf(a.color) - ORDINE.indexOf(b.color) || a.name.localeCompare(b.name, 'it'));
+    const list = state.clients.filter(c => !c.frozen).sort((a, b) => ORDINE.indexOf(a.color) - ORDINE.indexOf(b.color) || a.name.localeCompare(b.name, 'it'));
     el.innerHTML = list.length ? list.map(c => {
       const n = (c.contacts || []).length;
       return `<button class="list-row" data-action="open-client" data-id="${c.id}">
@@ -1119,7 +1120,7 @@ function buildReport() {
   }
 
   // Riepilogo controlli del mese
-  const due = byName(state.clients.filter(c => c.color === col));
+  const due = byName(state.clients.filter(c => c.color === col && !c.frozen));
   const checks = state.events.filter(e => e.type === 'check' && inMonth(e));
   const pianificati = due.filter(c => checks.some(e => e.clientId === c.id));
   const nonPian = due.filter(c => !checks.some(e => e.clientId === c.id));
