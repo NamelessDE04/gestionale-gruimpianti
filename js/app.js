@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.45.3';
+  const VERSIONE = '0.45.4';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], clientiCongelati: [] };
   // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
@@ -22,6 +22,7 @@ window.App = (function () {
 
   // una pagina con modifiche non salvate (es. controllo sottoganci) mette qui una funzione che dice se c'è qualcosa da perdere
   let guardia = null, uscita = null, hashOra = location.hash;
+  const percorso = [location.hash], posizioni = {};
   const proteggi = (fn) => { guardia = fn; };
   // una pagina che si salva da sola quando esci (es. controllo gru): fn salva e restituisce true se ci è riuscita
   const allUscita = (fn) => { uscita = fn; };
@@ -197,8 +198,17 @@ window.App = (function () {
       // uscita da una pagina con modifiche non salvate (freccia dell'app, gesto indietro del telefono, link): chiedo prima
       if (uscita) { let ok = false; try { ok = uscita(); } catch (e) { console.error(e); } uscita = null; if (ok) guardia = null; }
       if (daSalvare() && !UI.conferma('Uscire senza salvare?\n\nTutto quello che non hai salvato con «💾 Salva» andrà perso.')) { history.pushState(null, '', hashOra); return; }
+      // tornando indietro (freccia dell'app o del telefono) ritrovo la pagina dov'era; in una pagina nuova si parte dall'alto
+      const indietro = percorso.length > 1 && percorso[percorso.length - 2] === location.hash;
+      if (indietro) percorso.pop(); else { percorso.push(location.hash); if (percorso.length > 50) percorso.shift(); }
       hashOra = location.hash;
-      document.querySelectorAll('.modal-ov').forEach((m) => m.remove()); document.body.classList.remove('modal-aperto'); ridisegna(); window.scrollTo(0, 0); });
+      document.querySelectorAll('.modal-ov').forEach((m) => m.remove()); document.body.classList.remove('modal-aperto'); ridisegna();
+      const y = indietro ? posizioni[location.hash] || 0 : 0;
+      window.scrollTo(0, y);
+      if (y) { requestAnimationFrame(() => window.scrollTo(0, y)); setTimeout(() => { if (Math.abs(window.scrollY - y) > 2) window.scrollTo(0, y); }, 150); }
+    });
+    // dove sono arrivato in ogni pagina (per ritrovarla tornando indietro)
+    window.addEventListener('scroll', () => { if (location.hash === hashOra) posizioni[hashOra] = window.scrollY; }, { passive: true });
     ridisegna();
     if ('serviceWorker' in navigator && location.protocol.startsWith('http')) {
       navigator.serviceWorker.register('sw.js').catch(() => {});
