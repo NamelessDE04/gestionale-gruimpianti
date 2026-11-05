@@ -49,18 +49,21 @@ window.GHO = (function () {
   function messaggio(S, r) {
     const giorno = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
     const np = nPers(r);
-    // piattaforme: quante, quale, per quante ore e se nostra o loro (es. «1 x PLE 16 MT per 2,5 ore (nostra)»)
-    const piatt = (r.piattaforme || []).filter((p) => p.tipo || num(p.ore)).map((p) => `${num(p.qta) || 1} x ${p.tipo || 'piattaforma'}${num(p.ore) ? ` per ${String(num(p.ore)).replace('.', ',')} ${num(p.ore) === 1 ? 'ora' : 'ore'}` : ''} (${p.nostra ? 'nostra' : 'loro'})`);
+    // piattaforme in coda alla riga degli orari, es. «+ 1 piattaforma nostra - 2,5 h utilizzo» oppure
+    // «+ 2 piattaforme vostre - 3 h utilizzo cad.» (il messaggio è per GHO: le loro sono «vostre»; il tipo non serve)
+    const piatt = (r.piattaforme || []).filter((p) => p.tipo || num(p.ore)).map((p) => {
+      const n = num(p.qta) || 1, pl = n > 1;
+      return `${n} ${pl ? 'piattaforme' : 'piattaforma'} ${p.nostra ? (pl ? 'nostre' : 'nostra') : (pl ? 'vostre' : 'vostra')}${num(p.ore) ? ` - ${String(num(p.ore)).replace('.', ',')} h utilizzo${pl ? ' cad.' : ''}` : ''}`;
+    });
     const riga2 = [orari(r).join(' e ') + (r.viaggio ? ` + ${oreTesto(r.viaggio)} di viaggio` : ''),
       r.km ? `${r.km} km${nostroMezzo(r) ? '' : ' (mezzo loro)'}` : '',
-      `${np} ${np === 1 ? 'persona' : 'persone'}`].filter(Boolean).join(' - ');
+      `${np} ${np === 1 ? 'persona' : 'persone'}`].filter(Boolean).join(' - ') + piatt.map((x) => ' + ' + x).join('');
     const mat = (r.materiali || []).filter((m) => m.descrizione || m.codice).map((m) => `${m.qta ? m.qta + ' x ' : ''}${[m.codice, m.descrizione].filter(Boolean).join(' ')}${m.nostro && !vp() ? ' (di nostra fornitura)' : ''}${m.nostro && vp() ? ` (di nostra fornitura, ${senzaPrezzo(m) ? 'prezzo da definire' : ((num(m.qta) || 1) > 1 ? euro(num(m.prezzo)) + ' cad., totale ' + euro(num(m.prezzo) * num(m.qta)) : euro(num(m.prezzo)))})` : ''}`);
     return [
       [giorno.charAt(0).toUpperCase() + giorno.slice(1), r.cliente, r.citta].filter(Boolean).join(' - '),
       riga2,
       '',
       `${r.gru ? 'GRU ' + r.gru + ': ' : ''}${r.descrizione || ''}`.trim(),
-      piatt.length ? (piatt.length === 1 ? 'Piattaforma: ' : 'Piattaforme: ') + piatt.join('; ') : '',
       mat.length ? 'Materiale usato: ' + mat.join('; ') : '',
       r.segnalazioni ? 'Annotazioni: ' + r.segnalazioni : ''
     ].filter((x, i) => x || i === 2).join('\n').replace(/\n{3,}/g, '\n\n').trim();
