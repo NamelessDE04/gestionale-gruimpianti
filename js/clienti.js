@@ -43,12 +43,12 @@ window.CLI = (function () {
   const sedeCongelata = (S, sedeId) => !!sedeId && (S.clientiCongelati || []).some((c) => (c.sedi || []).some((s) => s.id === sedeId));
   async function congela(S, c, si) {
     if (!UT.serve('anag.congela')) return;
-    if (si && !UI.conferma(`Congelare ${nome(c)}?\n\nSparisce da elenchi, ricerche, lavagna, controlli da fare e invii. I suoi dati, gli impianti e i controlli restano salvati: li ritrovi in fondo all'Anagrafica clienti, alla voce «🧊 Clienti congelati».`)) return;
+    if (si && !UI.conferma(`Archiviare ${nome(c)}?\n\nSparisce da elenchi, ricerche, lavagna, controlli da fare e invii. I suoi dati, gli impianti e i controlli restano salvati: li ritrovi in fondo all'Anagrafica clienti, alla voce «🗄 Clienti archiviati». Con «Riattiva» torna come prima.`)) return;
     const doc = JSON.parse(JSON.stringify(c));
     if (si) doc.congelato = { dal: UI.oggi(), da: UT.attuale()?.nome || '' }; else delete doc.congelato;
     await salva(doc);
-    UT.registra('modifica', `Cliente ${nome(c)} ${si ? 'congelato' : 'scongelato'}`);
-    UI.toast(si ? 'Cliente congelato' : 'Cliente di nuovo attivo', 'ok');
+    UT.registra('modifica', `Cliente ${nome(c)} ${si ? 'archiviato' : 'riattivato'}`);
+    UI.toast(si ? 'Cliente archiviato' : 'Cliente riattivato', 'ok');
   }
   // quanti dati (sottoganci, impianti) sono collegati a una sede: se ce ne sono non si può togliere
   const usaSede = (S, sedeId) => S.sottoganci.filter((x) => x.sedeId === sedeId).length + S.impianti.filter((x) => x.sedeId === sedeId).length
@@ -119,10 +119,10 @@ window.CLI = (function () {
               <div class="riga-dx muted small">${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}<br>${(c.referenti || []).length} ${(c.referenti || []).length === 1 ? 'referente' : 'referenti'}</div>
             </a>`).join('') : (S.clienti.length ? '<p class="nessuno">Nessun cliente trovato.</p>' : '<p class="nessuno">Nessun cliente ancora. Inizia con «+ Nuovo cliente».</p>')}
         </div>
-        ${(S.clientiCongelati || []).length ? `<details class="card congelati"><summary onclick="const i = event.target.closest('.info'); if (i) { event.preventDefault(); if (event.target.closest('.info > summary')) i.open = !i.open; }">🧊 Clienti congelati <span class="conta">${S.clientiCongelati.length}</span> ${info('Clienti che non lavorano più con noi (es. ditte fallite): non compaiono da nessuna parte, ma i loro dati, impianti e controlli restano salvati. Aprili per scongelarli o per spostare una sede a un nuovo cliente.')}</summary>
+        ${(S.clientiCongelati || []).length ? `<details class="card congelati"><summary onclick="const i = event.target.closest('.info'); if (i) { event.preventDefault(); if (event.target.closest('.info > summary')) i.open = !i.open; }">🗄 Clienti archiviati <span class="conta">${S.clientiCongelati.length}</span> ${info('Clienti che non lavorano più con noi (es. ditte fallite): non compaiono da nessuna parte, ma i loro dati, impianti e controlli restano salvati. Aprili per riattivarli o per spostare una sede a un nuovo cliente.')}</summary>
           <div class="elenco">${[...S.clientiCongelati].sort((a, b) => nome(a).localeCompare(nome(b))).map((c) => `
             <a class="riga cli-riga grigio" href="#/clienti/${c.id}">${avatar(c)}
-              <div class="riga-main"><div class="riga-top"><b>${esc(nome(c))}</b></div><small class="muted">🧊 congelato dal ${UI.fmt(c.congelato.dal)}</small></div>
+              <div class="riga-main"><div class="riga-top"><b>${esc(nome(c))}</b></div><small class="muted">🗄 archiviato dal ${UI.fmt(c.congelato.dal)}</small></div>
               <div class="riga-dx muted small">${(c.sedi || []).length} ${(c.sedi || []).length === 1 ? 'sede' : 'sedi'}</div></a>`).join('')}</div></details>` : ''}
       </section>`;
     const fc = el.querySelector('#fCerca');
@@ -139,11 +139,11 @@ window.CLI = (function () {
     const campo = (l, v) => `<div class="campo"><span>${l}</span><b>${v || '<i class="muted">—</i>'}</b></div>`;
         el.innerHTML = `
       <section class="cli">
-        ${c.congelato ? `<div class="card banner-congelato"><b>🧊 Cliente congelato dal ${UI.fmt(c.congelato.dal)}</b>
+        ${c.congelato ? `<div class="card banner-congelato"><b>🗄 Cliente archiviato dal ${UI.fmt(c.congelato.dal)}</b>
           <p>Non compare da nessuna parte (elenchi, lavagna, controlli da fare, invii), ma dati, impianti e controlli restano salvati qui.</p>
           <p class="muted small">Se un nuovo gestore ci richiama: crea il nuovo cliente, poi qui sotto in «Sedi» usa «↪ Sposta una sede in un altro cliente». Impianti e controlli passano al nuovo cliente e si riparte da dove eravamo.</p>
           <div class="card-azioni">${UT.puo('sez.impianti') ? `<a class="btn ghost small" href="#/impianti/c/${c.id}">🏗 Impianti e schede (${S.impianti.filter((i) => i.clienteId === c.id).length})</a>` : ''}
-          ${UT.puo('anag.congela') ? '<button type="button" class="btn ghost small" id="btnScongela">♨️ Scongela: torna attivo</button>' : ''}</div></div>` : ''}
+          ${UT.puo('anag.congela') ? '<button type="button" class="btn ghost small" id="btnScongela">↩ Riattiva cliente</button>' : ''}</div></div>` : ''}
         <div class="card cli-head ${c.congelato ? 'grigio' : ''}">
           ${avatar(c, true)}
           <div class="grow">
@@ -155,7 +155,7 @@ window.CLI = (function () {
 
         <div class="card">
           <div class="card-head"><h2>Dati generali ${info('La sigla veloce (es. ABT, FEC V) si mette sede per sede: tocca una sede qui sotto.')}</h2>
-            <div class="card-azioni"><button class="btn ghost small" id="btnDati">✏️ Modifica</button>${!c.congelato && UT.puo('anag.congela') ? UI.menu([{ t: '🧊 Congela cliente (non lavora più con noi)', id: 'btnCongela' }]) : ''}</div></div>
+            <div class="card-azioni"><button class="btn ghost small" id="btnDati">✏️ Modifica</button>${!c.congelato && UT.puo('anag.congela') ? UI.menu([{ t: '🗄 Archivia cliente (non lavora più con noi)', id: 'btnCongela' }]) : ''}</div></div>
           <div class="griglia-campi">
             ${campo('Ragione sociale', esc(c.ragioneSociale))}
             ${campo('Partita IVA', esc(c.piva))}
@@ -277,7 +277,7 @@ window.CLI = (function () {
       },
       onElimina: nuovo ? null : async () => {
         const n = (c.sedi || []).reduce((t, s) => t + usaSede(S, s.id), 0);
-        if (n && !c.congelato && UT.puo('anag.congela') && UI.conferma(`${nome(c)} ha impianti, sottoganci o controlli salvati (${n}).\n\nSe non lavora più con noi (es. è fallito) è meglio CONGELARLO: sparisce da tutto ma i dati restano, e se un domani ci richiamano si riparte da dove eravamo.\n\nOK = congela (consigliato)\nAnnulla = voglio eliminarlo davvero`)) { await congela(S, c, true); return true; }
+        if (n && !c.congelato && UT.puo('anag.congela') && UI.conferma(`${nome(c)} ha impianti, sottoganci o controlli salvati (${n}).\n\nSe non lavora più con noi (es. è fallito) è meglio ARCHIVIARLO: sparisce da tutto ma i dati restano, e se un domani ci richiamano si riparte da dove eravamo.\n\nOK = archivia (consigliato)\nAnnulla = voglio eliminarlo davvero`)) { await congela(S, c, true); return true; }
         if (n && UT.puo('anag.eliminaTutto')) return eliminaTutto(S, c);
         if (n) { UI.toast(`Non si può eliminare: ha impianti, sottoganci o controlli collegati (${n}). Può farlo solo il Master.`, 'err'); return false; }
         if (!UI.conferma(`Eliminare ${nome(c)} con tutte le sue sedi e referenti?`)) return false;

@@ -114,7 +114,7 @@ window.UT = (function () {
     { g: 'Lavoro', k: 'gho.ore', nome: 'Registrare le ore GHO', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.modifica', nome: 'Aggiungere e modificare clienti, impianti, sottoganci, attrezzi e mezzi', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'forn.modifica', nome: 'Aggiungere e modificare fornitori', def: LAVORO, scrive: true },
-    { g: 'Anagrafiche', k: 'anag.congela', nome: 'Congelare e scongelare un cliente (es. ditta fallita: sparisce da tutto ma i dati restano)', def: ['master'], scrive: true },
+    { g: 'Anagrafiche', k: 'anag.congela', nome: 'Archiviare e riattivare un cliente (es. ditta fallita: sparisce da tutto ma i dati restano)', def: ['master'], scrive: true },
     { g: 'Anagrafiche', k: 'anag.eliminaTutto', nome: 'Spostare o eliminare un cliente o una sede con tutti i suoi dati', def: ['master'], scrive: true },
     { g: 'Anagrafiche', k: 'layout.modifica', nome: 'Disegnare e modificare i layout', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'sg.cartelle', nome: 'Cartelle sottoganci: eliminarle e sistemare le righe titolo', def: ['master'], scrive: true },
