@@ -283,8 +283,7 @@ window.GHOS = (function () {
     });
     // timbro e firma
     h += box(108, 270, R, 286) + box(108, 270, 140, 286) + t(108, 270, 140, 286, 'Timbro e firma:', 'c ghs-lab');
-    if (c.firma) h += `<img class="ghs-fimg" src="${c.firma}" alt="" style="left:141mm;top:270.6mm;width:56mm;height:12mm">`;
-    if (c.tecnico) h += t(140, 282.4, R, 286, `<span class="ghs-tec">${esc(c.tecnico)} – Gru Impianti</span>`, 'c');
+    if (c.firma) h += `<img class="ghs-fimg" src="${c.firma}" alt="" style="left:141mm;top:270.8mm;width:56mm;height:14.4mm">`;
     const due = !!(c.noteGenerali || '').trim();
     if (due) h += t(L, 276, 104, 281, '<b>Note generali: vedi foglio 2</b>', 'ghs-lab');
     h += t(150, 288, R, 292, `Foglio 1${due ? ' di 2' : ''}`, 'ghs-pnum');
@@ -305,8 +304,7 @@ window.GHOS = (function () {
     </div>`;
     h += `<div class="r2-b" style="left:108mm;top:270mm;width:90mm;height:16mm"></div><div class="r2-b" style="left:108mm;top:270mm;width:32mm;height:16mm"></div>
       <div class="r2-t c ghs-lab" style="left:108mm;top:270mm;width:32mm;height:16mm">Timbro e firma:</div>`;
-    if (c.firma) h += `<img class="ghs-fimg" src="${c.firma}" alt="" style="left:141mm;top:270.6mm;width:56mm;height:12mm">`;
-    if (c.tecnico) h += `<div class="r2-t c" style="left:140mm;top:282.4mm;width:58mm;height:3.6mm"><span class="ghs-tec">${esc(c.tecnico)} – Gru Impianti</span></div>`;
+    if (c.firma) h += `<img class="ghs-fimg" src="${c.firma}" alt="" style="left:141mm;top:270.8mm;width:56mm;height:14.4mm">`;
     h += '<div class="r2-t ghs-pnum" style="left:150mm;top:288mm;width:48mm;height:4mm">Foglio 2 di 2</div>';
     return `<article class="recap rap2 ghs-pag">${h}</article>`;
   }
