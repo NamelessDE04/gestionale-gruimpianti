@@ -77,14 +77,15 @@ window.GHO = (function () {
     const riga2 = (piu ? gg.map((g) => `${nomeG(g.data)}: ${orariTxt(g)}`).join('\n') + '\n' : '') + [piu ? '' : orariTxt(gg[0]),
       km, `${np} ${np === 1 ? 'persona' : 'persone'}`].filter(Boolean).join(' - ') + piatt.map((x) => ' + ' + x).join('');
     const mat = (r.materiali || []).filter((m) => m.descrizione || m.codice).map((m) => `${m.qta ? m.qta + ' x ' : ''}${[m.codice, m.descrizione].filter(Boolean).join(' ')}${m.nostro && !vp() ? ' (di nostra fornitura)' : ''}${m.nostro && vp() ? ` (di nostra fornitura, ${senzaPrezzo(m) ? 'prezzo da definire' : ((num(m.qta) || 1) > 1 ? euro(num(m.prezzo)) + ' cad., totale ' + euro(num(m.prezzo) * num(m.qta)) : euro(num(m.prezzo)))})` : ''}`);
+    // annotazioni in elenco puntato: una per riga (le righe vuote e i trattini/pallini già scritti si tolgono)
+    const note = String(r.segnalazioni || '').split(/\n+/).map((x) => x.replace(/^\s*[-•*·]+\s*/, '').trim()).filter(Boolean);
+    // blocchi staccati da una riga vuota: intestazione · lavoro · materiale · annotazioni
     return [
-      [giorno.charAt(0).toUpperCase() + giorno.slice(1), r.cliente, r.citta].filter(Boolean).join(' - '),
-      riga2,
-      '',
+      [giorno.charAt(0).toUpperCase() + giorno.slice(1), r.cliente, r.citta].filter(Boolean).join(' - ') + '\n' + riga2,
       `${r.gru ? 'GRU ' + r.gru + ': ' : ''}${r.descrizione || ''}`.trim(),
       mat.length ? 'Materiale usato: ' + mat.join('; ') : '',
-      r.segnalazioni ? 'Annotazioni: ' + r.segnalazioni : ''
-    ].filter((x, i) => x || i === 2).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+      note.length ? 'Annotazioni:\n' + note.map((x) => '• ' + x).join('\n') : ''
+    ].filter(Boolean).join('\n\n').trim();
   }
   function apriMessaggio(S, r) {
     const testo = messaggio(S, r);
@@ -231,8 +232,8 @@ window.GHO = (function () {
                 ${m.nostro && puoPrezzi() ? `<label>Prezzo € (al pezzo)<input data-k="prezzo" inputmode="decimal" value="${esc(m.prezzo ?? '')}" placeholder="da vedere"></label>` : ''}</div></div>`).join('')}</div>
           <button type="button" class="btn ghost small" id="gAddM">+ Aggiungi materiale</button>
 
-          <h2 class="sez-form">Segnalazioni ${info('Quello che va segnalato al cliente: sul foglio stampato esce in rosso.')}</h2>
-          <textarea name="segnalazioni" rows="2" placeholder="es. FUNE DA SOSTITUIRE AL PROSSIMO INTERVENTO">${esc(r.segnalazioni)}</textarea>
+          <h2 class="sez-form">Segnalazioni ${info('Quello che va segnalato al cliente: sul foglio stampato esce in rosso. Scrivi una annotazione per riga (vai a capo): nel messaggio WhatsApp diventano un elenco puntato.')}</h2>
+          <textarea name="segnalazioni" rows="4" placeholder="una annotazione per riga, es.&#10;FUNE DA SOSTITUIRE AL PROSSIMO INTERVENTO&#10;SI CONSIGLIA INSTALLAZIONE RADIOCOMANDO">${esc(r.segnalazioni)}</textarea>
 
           <p class="gho-calc gho-tot" id="gTot"></p>
           <div class="azioni-form">
@@ -353,7 +354,7 @@ window.GHO = (function () {
       <td class="c">${piu ? gg.map((g) => esc(fmt(g.data))).join('<br>') : esc(fmt(r.data))}</td>
       <td><b>${esc(r.cliente || '')}</b><br>${esc(r.citta || '')}</td>
       <td class="c">${esc(r.gru || '')}</td>
-      <td class="gs-lav">${esc(r.descrizione || '')}${mat ? `<div class="gs-mat">${mat}</div>` : ''}${r.segnalazioni ? `<div class="gs-rosso">⚠ ${esc(r.segnalazioni)}</div>` : ''}</td>
+      <td class="gs-lav">${esc(r.descrizione || '')}${mat ? `<div class="gs-mat">${mat}</div>` : ''}${r.segnalazioni ? `<div class="gs-rosso">${String(r.segnalazioni).split(/\n+/).map((x) => x.replace(/^\s*[-•*·]+\s*/, '').trim()).filter(Boolean).map((x) => '⚠ ' + esc(x)).join('<br>')}</div>` : ''}</td>
       <td class="c">${gg.map((g) => `${piu ? `<b>${esc(ggmm(g.data))}</b> ` : ''}${orariG(g).map((o) => o.replace('dalle ', '').replace(' alle ', '–')).join(piu ? ' ' : '<br>')}`).join('<br>')}</td>
       <td class="c">${viaggioTot(r) ? hm(viaggioTot(r)) : ''}</td>
       <td class="c">${esc(siglePers(S, r).join(' - '))}</td>
