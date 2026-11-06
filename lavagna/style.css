@@ -685,3 +685,11 @@ body.dragging .panel.drawer{outline:2px dashed #c3cedc;outline-offset:-6px}
 .cli-it:last-child{border-bottom:0}
 .cli-it:hover,.cli-it:focus{background:#f2f5f9}
 .cli-it.on{background:#e8f0fd}
+
+/* registro attività stampato: colonne strette per tecnici (iniziali) e mezzo, colonna «Note» vuota da scrivere a penna */
+.rp-reg-t{table-layout:fixed}
+.rp-reg-t .c-data{width:10.5%}.rp-reg-t .c-gg{width:7%}.rp-reg-t .c-tipo{width:10%}.rp-reg-t .c-cli{width:30%}
+.rp-reg-t .c-note{width:26%}.rp-reg-t .c-ora{width:4.5%}.rp-reg-t .c-tec{width:5%}.rp-reg-t .c-mez{width:7%}
+.rp-reg-t td{overflow-wrap:anywhere;padding-top:1.6mm;padding-bottom:1.6mm;height:10mm;box-sizing:border-box}
+.rp-reg-t td.note{border-left:.25mm solid #c3cad3;border-right:.25mm solid #c3cad3}
+.rp-reg-t td.st,.rp-reg-t td.vh{white-space:pre-line}

@@ -45,7 +45,7 @@ function anagraficaGestionale() {
   const ruolo = u => (u.ruolo === 'admin' ? 'master' : u.ruolo);
   const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nome }));
   // mezzi: marca e modello, senza targa; le piattaforme aeree non compaiono sulla lavagna
-  const vehicles = leggiG('mezzi').filter(m => !m.dismesso && m.categoria !== 'piattaforma').map(m => ({ id: m.id, name: [m.marca, m.modello].filter(Boolean).join(' ') || 'Mezzo' }));
+  const vehicles = leggiG('mezzi').filter(m => !m.dismesso && m.categoria !== 'piattaforma').map(m => ({ id: m.id, name: [m.marca, m.modello].filter(Boolean).join(' ') || 'Mezzo', corto: m.modello || m.marca || 'Mezzo' }));
   return { clients, staff, vehicles };
 }
 const ORDINE = ['yellow', 'green', 'red'];
@@ -103,6 +103,19 @@ const vehicleById = id => state.vehicles.find(v => v.id === id);
 const eventById = id => state.events.find(e => e.id === id);
 const staffOf = e => (e.staffIds || []).map(staffById).filter(Boolean);
 const staffNames = e => staffOf(e).map(s => s.name).join(', ');
+/* per il registro stampato: tecnici con le iniziali (es. «Luca Rossi» → LR; se due hanno le stesse iniziali aggiungo lettere)
+   e mezzo con il solo modello («Master», «Ducato», «GHO»…), senza la marca */
+function inizialiTecnici() {
+  const base = n => String(n || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase() || '?';
+  const out = {}, usate = {};
+  state.staff.forEach(s => { const b = base(s.name); usate[b] = (usate[b] || 0) + 1; });
+  state.staff.forEach(s => {
+    const w = String(s.name || '').trim().split(/\s+/).filter(Boolean), b = base(s.name);
+    out[s.id] = usate[b] > 1 && w.length ? (w[0].slice(0, 2) + w.slice(1).map(x => x[0]).join('')).toUpperCase() : b;
+  });
+  return out;
+}
+const vehicleShort = e => vehiclesOf(e).map(v => v.corto || String(v.name || '').trim().split(/\s+/).slice(-1)[0] || '').filter(Boolean).join('\n');   // uno per riga
 // più mezzi per intervento (compatibile con le voci salvate quando era previsto un solo mezzo)
 const vehIdsOf = e => e.type === 'pers' ? [] : (Array.isArray(e.vehicleIds) ? e.vehicleIds : (e.vehicleId ? [e.vehicleId] : []));
 const vehiclesOf = e => vehIdsOf(e).map(vehicleById).filter(Boolean);
@@ -1073,7 +1086,9 @@ function renderClientSheet() {
 /* ============================================================
    PDF DEL MESE (tramite stampa → "Salva come PDF") ed EXCEL
    ============================================================ */
+let SIGLE = {};
 function monthRows() {
+  SIGLE = inizialiTecnici();
   return state.events.filter(e => visible(e) && inMonth(e))
     .sort((a, b) => a.date.localeCompare(b.date) || sortEv(a, b))
     .map(e => {
@@ -1090,7 +1105,9 @@ function monthRows() {
         descr: (e.type === 'check' ? c.name + (e.text ? ' + ' + noteTxt(e.text) : '') : notaTxt(e)) + (e.unsigned && e.type !== 'pers' ? ' ✱ (rapportino da firmare)' : ''),
         ora: e.time || '',
         tecnici: staffNames(e),
-        mezzo: vehicleName(e)
+        sigle: (e.staffIds || []).map(id => SIGLE[id]).filter(Boolean).join('\n'),
+        mezzo: vehicleName(e),
+        mezzoCorto: vehicleShort(e)
       };
     });
 }
@@ -1128,9 +1145,12 @@ function buildReport() {
 
   const rows = monthRows();
   const tbody = rows.length ? rows.map(r => `<tr class="t-${r.e.type}">
-      <td>${r.data}</td><td>${r.giorno}</td><td>${esc(r.tipo)}</td><td>${esc(r.descr)}</td><td>${esc(r.ora)}</td>
-      <td class="st">${esc(r.tecnici)}</td><td class="vh">${esc(r.mezzo)}</td></tr>`).join('')
-    : '<tr><td colspan="7" class="center">Nessuna attività registrata nel mese.</td></tr>';
+      <td>${r.data}</td><td>${r.giorno}</td><td>${esc(r.tipo)}</td><td>${esc(r.descr)}</td><td class="note">&nbsp;</td><td>${esc(r.ora)}</td>
+      <td class="st" title="${esc(r.tecnici)}">${esc(r.sigle)}</td><td class="vh">${esc(r.mezzoCorto)}</td></tr>`).join('')
+    : '<tr><td colspan="8" class="center">Nessuna attività registrata nel mese.</td></tr>';
+  // legenda delle iniziali dei tecnici (solo quelli che compaiono nel mese)
+  const presenti = [...new Set(rows.flatMap(r => r.e.staffIds || []))].map(id => state.staff.find(s => s.id === id)).filter(Boolean);
+  const legenda = presenti.length ? `<div><b>Tecnici:</b> ${presenti.map(s => `${esc(SIGLE[s.id])} = ${esc(s.name)}`).join(' · ')}</div>` : '';
 
   const gen = new Date().toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' });
   $('#printArea').innerHTML = `
@@ -1154,9 +1174,11 @@ function buildReport() {
       <div class="rp-summary">
         <div><b>Controlli del mese (${COLORI[col].nome.toLowerCase()}):</b> ${due.length} clienti · <span class="ok">${pianificati.length} in calendario</span> · ${nonPian.length ? `<span class="ko">${nonPian.length} non pianificati</span>` : 'tutti pianificati'}</div>
         ${nonPian.length ? `<div><b>Non pianificati:</b> ${names(nonPian)}</div>` : ''}
+        ${legenda}
       </div>
-      <table class="rp-table">
-        <thead><tr><th>Data</th><th>Giorno</th><th>Tipo</th><th>Cliente / descrizione</th><th>Ora</th><th>Tecnici</th><th>Mezzo</th></tr></thead>
+      <table class="rp-table rp-reg-t">
+        <colgroup><col class="c-data"><col class="c-gg"><col class="c-tipo"><col class="c-cli"><col class="c-note"><col class="c-ora"><col class="c-tec"><col class="c-mez"></colgroup>
+        <thead><tr><th>Data</th><th>Giorno</th><th>Tipo</th><th>Cliente / descrizione</th><th>Note</th><th>Ora</th><th>Tecnici</th><th>Mezzo</th></tr></thead>
         <tbody>${tbody}</tbody>
       </table>
     </section>`;
