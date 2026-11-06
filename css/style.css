@@ -1762,3 +1762,41 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .ac-annulla { border: 2px dashed var(--linea); } .ac-annulla p { margin: 0 0 8px; overflow-wrap: anywhere; }
 .mini-az { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; }
 .mini-az .azione.link { background: none; border: 0; padding: 0; font: inherit; cursor: pointer; }
+
+/* ===== SCHEDE DI CONTROLLO GHO (modello loro) ===== */
+.ghs-ico { width: 40px; height: 40px; border-radius: 8px; overflow: hidden; flex-shrink: 0; display: grid; place-items: center; }
+.ghs-ico img { width: 100%; height: 100%; object-fit: cover; } .ghs-ico.grande { width: 56px; height: 56px; }
+.ghs-testa { display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+.ghs-v { padding: 9px 0; border-top: 1px solid var(--linea); }
+.ghs-v:first-of-type { border-top: 0; }
+.ghs-vt { font-weight: 600; margin-bottom: 6px; overflow-wrap: anywhere; }
+.ghs-sit { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.ghs-b { min-height: 40px; border-radius: 10px; border: 1.5px solid var(--linea); background: var(--card, #fff); font-weight: 700; font-size: 14px; color: inherit; cursor: pointer; }
+.ghs-b.on.s-OK { background: #2e9e5b; border-color: #2e9e5b; color: #fff; }
+.ghs-b.on.s-NO { background: #d64545; border-color: #d64545; color: #fff; }
+.ghs-b.on.s-NA { background: #8a96a3; border-color: #8a96a3; color: #fff; }
+.ghs-n { margin-top: 6px; width: 100%; font-size: 14px; }
+.ghs-firma { max-width: 260px; max-height: 90px; display: block; }
+.ghs-az { margin: 6px 0 24px; flex-wrap: wrap; gap: 8px; }
+/* foglio A4 */
+.ghs-pag { font-family: "Times New Roman", Times, "Liberation Serif", serif; }
+.ghs-logo { position: absolute; left: 14mm; top: 10mm; width: 24mm; height: 24mm; object-fit: cover; }
+.ghs-int { position: absolute; left: 43mm; top: 10mm; font-size: 10.5pt; line-height: 1.32; white-space: nowrap; }
+.ghs-int1 { font-size: 11.5pt; } .ghs-nome { font-size: 17pt; letter-spacing: .2mm; }
+.ghs-int2 { display: flex; gap: 12mm; font-size: 9.5pt; }
+.ghs-pag .r2-t { font-size: 9.5pt; }
+.ghs-lab { font-size: 10pt !important; }
+.ghs-val { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 9.5pt !important; }
+.ghs-wrap { white-space: normal !important; line-height: 1.25 !important; }
+.ghs-pres { display: block; }
+.ghs-par { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 10pt !important; }
+.ghs-dx { justify-content: flex-end; font-size: 10.5pt !important; padding-right: 2mm !important; }
+.ghs-tipo { font-size: 8pt; font-weight: 400; }
+.ghs-pic { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 9pt !important; }
+.ghs-voce { font-family: Calibri, Carlito, Arial, "Liberation Sans", sans-serif; font-size: 10pt !important; }
+.ghs-nota { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 7pt !important; white-space: normal !important; line-height: 1.05 !important; align-items: center; overflow: hidden; }
+.ghs-ko { color: #c00; }
+.ghs-vert { position: absolute; display: flex; align-items: center; justify-content: center; }
+.ghs-vert span { transform: rotate(-90deg); white-space: nowrap; font-weight: 700; font-size: 10pt; }
+.ghs-fimg { position: absolute; object-fit: contain; }
+.ghs-tec { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 7pt; }

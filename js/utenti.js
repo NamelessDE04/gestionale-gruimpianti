@@ -169,7 +169,7 @@ window.UT = (function () {
   }
 
   // ---------- REGISTRO ATTIVITÀ ----------
-  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO', promemoria: 'Promemoria', articoli: 'Articolo di magazzino', ddt: 'DDT', fornitori: 'Fornitore' };
+  const NOMI_COL = { invii: 'Invio email', collaudi: 'Rapporto di collaudo', rapportini: 'Rapportino', clienti: 'Cliente', impianti: 'Impianto', sottoganci: 'Sottogancio', giriSottoganci: 'Controllo sottoganci', schedeControllo: 'Scheda di controllo', impostazioni: 'Impostazioni', utenti: 'Utente', mezzi: 'Mezzo', attrezzi: 'Attrezzo sottogancio', controlliAttrezzi: 'Controllo attrezzo', schedeApprofondite: 'Controllo approfondito', oreGho: 'Registro ore GHO', promemoria: 'Promemoria', articoli: 'Articolo di magazzino', ddt: 'DDT', fornitori: 'Fornitore', ghoControlli: 'Controllo GHO' };
   function descrivi(col, d) {
     if (!d) return NOMI_COL[col] || col;
     const cli = (id) => { const c = S.clienti.find((x) => x.id === id); return c ? CLI.nome(c) : ''; };
@@ -188,6 +188,7 @@ window.UT = (function () {
       case 'mezzi': return `Mezzo ${MEZ.nome(d)} ${d.targa || ''}`;
       case 'oreGho': return `Registro ore GHO ${d.data || ''} – ${d.cliente || ''}`;
       case 'fornitori': return `Fornitore ${d.ragioneSociale || ''}`;
+      case 'ghoControlli': return `Controllo GHO del ${d.data || ''}`;
       case 'articoli': return `Articolo ${d.codice || ''} ${d.descrizione || ''}`;
       case 'ddt': return `DDT ${d.numero || ''}/${String(d.anno || '').slice(-2)}/${d.rev || 'A'} – ${(d.destinatario || '').split('\n')[0]}`;
       case 'attrezzi': return `${d.tipo === 'magnete' ? 'Magnete' : 'Pinza / gancio a C'} ${d.nInterno ? 'n° ' + d.nInterno + ' ' : ''}– ${sede(d.sedeId)}`;

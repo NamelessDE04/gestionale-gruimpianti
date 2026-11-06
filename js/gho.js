@@ -405,7 +405,7 @@ window.GHO = (function () {
 
   function route(el, S, parti, query) {
     if (!parti[1]) return home(el, S);
-    if (parti[1] === 'schede') return GHOS.lista(el, S);
+    if (parti[1] === 'schede') return GHOS.route(el, S, parti);
     if (parti[1] !== 'ore') { location.hash = '#/gho'; return null; }
     if (parti[2] === 'stampa') return stampa(el, S, parti[3] || meseScelto);
     if (parti[2] === 'nuovo') return form(el, S, null);
