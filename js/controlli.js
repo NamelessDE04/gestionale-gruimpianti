@@ -101,7 +101,9 @@ window.CTR = (function () {
   };
   const vociPerImpianto = (S, imp) => modelloDi(S, imp).voci.filter((v) => !(imp.controllo?.escluse || []).includes(v.id));
 
-  const trovaSede = (S, sedeId) => { for (const c of CLI.tutti(S)) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return {}; };
+  // (le gru dei clienti di GHO non hanno cliente né sede in anagrafica: li prendo dai dati scritti sulla gru)
+  const trovaSede = (S, sedeId) => { for (const c of CLI.tutti(S)) { const s = (c.sedi || []).find((x) => x.id === sedeId); if (s) return { c, s }; } return String(sedeId || '').startsWith('gho-') && window.GHOS ? GHOS.sedeFinta(S, sedeId) : {}; };
+  const dopoSede = (i, anno) => (i.gho ? '#/gho/schede' : '#/controlli/s/' + i.sedeId + '?anno=' + anno);   // dove tornare dalla scheda
   const piano = (sede) => ({ mese1: 1, annuale: 1, impostato: false, ...(sede?.pianoControlli || {}), ...(sede?.pianoControlli ? { impostato: true } : {}) });
   const meseVisita = (p, n) => ((p.mese1 - 1 + 3 * (n - 1)) % 12) + 1;           // 1..12
   const tipoVisita = (p, n) => (n === p.annuale ? 'A' : n === ((p.annuale + 1) % 4) + 1 ? 'S' : 'T');
@@ -521,7 +523,7 @@ window.CTR = (function () {
           <span class="imp-ico">${IMP.icona(i)}</span>
           <div class="grow">
             <h1>${i.numeroInterno ? `N° ${esc(i.numeroInterno)} · ` : ''}${esc(IMP.titolo(i))}</h1>
-            <p class="muted small"><a class="link-anag" href="#/controlli/s/${i.sedeId}?anno=${anno}">${esc(c ? nomeSede(c, s) : '')}</a>${i.matricola ? ' · matr. ' + esc(i.matricola) : ''}</p>
+            <p class="muted small">${i.gho ? '<span class="pill st-mai">GHO</span> ' : ''}<a class="link-anag" href="${dopoSede(i, anno)}">${esc(c ? nomeSede(c, s) : '')}</a>${i.matricola ? ' · matr. ' + esc(i.matricola) : ''}</p>
           </div>
           <div class="anno anno-mini"><a href="#/controlli/i/${impId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/controlli/i/${impId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
@@ -529,7 +531,7 @@ window.CTR = (function () {
             !sl() && UT.puo('ctr.voci') && { t: '⚙ Voci di questo impianto', id: 'btnVoci' },
             !sl() && UT.puo('ctr.modelloSede') && sc && { t: '💾 Salva queste voci come modello', id: 'btnComeModello' },
             !sl() && UT.puo('ctr.modelloSede') && sc && { t: '🕘 Versioni di prima della scheda', id: 'btnCopie' },
-            { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
+            i.gho ? !sl() && UT.puo('gho.schede') && { t: '✏️ Dati della gru (GHO)', id: 'btnDatiGho' } : { t: '🏗️ Anagrafica impianto', href: `#/impianti/i/${impId}` }
           ])}
         </div>
         <div class="striscia">${[1, 2, 3, 4].map((n) => { const vis = sc?.visite?.[n], t = tipoVisita(p, n), nf = nonFatte(n);
@@ -548,6 +550,7 @@ window.CTR = (function () {
           ${sl() ? '' : '<div class="azioni-form"><button type="button" class="btn ghost small danger" id="btnVecchieVia">🗑 Elimina</button><span class="grow"></span><button type="button" class="btn ghost small" id="btnVecchieSposta">↧ Sposta nelle note Gru Impianti</button></div>'}</div>` : ''}
       </section>`;
     el.querySelector('#btnVoci')?.addEventListener('click', () => modaleVoci(S, i, anno));
+    el.querySelector('#btnDatiGho')?.addEventListener('click', () => GHOS.modale(S, i));
     el.querySelector('#btnCopie')?.addEventListener('click', async () => {
       let copie = [];
       try { copie = (await Backend.cerca('copie', 'docId', sc.id)).sort((a, b) => (b.quando || '').localeCompare(a.quando || '')); } catch (e) { return UI.toast('Serve internet per leggere le versioni di prima', 'err'); }
@@ -604,7 +607,7 @@ window.CTR = (function () {
         }
       });
     }));
-    return { titolo: 'Scheda ' + anno + ' · ' + IMP.titolo(i), indietro: '#/controlli/s/' + i.sedeId + '?anno=' + anno, live: true };
+    return { titolo: 'Scheda ' + anno + ' · ' + IMP.titolo(i), indietro: dopoSede(i, anno), live: true };
   }
   const noteGen = (v) => /^NOTE\s*GENERALI$/i.test(String(v?.testo || '').trim());   // voce per le annotazioni generali: vuota va bene
   const vocNome = (voci, id) => voci.find((v) => v.id === id)?.testo || '';
@@ -973,7 +976,7 @@ window.CTR = (function () {
       sc.visite[n] = vis; sc.osservazioni = osservazioni; sc.noteInterne = f.noteInterne.value.trim();
       try { await UI.salva('schedeControllo', sc); } catch (er) { return; }
       sporco = false; UI.toast('Controllo salvato: impianto fuori servizio provvisorio', 'ok');
-      location.hash = torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
+      location.hash = torna || dopoSede(i, anno);
     });
     // rimetti in servizio: l'annotazione si chiude con [OK] alla data di questo controllo (resta fino al controllo prima)
     el.querySelector('#btnFsVia')?.addEventListener('click', async () => {
@@ -1012,7 +1015,7 @@ window.CTR = (function () {
       sporco = false;
       App.ricordaTecnico(vis.tecnico); UI.toast('✓ Controllo concluso e salvato', 'ok');
       // aperto dal layout: si torna alla pianta (anche con «Salva e prossimo» si resta nel giro del layout)
-      location.hash = (e.submitter?.dataset.dopo === 'prossimo' && prossimoImp) ? `#/controlli/i/${prossimoImp.id}/${anno}/${n}${torna ? '?torna=' + encodeURIComponent(torna) : ''}` : torna || '#/controlli/s/' + i.sedeId + '?anno=' + anno;
+      location.hash = (e.submitter?.dataset.dopo === 'prossimo' && prossimoImp) ? `#/controlli/i/${prossimoImp.id}/${anno}/${n}${torna ? '?torna=' + encodeURIComponent(torna) : ''}` : torna || dopoSede(i, anno);
     };
     // ---- salvataggio automatico: se esci (freccia, gesto indietro, altra gru) quello che hai fatto si salva da solo.
     // Se mancano voci il controllo resta «⏸ in corso» e la gru resta tra quelle da fare; lo chiudi tu con «Concludi controllo».
@@ -1171,5 +1174,5 @@ window.CTR = (function () {
     return sedi(el, S);
   }
 
-  return { route, aggiungiModello, modelloDi, codiciDi, codicePrincipale, letteraDi, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
+  return { route, modelliTutti: (S) => modelli(S) || MODELLI_BASE(), aggiungiModello, modelloDi, codiciDi, codicePrincipale, letteraDi, piano, vociPerImpianto, tipoVisita, periodiDi, meseVisita, schedaDi, trovaSede, PER, CODICI, MESI, sediConImpianti, nomeSede, prossima, statoVisite, haValore, unitaDi, leggiVisita, riepilogo: (S) => sediConImpianti(S).filter(({ s }) => prossima(S, s.id, annoOggi())?.k === 'scaduto').length };
 })();

@@ -112,6 +112,7 @@ window.UT = (function () {
     { g: 'Lavoro', k: 'ddt.scrivere', nome: 'Scrivere e firmare i DDT', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'mag.modifica', nome: 'Magazzino: aggiungere articoli, caricare merce, modificare quantità e ubicazioni', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'gho.ore', nome: 'Registrare le ore GHO', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'gho.schede', nome: 'GHO: aggiungere e modificare le gru da controllare per GHO (senza anagrafica)', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.modifica', nome: 'Aggiungere e modificare clienti, impianti, sottoganci, attrezzi e mezzi', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'forn.modifica', nome: 'Aggiungere e modificare fornitori', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.congela', nome: 'Archiviare e riattivare un cliente (es. ditta fallita: sparisce da tutto ma i dati restano)', def: ['master'], scrive: true },
