@@ -18,11 +18,21 @@ window.GHO = (function () {
   const viaggioMin = (t) => { const s = String(t || '').trim(); if (!s) return 0; const m = s.match(/^(\d+)[:.](\d{2})$/); if (m && s.includes(':')) return +m[1] * 60 + +m[2]; return Math.round(num(s) * 60); };
   const viaggioTxt = (min) => (min ? (min % 60 ? hm(min) : String(min / 60)) : '');
 
-  const nostroMezzo = (r) => r.mezzo !== 'loro';
-  const lavoro = (r) => durata(r.mattDa, r.mattA) + durata(r.pomDa, r.pomA);
+  // un intervento può durare più giorni (ognuno con i suoi orari e il suo viaggio) e usare più mezzi (ognuno con i suoi km).
+  // Gli interventi vecchi (un giorno, un mezzo) hanno i dati nei campi singoli: li leggo come un giorno e un mezzo.
+  const giorniDi = (r) => (r.giorni?.length ? r.giorni : [{ data: r.data, mattDa: r.mattDa, mattA: r.mattA, pomDa: r.pomDa, pomA: r.pomA, viaggio: r.viaggio || 0 }]);
+  const mezziDi = (r) => (r.mezzi?.length ? r.mezzi : [{ mezzo: r.mezzo === 'loro' ? 'loro' : 'nostro', mezzoId: r.mezzoId || '', km: r.km || '' }]);
+  const nostro = (m) => m.mezzo !== 'loro';
+  const kmNostri = (r) => mezziDi(r).filter(nostro).reduce((t, m) => t + num(m.km), 0);
+  const kmLoro = (r) => mezziDi(r).filter((m) => !nostro(m)).reduce((t, m) => t + num(m.km), 0);
+  const kmTot = (r) => kmNostri(r) + kmLoro(r);
+  const nostroMezzo = (r) => mezziDi(r).some(nostro);
+  const lavoroG = (g) => durata(g.mattDa, g.mattA) + durata(g.pomDa, g.pomA);
+  const lavoro = (r) => giorniDi(r).reduce((t, g) => t + lavoroG(g), 0);
+  const viaggioTot = (r) => giorniDi(r).reduce((t, g) => t + (g.viaggio || 0), 0);
   const nPers = (r) => (r.persone || []).length || 1;
-  const oreUomo = (r) => (lavoro(r) + (r.viaggio || 0)) * nPers(r);   // (ore lavorate + viaggio) × persone
-  const costoKm = (r) => (nostroMezzo(r) ? num(r.km) * EURO_KM : 0);
+  const oreUomo = (r) => (lavoro(r) + viaggioTot(r)) * nPers(r);   // (ore lavorate + viaggio) × persone
+  const costoKm = (r) => kmNostri(r) * EURO_KM;
   const piattNostre = (r) => (r.piattaforme || []).filter((p) => p.nostra);
   const orePiattNostre = (r) => piattNostre(r).reduce((t, p) => t + num(p.ore) * (num(p.qta) || 1), 0);
   const costoPiatt = (r) => orePiattNostre(r) * EURO_ORA_PIATT;
@@ -43,11 +53,16 @@ window.GHO = (function () {
   const meseDi = (r) => (r.data || '').slice(0, 7);
   const nomeMese = (m) => { const [y, mm] = m.split('-'); return `${MESI[+mm - 1]} ${y}`; };
   const meseShift = (m, d) => { const [y, mm] = m.split('-').map(Number); const t = new Date(y, mm - 1 + d, 1); return `${t.getFullYear()}-${String(t.getMonth() + 1).padStart(2, '0')}`; };
-  const orari = (r) => [r.mattDa && r.mattA && `dalle ${r.mattDa} alle ${r.mattA}`, r.pomDa && r.pomA && `dalle ${r.pomDa} alle ${r.pomA}`].filter(Boolean);
+  const orariG = (g) => [g.mattDa && g.mattA && `dalle ${g.mattDa} alle ${g.mattA}`, g.pomDa && g.pomA && `dalle ${g.pomDa} alle ${g.pomA}`].filter(Boolean);
+  const orari = (r) => orariG(giorniDi(r)[0]);
+  const ggmm = (d) => fmt(d).slice(0, 5);
+  const nomeMezzo = (S, m) => (nostro(m) ? (mezzoDi(S, m.mezzoId) ? (mezzoDi(S, m.mezzoId).modello || mezzoDi(S, m.mezzoId).marca || 'nostro') : 'nostro mezzo') : 'mezzo loro');
 
   // ---------- messaggio WhatsApp ----------
   function messaggio(S, r) {
-    const giorno = r.data ? new Date(r.data + 'T12:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'numeric', year: 'numeric' }) : '';
+    const gg = giorniDi(r), piu = gg.length > 1;
+    const nomeG = (d, anno) => (d ? new Date(d + 'T12:00').toLocaleDateString('it-IT', { weekday: 'long', day: 'numeric', month: 'numeric', ...(anno ? { year: 'numeric' } : {}) }) : '');
+    const giorno = piu ? gg.map((g, k) => nomeG(g.data, k === gg.length - 1)).join(', ').replace(/, ([^,]*)$/, ' e $1') : nomeG(r.data, true);
     const np = nPers(r);
     // piattaforme in coda alla riga degli orari, es. «+ 1 piattaforma nostra - 2,5 h utilizzo» oppure
     // «+ 2 piattaforme vostre - 3 h utilizzo cad.» (il messaggio è per GHO: le loro sono «vostre»; il tipo non serve)
@@ -55,9 +70,12 @@ window.GHO = (function () {
       const n = num(p.qta) || 1, pl = n > 1;
       return `${n} ${pl ? 'piattaforme' : 'piattaforma'} ${p.nostra ? (pl ? 'nostre' : 'nostra') : (pl ? 'vostre' : 'vostra')}${num(p.ore) ? ` - ${String(num(p.ore)).replace('.', ',')} h utilizzo${pl ? ' cad.' : ''}` : ''}`;
     });
-    const riga2 = [orari(r).join(' e ') + (r.viaggio ? ` + ${oreTesto(r.viaggio)} di viaggio` : ''),
-      r.km ? `${r.km} km${nostroMezzo(r) ? '' : ' (mezzo loro)'}` : '',
-      `${np} ${np === 1 ? 'persona' : 'persone'}`].filter(Boolean).join(' - ') + piatt.map((x) => ' + ' + x).join('');
+    // km: uno per mezzo (es. «64 km + 30 km (mezzo loro)»)
+    const km = mezziDi(r).filter((m) => num(m.km)).map((m) => `${m.km} km${nostro(m) ? '' : ' (mezzo vostro)'}`).join(' + ');
+    const orariTxt = (g) => orariG(g).join(' e ') + (g.viaggio ? ` + ${oreTesto(g.viaggio)} di viaggio` : '');
+    // più giorni: una riga per giorno con i suoi orari, poi km, persone e piattaforme
+    const riga2 = (piu ? gg.map((g) => `${nomeG(g.data)}: ${orariTxt(g)}`).join('\n') + '\n' : '') + [piu ? '' : orariTxt(gg[0]),
+      km, `${np} ${np === 1 ? 'persona' : 'persone'}`].filter(Boolean).join(' - ') + piatt.map((x) => ' + ' + x).join('');
     const mat = (r.materiali || []).filter((m) => m.descrizione || m.codice).map((m) => `${m.qta ? m.qta + ' x ' : ''}${[m.codice, m.descrizione].filter(Boolean).join(' ')}${m.nostro && !vp() ? ' (di nostra fornitura)' : ''}${m.nostro && vp() ? ` (di nostra fornitura, ${senzaPrezzo(m) ? 'prezzo da definire' : ((num(m.qta) || 1) > 1 ? euro(num(m.prezzo)) + ' cad., totale ' + euro(num(m.prezzo) * num(m.qta)) : euro(num(m.prezzo)))})` : ''}`);
     return [
       [giorno.charAt(0).toUpperCase() + giorno.slice(1), r.cliente, r.citta].filter(Boolean).join(' - '),
@@ -111,7 +129,7 @@ window.GHO = (function () {
     const mese = meseScelto;
     const righe = (S.oreGho || []).filter((r) => meseDi(r) === mese).sort((a, b) => (a.data || '').localeCompare(b.data || '') || (a.mattDa || '').localeCompare(b.mattDa || ''));
     const vedeP = puoPrezzi(), vedeSoldi = vp(), prezzi = vedeP ? daPrezzare(S) : [];
-    const tot = righe.reduce((t, r) => ({ uomo: t.uomo + oreUomo(r), km: t.km + num(r.km), costo: t.costo + costoTot(r) }), { uomo: 0, km: 0, costo: 0 });
+    const tot = righe.reduce((t, r) => ({ uomo: t.uomo + oreUomo(r), km: t.km + kmTot(r), costo: t.costo + costoTot(r) }), { uomo: 0, km: 0, costo: 0 });
     const leggi = UT.solaLettura();
     el.innerHTML = `
       <section class="sg sg2 gho">
@@ -127,9 +145,9 @@ window.GHO = (function () {
         ${righe.length ? `<div class="sg2-lista">${righe.map((r) => `
           <div class="sg2-riga gho-riga">
             <a class="gho-apri" href="#/gho/ore/${r.id}">
-              <span class="n ap-data">${esc(fmt(r.data).replace(/\/(\d\d)(\d\d)$/, '/$2'))}</span>
+              <span class="n ap-data">${esc(fmt(r.data).replace(/\/(\d\d)(\d\d)$/, '/$2'))}${giorniDi(r).length > 1 ? `<small class="gho-ng">+${giorniDi(r).length - 1} ${giorniDi(r).length === 2 ? 'giorno' : 'giorni'}</small>` : ''}</span>
               <span class="d">${esc([r.cliente, r.citta].filter(Boolean).join(' · '))}${r.gru ? ` <small class="muted">gru ${esc(r.gru)}</small>` : ''}
-                <small>${esc(orari(r).join(' e '))}${r.viaggio ? ' + viaggio ' + oreTesto(r.viaggio) : ''} · ${esc(nomiPers(S, r).join(', '))}${puoPrezzi() && (r.materiali || []).some(senzaPrezzo) ? ' · <b class="txt-ko">prezzo da mettere</b>' : ''}</small></span>
+                <small>${giorniDi(r).length > 1 ? `${giorniDi(r).length} giorni, fino al ${esc(ggmm(giorniDi(r).slice(-1)[0].data))}` : esc(orari(r).join(' e '))}${viaggioTot(r) ? ' + viaggio ' + oreTesto(viaggioTot(r)) : ''} · ${esc(nomiPers(S, r).join(', '))}${puoPrezzi() && (r.materiali || []).some(senzaPrezzo) ? ' · <b class="txt-ko">prezzo da mettere</b>' : ''}</small></span>
               <span class="gho-ore">${hm(oreUomo(r))}</span></a>
             <button type="button" class="btn ghost small" data-wa="${r.id}" aria-label="Messaggio WhatsApp">💬</button>
           </div>`).join('')}</div>` : `<p class="nessuno">Nessun intervento a ${nomeMese(mese)}.</p>`}
@@ -145,6 +163,7 @@ window.GHO = (function () {
     const r = orig ? JSON.parse(JSON.stringify(orig)) : { id: uid(), data: oggi(), cliente: '', citta: '', gru: '', descrizione: '', materiali: [], segnalazioni: '',
       mattDa: '', mattA: '', pomDa: '', pomA: '', viaggio: 0, persone: [UT.attuale()?.id].filter(Boolean), km: '', mezzo: 'nostro', mezzoId: '', piattaforme: [] };
     r.materiali = r.materiali || []; r.piattaforme = r.piattaforme || [];
+    r.giorni = JSON.parse(JSON.stringify(giorniDi(r))); r.mezzi = JSON.parse(JSON.stringify(mezziDi(r)));
     const tutti = S.oreGho || [];
     const clientiNoti = [...new Set(tutti.map((x) => x.cliente).filter(Boolean))].sort();
     const cittaNote = [...new Set(tutti.map((x) => x.citta).filter(Boolean))].sort();
@@ -157,30 +176,38 @@ window.GHO = (function () {
       el.innerHTML = `
         <form class="sg form card ap-form gho-form" id="fG" novalidate>
           <h1>${id ? 'Intervento' : 'Nuovo intervento'}</h1>
-          <div class="tre"><label>Data<input type="date" name="data" value="${r.data}"></label>
-            <label>Cliente (loro)<input name="cliente" list="ghoCli" value="${esc(r.cliente)}" placeholder="es. ROSSI SPA"></label>
-            <label>Città<input name="citta" list="ghoCitta" value="${esc(r.citta)}"></label></div>
+          <div class="tre"><label>Cliente (loro)<input name="cliente" list="ghoCli" value="${esc(r.cliente)}" placeholder="es. ROSSI SPA"></label>
+            <label>Città<input name="citta" list="ghoCitta" value="${esc(r.citta)}"></label>
           <datalist id="ghoCli">${clientiNoti.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
           <datalist id="ghoCitta">${cittaNote.map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
-          <div class="tre"><label>N° gru<input name="gru" value="${esc(r.gru)}"></label></div>
+          <label>N° gru<input name="gru" value="${esc(r.gru)}"></label></div>
           <label>Descrizione dei lavori svolti<textarea name="descrizione" rows="3">${esc(r.descrizione)}</textarea></label>
 
-          <h2 class="sez-form">Orari ${info('Scrivi le ore con la tastiera: 0800 o 8 = 08:00. Si arrotondano ai quarti d\'ora. Le ore di viaggio come 1,5 oppure 1:30.')}</h2>
-          <div class="gr-riga gr-orari gho-orari">
-            <fieldset class="gr-fascia"><legend>Mattina</legend><input type="text" inputmode="numeric" name="mattDa" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(r.mattDa)}"><span>–</span><input type="text" inputmode="numeric" name="mattA" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(r.mattA)}"></fieldset>
-            <fieldset class="gr-fascia"><legend>Pomeriggio</legend><input type="text" inputmode="numeric" name="pomDa" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(r.pomDa)}"><span>–</span><input type="text" inputmode="numeric" name="pomA" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(r.pomA)}"></fieldset>
-            <label>Ore di viaggio<input name="viaggio" inputmode="decimal" value="${esc(viaggioTxt(r.viaggio))}" placeholder="es. 1,5"></label>
-          </div>
+          <h2 class="sez-form">Giorni e orari ${info('Scrivi le ore con la tastiera: 0800 o 8 = 08:00. Si arrotondano ai quarti d\'ora. Le ore di viaggio come 1,5 oppure 1:30. Se il lavoro dura più giorni tocca «+ Aggiungi giorno»: ogni giorno ha i suoi orari e il suo viaggio.')}</h2>
+          <div id="gGiorni">${r.giorni.map((g, i) => `
+            <div class="ap-tratto gho-g" data-i="${i}">
+              ${r.giorni.length > 1 ? `<div class="ap-tratto-h"><b>${i + 1}° giorno</b><button type="button" class="btn ghost small danger" data-rmg="${i}" aria-label="Togli giorno">×</button></div>` : ''}
+              <label class="gho-gdata">Data<input type="date" data-g="data" value="${esc(g.data || '')}"></label>
+              <div class="gr-riga gr-orari gho-orari">
+                <fieldset class="gr-fascia"><legend>Mattina</legend><input type="text" inputmode="numeric" data-g="mattDa" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.mattDa || '')}"><span>–</span><input type="text" inputmode="numeric" data-g="mattA" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.mattA || '')}"></fieldset>
+                <fieldset class="gr-fascia"><legend>Pomeriggio</legend><input type="text" inputmode="numeric" data-g="pomDa" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.pomDa || '')}"><span>–</span><input type="text" inputmode="numeric" data-g="pomA" data-ora maxlength="5" placeholder="--:--" autocomplete="off" value="${esc(g.pomA || '')}"></fieldset>
+                <label>Ore di viaggio<input data-g="viaggio" inputmode="decimal" value="${esc(viaggioTxt(g.viaggio))}" placeholder="es. 1,5"></label>
+              </div></div>`).join('')}</div>
+          <button type="button" class="btn ghost small" id="gAddG">+ Aggiungi giorno</button>
           <span class="lab">Persone</span>
           <div class="chip-tecnici" id="gPers">${persone.map((u) => `<button type="button" class="chip-t ${r.persone.includes(u.id) ? 'on' : ''}" data-p="${u.id}">${esc(UT.breve(u))}</button>`).join('')}</div>
           <p class="gho-calc" id="gOre"></p>
 
-          <h2 class="sez-form">Viaggio</h2>
-          <div class="ap-scelte" data-mezzo><button type="button" data-v="nostro" class="${nostroMezzo(r) ? 'on' : ''}">🚐 Nostro mezzo</button><button type="button" data-v="loro" class="${nostroMezzo(r) ? '' : 'on'}">Mezzo loro</button></div>
-          <div class="due">
-            ${nostroMezzo(r) ? `<label>Quale mezzo<select name="mezzoId"><option value="">— scegli —</option>${veicoli.map((m) => `<option value="${m.id}" ${m.id === r.mezzoId ? 'selected' : ''}>${esc(MEZ.corto(m))}</option>`).join('')}</select></label>` : '<span></span>'}
-            <label>Km di viaggio<span class="gho-km"><input name="km" inputmode="decimal" value="${esc(r.km)}"><b id="gKm"></b></span></label>
-          </div>
+          <h2 class="sez-form">Mezzi e km ${info('Un mezzo per riga, con i suoi km (di tutti i giorni). Se siete andati con due furgoni aggiungi il secondo con «+ Aggiungi mezzo». I km dei nostri mezzi costano 0,50 € al km; quelli dei mezzi loro non si contano.')}</h2>
+          <div id="gMezzi">${r.mezzi.map((m, i) => `
+            <div class="ap-tratto gho-mz" data-i="${i}"><div class="ap-tratto-h">
+              <div class="ap-scelte"><button type="button" data-mv="nostro" class="${nostro(m) ? 'on' : ''}">🚐 Nostro mezzo</button><button type="button" data-mv="loro" class="${nostro(m) ? '' : 'on'}">Mezzo loro</button></div>
+              ${r.mezzi.length > 1 ? `<button type="button" class="btn ghost small danger" data-rmz="${i}" aria-label="Togli mezzo">×</button>` : ''}</div>
+              <div class="due">
+                ${nostro(m) ? `<label>Quale mezzo<select data-z="mezzoId"><option value="">— scegli —</option>${veicoli.map((v) => `<option value="${v.id}" ${v.id === m.mezzoId ? 'selected' : ''}>${esc(MEZ.corto(v))}</option>`).join('')}</select></label>` : '<span></span>'}
+                <label>Km di viaggio<span class="gho-km"><input data-z="km" inputmode="decimal" value="${esc(m.km || '')}"><b data-kmc></b></span></label>
+              </div></div>`).join('')}</div>
+          <button type="button" class="btn ghost small" id="gAddZ">+ Aggiungi mezzo</button>
 
           <h2 class="sez-form">Piattaforme ${info('Per ogni piattaforma: quante, che tipo, per quante ore. La nostra costa 5 € all\'ora, quella loro non si conta.')}</h2>
           <div id="gPiatt">${r.piattaforme.map((p, i) => `
@@ -222,11 +249,13 @@ window.GHO = (function () {
     const f = () => el.querySelector('#fG');
     function leggi() {
       const F = f();
-      ['data', 'cliente', 'citta', 'gru', 'descrizione', 'segnalazioni'].forEach((k) => (r[k] = (F.elements[k].value || '').trim()));
-      ['mattDa', 'mattA', 'pomDa', 'pomA'].forEach((k) => (r[k] = RAP.ora15(F.elements[k].value) || ''));
-      r.viaggio = viaggioMin(F.elements.viaggio.value);
-      r.km = (F.elements.km.value || '').trim();
-      r.mezzoId = F.elements.mezzoId?.value || (nostroMezzo(r) ? r.mezzoId : '');
+      ['cliente', 'citta', 'gru', 'descrizione', 'segnalazioni'].forEach((k) => (r[k] = (F.elements[k].value || '').trim()));
+      F.querySelectorAll('.gho-g').forEach((b, i) => { const g = r.giorni[i];
+        g.data = b.querySelector('[data-g="data"]').value;
+        ['mattDa', 'mattA', 'pomDa', 'pomA'].forEach((k) => (g[k] = RAP.ora15(b.querySelector(`[data-g="${k}"]`).value) || ''));
+        g.viaggio = viaggioMin(b.querySelector('[data-g="viaggio"]').value); });
+      F.querySelectorAll('.gho-mz').forEach((b, i) => { const m = r.mezzi[i];
+        m.km = (b.querySelector('[data-z="km"]').value || '').trim(); m.mezzoId = nostro(m) ? (b.querySelector('[data-z="mezzoId"]')?.value || '') : ''; });
       r.persone = [...F.querySelectorAll('#gPers .chip-t.on')].map((b) => b.dataset.p);
       F.querySelectorAll('.gho-p').forEach((b, i) => { const p = r.piattaforme[i]; b.querySelectorAll('[data-k]').forEach((x) => (p[x.dataset.k] = x.value.trim())); });
       F.querySelectorAll('.gho-m').forEach((b, i) => { const m = r.materiali[i]; b.querySelectorAll('[data-k]').forEach((x) => (m[x.dataset.k] = x.value.trim())); });
@@ -234,8 +263,8 @@ window.GHO = (function () {
     function calcoli() {
       leggi();
       const F = f();
-      F.querySelector('#gOre').innerHTML = `Lavoro <b>${hm(lavoro(r))}</b> + viaggio <b>${hm(r.viaggio)}</b> × ${nPers(r)} ${nPers(r) === 1 ? 'persona' : 'persone'} = <b>${hm(oreUomo(r))} ore</b>`;
-      F.querySelector('#gKm').textContent = nostroMezzo(r) ? (vp() ? `= ${euro(costoKm(r))}` : 'mezzo nostro: si conta') : 'non si conta (mezzo loro)';
+      F.querySelector('#gOre').innerHTML = `${r.giorni.length > 1 ? r.giorni.length + ' giorni: ' : ''}Lavoro <b>${hm(lavoro(r))}</b> + viaggio <b>${hm(viaggioTot(r))}</b> × ${nPers(r)} ${nPers(r) === 1 ? 'persona' : 'persone'} = <b>${hm(oreUomo(r))} ore</b>`;
+      F.querySelectorAll('.gho-mz').forEach((b, i) => { const m = r.mezzi[i]; b.querySelector('[data-kmc]').textContent = nostro(m) ? (vp() ? `= ${euro(num(m.km) * EURO_KM)}` : 'mezzo nostro: si conta') : 'non si conta (mezzo loro)'; });
       F.querySelectorAll('.gho-p').forEach((b, i) => { const p = r.piattaforme[i]; b.querySelector('[data-pc]').innerHTML = p.nostra ? (vp() ? `${num(p.qta) || 1} × ${num(p.ore)} h × 5 € = <b>${euro(num(p.ore) * (num(p.qta) || 1) * EURO_ORA_PIATT)}</b>` : `${num(p.qta) || 1} × ${num(p.ore)} h: si conta`) : 'piattaforma loro: non si conta'; });
       const manca = r.materiali.filter(senzaPrezzo).length;
       F.querySelector('#gTot').innerHTML = vp() ? `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))} · materiale ${euro(costoMat(r))} → <b>${euro(costoTot(r))}</b>${manca && puoPrezzi() ? ` <span class="txt-ko">· ${manca} ${manca === 1 ? 'prezzo' : 'prezzi'} da mettere</span>` : ''}`
@@ -251,10 +280,17 @@ window.GHO = (function () {
         x.addEventListener('focus', () => (x.dataset.nuovo = '1'));
         x.addEventListener('beforeinput', (e) => { if (x.dataset.nuovo && /^insert/.test(e.inputType)) x.value = ''; delete x.dataset.nuovo; });
         x.addEventListener('change', () => sistema(x));
-        x.addEventListener('input', () => { x.classList.remove('ora-ko'); if (/^\d{4}$/.test(x.value) || /^\d{1,2}[:.]\d{2}$/.test(x.value)) { if (sistema(x)) { if (ore[k + 1]) ore[k + 1].focus(); else F.elements.viaggio.focus(); } } });
+        x.addEventListener('input', () => { x.classList.remove('ora-ko'); if (/^\d{4}$/.test(x.value) || /^\d{1,2}[:.]\d{2}$/.test(x.value)) { if (sistema(x)) { const g = x.closest('.gho-g'); if (ore[k + 1] && ore[k + 1].closest('.gho-g') === g) ore[k + 1].focus(); else g.querySelector('[data-g="viaggio"]').focus(); } } });
       });
       F.querySelectorAll('#gPers .chip-t').forEach((b) => (b.onclick = () => { b.classList.toggle('on'); calcoli(); }));
-      F.querySelectorAll('[data-mezzo] button').forEach((b) => (b.onclick = () => { leggi(); r.mezzo = b.dataset.v; disegna(); }));
+      F.querySelectorAll('.gho-mz [data-mv]').forEach((b) => (b.onclick = () => { leggi(); r.mezzi[+b.closest('.gho-mz').dataset.i].mezzo = b.dataset.mv; disegna(); }));
+      F.querySelector('#gAddZ').onclick = () => { leggi(); r.mezzi.push({ mezzo: 'nostro', mezzoId: '', km: '' }); disegna(); };
+      F.querySelectorAll('[data-rmz]').forEach((b) => (b.onclick = () => { leggi(); r.mezzi.splice(+b.dataset.rmz, 1); disegna(); }));
+      // nuovo giorno: il giorno dopo l'ultimo, con gli stessi orari e lo stesso viaggio
+      F.querySelector('#gAddG').onclick = () => { leggi(); const u = r.giorni[r.giorni.length - 1] || {};
+        const d = u.data ? new Date(u.data + 'T12:00') : new Date(); d.setDate(d.getDate() + 1);
+        r.giorni.push({ ...u, data: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }); disegna(); };
+      F.querySelectorAll('[data-rmg]').forEach((b) => (b.onclick = () => { leggi(); r.giorni.splice(+b.dataset.rmg, 1); disegna(); }));
       F.querySelector('#gAddP').onclick = () => { leggi(); r.piattaforme.push({ qta: 1, tipo: '', ore: '', nostra: true }); disegna(); };
       F.querySelector('#gAddM').onclick = () => { leggi(); r.materiali.push({ codice: '', descrizione: '', qta: 1, nostro: false }); disegna(); };
       F.querySelectorAll('[data-rmp]').forEach((b) => (b.onclick = () => { leggi(); r.piattaforme.splice(+b.dataset.rmp, 1); disegna(); }));
@@ -277,14 +313,19 @@ window.GHO = (function () {
       const salva = async (wa) => {
         if (ore.some((x) => x.value && RAP.ora15(x.value) === null)) return UI.toast('C\'è un orario non valido', 'err');
         leggi();
-        if (!r.data) return UI.toast('Manca la data', 'err');
+        if (r.giorni.some((g) => !g.data)) return UI.toast('Manca la data di un giorno', 'err');
+        r.giorni.sort((a, b) => a.data.localeCompare(b.data));
+        r.mezzi = r.mezzi.filter((m, i) => i === 0 || num(m.km) || m.mezzoId);
+        // campi «riassunto» (primo giorno, totali) usati da elenco, magazzino e versioni vecchie
+        const g0 = r.giorni[0];
+        Object.assign(r, { data: g0.data, mattDa: g0.mattDa, mattA: g0.mattA, pomDa: g0.pomDa, pomA: g0.pomA, viaggio: viaggioTot(r), km: String(kmTot(r) || ''),
+          mezzo: nostroMezzo(r) ? 'nostro' : 'loro', mezzoId: (r.mezzi.find(nostro) || {}).mezzoId || '' });
         if (!r.cliente) { F.elements.cliente.focus(); return UI.toast('Scrivi il cliente', 'err'); }
         if (!r.persone.length) return UI.toast('Scegli almeno una persona', 'err');
         const up = (x) => String(x || '').toUpperCase();
         Object.assign(r, { cliente: up(r.cliente), citta: up(r.citta), gru: up(r.gru), descrizione: up(r.descrizione), segnalazioni: up(r.segnalazioni) });
         r.materiali = r.materiali.filter((m) => m.codice || m.descrizione).map((m) => ({ ...m, codice: up(m.codice), descrizione: up(m.descrizione), prezzo: m.nostro ? m.prezzo : undefined }));
         r.piattaforme = r.piattaforme.filter((p) => p.tipo || num(p.ore)).map((p) => ({ ...p, tipo: up(p.tipo) }));
-        if (!nostroMezzo(r)) r.mezzoId = '';
         try { await UI.salva('oreGho', JSON.parse(JSON.stringify(r))); } catch (e) { return; }
         const manca = r.materiali.filter(senzaPrezzo).length;
         UI.toast(manca && puoPrezzi() ? `Salvato · ricordati il prezzo di ${manca} ${manca === 1 ? 'materiale' : 'materiali'}` : 'Salvato', manca ? '' : 'ok');
@@ -307,23 +348,23 @@ window.GHO = (function () {
   function rigaStampa(S, r) {
     const mat = (r.materiali || []).map((m) => `<div class="${m.nostro ? 'gs-blu' : ''}">${m.qta ? esc(String(m.qta)) + ' × ' : ''}${esc([m.codice, m.descrizione].filter(Boolean).join(' – '))}${m.nostro && !vp() ? ' <i>(nostra fornitura)</i>' : ''}${m.nostro && vp() ? ` <i>(nostra fornitura${senzaPrezzo(m) ? ', prezzo da definire' : ' – ' + euro(num(m.prezzo)) + ((num(m.qta) || 1) > 1 ? ' cad.' : '')})</i>` : ' <i>(fornito dal cliente)</i>'}</div>`).join('');
     const piatt = (r.piattaforme || []).map((p) => `${num(p.qta) || 1} × ${esc(p.tipo || 'piattaforma')} ${num(p.ore) ? `(${String(num(p.ore)).replace('.', ',')} h)` : ''} ${p.nostra ? 'NOSTRA' : 'LORO'}`).join('<br>');
-    const mz = nostroMezzo(r) ? (mezzoDi(S, r.mezzoId) ? (mezzoDi(S, r.mezzoId).modello || mezzoDi(S, r.mezzoId).marca || 'nostro') : 'nostro mezzo') : 'mezzo loro';
+    const gg = giorniDi(r), piu = gg.length > 1, mz = mezziDi(r);
     return `<tr>
-      <td class="c">${esc(fmt(r.data))}</td>
+      <td class="c">${piu ? gg.map((g) => esc(fmt(g.data))).join('<br>') : esc(fmt(r.data))}</td>
       <td><b>${esc(r.cliente || '')}</b><br>${esc(r.citta || '')}</td>
       <td class="c">${esc(r.gru || '')}</td>
       <td class="gs-lav">${esc(r.descrizione || '')}${mat ? `<div class="gs-mat">${mat}</div>` : ''}${r.segnalazioni ? `<div class="gs-rosso">⚠ ${esc(r.segnalazioni)}</div>` : ''}</td>
-      <td class="c">${orari(r).map((o) => o.replace('dalle ', '').replace(' alle ', '–')).join('<br>')}</td>
-      <td class="c">${r.viaggio ? hm(r.viaggio) : ''}</td>
+      <td class="c">${gg.map((g) => `${piu ? `<b>${esc(ggmm(g.data))}</b> ` : ''}${orariG(g).map((o) => o.replace('dalle ', '').replace(' alle ', '–')).join(piu ? ' ' : '<br>')}`).join('<br>')}</td>
+      <td class="c">${viaggioTot(r) ? hm(viaggioTot(r)) : ''}</td>
       <td class="c">${esc(siglePers(S, r).join(' - '))}</td>
       <td class="c"><b>${hm(oreUomo(r))}</b></td>
-      <td class="c">${esc(r.km || '')}<div class="gs-pic">${esc(mz)}</div></td>
+      <td class="c">${mz.map((m) => `${esc(m.km || '')}<div class="gs-pic">${esc(nomeMezzo(S, m))}</div>`).join('')}</td>
       ${vp() ? `<td class="d">${costoKm(r) ? euro(costoKm(r)) : '–'}</td>` : ''}
       <td>${piatt}</td>
       ${vp() ? `<td class="d">${costoPiatt(r) ? euro(costoPiatt(r)) : '–'}</td>` : ''}</tr>`;
   }
   function riepilogo(S, righe, mese) {
-    const T = righe.reduce((t, r) => ({ lav: t.lav + lavoro(r), via: t.via + (r.viaggio || 0) * nPers(r), uomo: t.uomo + oreUomo(r), km: t.km + (nostroMezzo(r) ? num(r.km) : 0), kmLoro: t.kmLoro + (nostroMezzo(r) ? 0 : num(r.km)),
+    const T = righe.reduce((t, r) => ({ lav: t.lav + lavoro(r), via: t.via + viaggioTot(r) * nPers(r), uomo: t.uomo + oreUomo(r), km: t.km + kmNostri(r), kmLoro: t.kmLoro + kmLoro(r),
       ckm: t.ckm + costoKm(r), op: t.op + orePiattNostre(r), cp: t.cp + costoPiatt(r), cm: t.cm + costoMat(r), lavU: t.lavU + lavoro(r) * nPers(r) }), { lav: 0, via: 0, uomo: 0, km: 0, kmLoro: 0, ckm: 0, op: 0, cp: 0, cm: 0, lavU: 0 });
     // materiali raggruppati (stesso codice e descrizione)
     const gruppi = {};

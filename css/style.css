@@ -1808,3 +1808,7 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .ghs-f2-rif { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 9pt; line-height: 1.45; border-bottom: .2mm solid #000; padding-bottom: 3mm; margin-bottom: 4mm; }
 .ghs-f2-txt { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; overflow: hidden; flex: 1;
   background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.5em - .15mm), #c9d0d8 calc(1.5em - .15mm), #c9d0d8 1.5em); }
+/* GHO: più giorni e più mezzi */
+.gho-ng { display: block; font-size: 10px; font-weight: 600; color: var(--muted, #667); }
+.gho-gdata { max-width: 220px; margin-bottom: 6px; }
+.gho-g .ap-tratto-h, .gho-mz .ap-tratto-h { flex-wrap: wrap; gap: 6px; }
