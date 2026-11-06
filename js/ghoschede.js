@@ -179,6 +179,10 @@ window.GHOS = (function () {
           <div class="card"><div class="card-head"><h2>Controlli ${nome}</h2>${sola ? '' : `<button type="button" class="btn ghost small" data-tuttiok="${g}">✓ Tutti OK</button>`}</div>
             ${VOCI[g].map((t, n) => voce(g, n + 1, t)).join('')}</div>`).join('')}
         <div class="card">
+          <div class="card-head"><h2>Note generali ${info('Escono su un secondo foglio attaccato alla scheda (anche nel PDF per email). Se le lasci vuote il secondo foglio non c\'è.')}</h2></div>
+          <textarea id="cNoteGen" rows="5" data-libero placeholder="note generali sul controllo, lavori consigliati, ricambi da ordinare…" ${sola ? 'readonly' : ''}>${esc(c.noteGenerali || '')}</textarea>
+        </div>
+        <div class="card">
           <div class="card-head"><h2>Timbro e firma</h2></div>
           <div id="cFirma">${c.firma ? `<img class="ghs-firma" src="${c.firma}" alt="firma">` : '<p class="muted small">La firma arriva dal tuo profilo quando salvi.</p>'}</div>
           ${sola ? '' : `<div class="azioni-form">${io?.firma ? '<button type="button" class="btn ghost small" id="cMia">✍️ Usa la mia firma</button>' : ''}<button type="button" class="btn ghost small" id="cFirmaMano">✍️ Firma a mano</button></div>`}
@@ -192,6 +196,7 @@ window.GHOS = (function () {
       collega();
     };
     const leggi = () => {
+      c.noteGenerali = (el.querySelector('#cNoteGen')?.value || '').trim();
       c.data = el.querySelector('#cData').value || c.data; c.anno = +c.data.slice(0, 4); c.trimestre = +el.querySelector('#cTrim').value;
       el.querySelectorAll('.ghs-v').forEach((r) => { const k = r.dataset.k, n = r.querySelector('.ghs-n').value.trim(); c.voci[k] = { ...(c.voci[k] || {}), n }; if (!c.voci[k].s && !n) delete c.voci[k]; });
     };
@@ -199,6 +204,7 @@ window.GHOS = (function () {
       if (sola) return;
       el.querySelector('#cData').onchange = () => { sporco = true; const d = el.querySelector('#cData').value; if (d) el.querySelector('#cTrim').value = trimDi(d); };
       el.querySelector('#cTrim').onchange = () => (sporco = true);
+      el.querySelector('#cNoteGen').oninput = () => (sporco = true);
       el.querySelectorAll('#cTipo [data-t]').forEach((b) => (b.onclick = () => { leggi(); c.tipo = b.dataset.t; sporco = true; const y = window.scrollY; disegna(); window.scrollTo(0, y); }));
       el.querySelectorAll('.ghs-v').forEach((r) => {
         r.querySelectorAll('[data-s]').forEach((b) => (b.onclick = () => {
@@ -279,6 +285,29 @@ window.GHOS = (function () {
     h += box(108, 270, R, 286) + box(108, 270, 140, 286) + t(108, 270, 140, 286, 'Timbro e firma:', 'c ghs-lab');
     if (c.firma) h += `<img class="ghs-fimg" src="${c.firma}" alt="" style="left:141mm;top:270.6mm;width:56mm;height:12mm">`;
     if (c.tecnico) h += t(140, 282.4, R, 286, `<span class="ghs-tec">${esc(c.tecnico)} – Gru Impianti</span>`, 'c');
+    const due = !!(c.noteGenerali || '').trim();
+    if (due) h += t(L, 276, 104, 281, '<b>Note generali: vedi foglio 2</b>', 'ghs-lab');
+    h += t(150, 288, R, 292, `Foglio 1${due ? ' di 2' : ''}`, 'ghs-pnum');
+    return `<article class="recap rap2 ghs-pag">${h}</article>${due ? foglio2(S, c, i, g) : ''}`;
+  }
+  // 2° foglio: note generali (stessa intestazione GHO)
+  function foglio2(S, c, i, g) {
+    let h = '<img class="ghs-logo" src="img/gho-logo.png" alt="GHO">';
+    h += `<div class="ghs-int"><div class="ghs-int1"><b class="ghs-nome">GHO ELIGIO</b> &nbsp;-&nbsp; <b>Strada Carignano, 37/b - 10040 La Loggia (TO)</b></div>
+      <div>GRU A PONTE – COSTRUZIONI IN FERRO</div><div>PIEGATURA E TAGLI LAMIERA SU MISURA</div>
+      <div class="ghs-int2"><span>Tel : 011-962.82.44</span><span>Fax : 011-962.72.00</span></div><div class="ghs-int2"><span>www.ghoeligio.it</span><span>Mail: info@ghoeligio.it</span></div></div>`;
+    h += `<div class="ghs-f2">
+      <div class="ghs-f2-tit">NOTE GENERALI</div>
+      <div class="ghs-f2-rif"><b>Controllo eseguito presso:</b> ${esc([g.nome, [g.indirizzo, g.citta].filter(Boolean).join(' - ')].filter(Boolean).join(' – '))}<br>
+        <b>Gru:</b> ${esc([nomeGru(i), i.matricola ? 'matricola ' + i.matricola : '', i.matricolaIspesl ? 'ISPESL ' + i.matricolaIspesl : ''].filter(Boolean).join(' · '))}<br>
+        <b>Controllo del</b> ${fmt(c.data)} · ${c.trimestre}° trimestre ${c.anno} (${(TIPI[c.tipo] || '').toLowerCase()})</div>
+      <div class="ghs-f2-txt">${esc(c.noteGenerali || '')}</div>
+    </div>`;
+    h += `<div class="r2-b" style="left:108mm;top:270mm;width:90mm;height:16mm"></div><div class="r2-b" style="left:108mm;top:270mm;width:32mm;height:16mm"></div>
+      <div class="r2-t c ghs-lab" style="left:108mm;top:270mm;width:32mm;height:16mm">Timbro e firma:</div>`;
+    if (c.firma) h += `<img class="ghs-fimg" src="${c.firma}" alt="" style="left:141mm;top:270.6mm;width:56mm;height:12mm">`;
+    if (c.tecnico) h += `<div class="r2-t c" style="left:140mm;top:282.4mm;width:58mm;height:3.6mm"><span class="ghs-tec">${esc(c.tecnico)} – Gru Impianti</span></div>`;
+    h += '<div class="r2-t ghs-pnum" style="left:150mm;top:288mm;width:48mm;height:4mm">Foglio 2 di 2</div>';
     return `<article class="recap rap2 ghs-pag">${h}</article>`;
   }
   function vista(el, S, i, c) {

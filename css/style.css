@@ -1800,3 +1800,11 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .ghs-vert span { transform: rotate(-90deg); white-space: nowrap; font-weight: 700; font-size: 10pt; }
 .ghs-fimg { position: absolute; object-fit: contain; }
 .ghs-tec { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 7pt; }
+
+.ghs-pag + .ghs-pag { break-before: page; margin-top: 6mm; }
+.ghs-pnum { justify-content: flex-end; font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 7.5pt !important; color: #333; }
+.ghs-f2 { position: absolute; left: 12mm; top: 40mm; width: 186mm; height: 224mm; border: .2mm solid #000; padding: 4mm 5mm; display: flex; flex-direction: column; }
+.ghs-f2-tit { font-weight: 700; font-size: 13pt; text-align: center; border-bottom: .2mm solid #000; padding-bottom: 2mm; margin-bottom: 3mm; }
+.ghs-f2-rif { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 9pt; line-height: 1.45; border-bottom: .2mm solid #000; padding-bottom: 3mm; margin-bottom: 4mm; }
+.ghs-f2-txt { font-family: Arial, Helvetica, "Liberation Sans", sans-serif; font-size: 10.5pt; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; overflow: hidden; flex: 1;
+  background-image: repeating-linear-gradient(to bottom, transparent 0, transparent calc(1.5em - .15mm), #c9d0d8 calc(1.5em - .15mm), #c9d0d8 1.5em); }
