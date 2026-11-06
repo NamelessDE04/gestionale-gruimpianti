@@ -43,7 +43,7 @@ function anagraficaGestionale() {
     contacts: (c.referenti || []).filter(r => r.telefono).map(r => ({ id: r.id, name: [r.nome, r.cognome].filter(Boolean).join(' '), phone: r.telefono }))
   })));
   const ruolo = u => (u.ruolo === 'admin' ? 'master' : u.ruolo);
-  const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nome }));
+  const staff = leggiG('utenti').filter(u => u.attivo !== false && ruolo(u) !== 'ru').map(u => ({ id: u.id, name: u.nome, sigla: (u.nomeBreve || '').trim() }));   // sigla = quella del rapportino (es. VL)
   // mezzi: marca e modello, senza targa; le piattaforme aeree non compaiono sulla lavagna
   const vehicles = leggiG('mezzi').filter(m => !m.dismesso && m.categoria !== 'piattaforma').map(m => ({ id: m.id, name: [m.marca, m.modello].filter(Boolean).join(' ') || 'Mezzo', corto: m.modello || m.marca || 'Mezzo' }));
   return { clients, staff, vehicles };
@@ -103,15 +103,16 @@ const vehicleById = id => state.vehicles.find(v => v.id === id);
 const eventById = id => state.events.find(e => e.id === id);
 const staffOf = e => (e.staffIds || []).map(staffById).filter(Boolean);
 const staffNames = e => staffOf(e).map(s => s.name).join(', ');
-/* per il registro stampato: tecnici con le iniziali (es. «Luca Rossi» → LR; se due hanno le stesse iniziali aggiungo lettere)
+/* per il registro stampato: tecnici con la sigla del rapportino (es. VL); senza sigla le iniziali (se due coincidono aggiungo lettere)
    e mezzo con il solo modello («Master», «Ducato», «GHO»…), senza la marca */
 function inizialiTecnici() {
   const base = n => String(n || '').trim().split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase() || '?';
   const out = {}, usate = {};
-  state.staff.forEach(s => { const b = base(s.name); usate[b] = (usate[b] || 0) + 1; });
+  state.staff.filter(s => !s.sigla).forEach(s => { const b = base(s.name); usate[b] = (usate[b] || 0) + 1; });
   state.staff.forEach(s => {
     const w = String(s.name || '').trim().split(/\s+/).filter(Boolean), b = base(s.name);
-    out[s.id] = usate[b] > 1 && w.length ? (w[0].slice(0, 2) + w.slice(1).map(x => x[0]).join('')).toUpperCase() : b;
+    // prima la sigla impostata per il rapportino (Gestione utenti); se manca, le iniziali
+    out[s.id] = s.sigla ? s.sigla.toUpperCase() : usate[b] > 1 && w.length ? (w[0].slice(0, 2) + w.slice(1).map(x => x[0]).join('')).toUpperCase() : b;
   });
   return out;
 }
