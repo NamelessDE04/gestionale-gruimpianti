@@ -263,7 +263,7 @@ window.GHOS = (function () {
     // paranco
     h += box(113, 50, R, 59.2) + box(113, 59.2, R, 63.8) + box(113, 63.8, R, 72);
     h += t(113, 50, R, 54.6, 'Paranco', 'c ghs-par') + t(113, 54.6, R, 59.2, `Tipo&nbsp;<b>${esc(i.parancoTipo || '')}</b>`, 'c ghs-par') + t(113, 59.2, R, 63.8, `mt.&nbsp;<b>${esc(i.parancoMt || '')}</b>&nbsp;&nbsp;&nbsp;&nbsp;Anno&nbsp;<b>${esc(i.parancoAnno || '')}</b>`, 'c ghs-par');
-    h += box(113, 72, R, 76.4) + t(113, 72, XN, 76.4, 'trimestre :', 'ghs-dx') + box(XN, 72, R, 76.4) + t(XN, 72, R, 76.4, `<b>${c.trimestre}° ${c.anno}</b>&nbsp;<span class="ghs-tipo">(${(TIPI[c.tipo] || '').toLowerCase()})</span>`, 'c');
+    h += box(113, 72, R, 76.4) + t(113, 72, XN, 76.4, 'trimestre :', 'ghs-dx') + box(XN, 72, R, 76.4) + t(XN, 72, R, 76.4, `<b>${c.trimestre}° ${c.anno}</b>`, 'c');
     h += box(XS, 76.4, XN, 80.6) + box(XN, 76.4, R, 80.6) + t(XS, 76.4, XN, 80.6, 'situazione', 'c ghs-pic') + t(XN, 76.4, R, 80.6, 'NOTE', 'c ghs-pic');
     // gruppi di voci
     const RH = 5.15; let y = 80.6;
@@ -299,7 +299,7 @@ window.GHOS = (function () {
       <div class="ghs-f2-tit">NOTE GENERALI</div>
       <div class="ghs-f2-rif"><b>Controllo eseguito presso:</b> ${esc([g.nome, [g.indirizzo, g.citta].filter(Boolean).join(' - ')].filter(Boolean).join(' – '))}<br>
         <b>Gru:</b> ${esc([nomeGru(i), i.matricola ? 'matricola ' + i.matricola : '', i.matricolaIspesl ? 'ISPESL ' + i.matricolaIspesl : ''].filter(Boolean).join(' · '))}<br>
-        <b>Controllo del</b> ${fmt(c.data)} · ${c.trimestre}° trimestre ${c.anno} (${(TIPI[c.tipo] || '').toLowerCase()})</div>
+        <b>Controllo del</b> ${fmt(c.data)} · ${c.trimestre}° trimestre ${c.anno}</div>
       <div class="ghs-f2-txt">${esc(c.noteGenerali || '')}</div>
     </div>`;
     h += `<div class="r2-b" style="left:108mm;top:270mm;width:90mm;height:16mm"></div><div class="r2-b" style="left:108mm;top:270mm;width:32mm;height:16mm"></div>
