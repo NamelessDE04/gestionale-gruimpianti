@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.46.5';
+  const VERSIONE = '0.46.6';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori', 'ghoControlli'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], ghoControlli: [], clientiCongelati: [] };
   // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
@@ -166,6 +166,7 @@ window.App = (function () {
 
   async function avvio() {
     document.getElementById('appVersion').textContent = VERSIONE;
+    const fr = document.getElementById('btnRicarica'); if (fr) { fr.textContent = `v${VERSIONE} ↻`; fr.onclick = () => ricarica(); }
     const info = document.getElementById('modeInfo');
     const rete = () => (document.getElementById('reteOff').hidden = Backend.mode !== 'cloud' || navigator.onLine, info.textContent = Backend.mode !== 'cloud' ? '📱 Solo su questo dispositivo' : navigator.onLine ? '☁️ Cloud sincronizzato' : '📴 Senza rete: si sincronizza al ritorno');
     rete(); window.addEventListener('online', rete);
@@ -215,7 +216,15 @@ window.App = (function () {
     }
     controllaVersione();
     setInterval(controllaVersione, 10 * 60 * 1000);
+    // quando l'app torna davanti (anche i tablet Windows che la tengono «addormentata» invece di riaprirla)
     document.addEventListener('visibilitychange', () => { if (!document.hidden) controllaVersione(); });
+    window.addEventListener('focus', () => controllaVersione());
+    window.addEventListener('pageshow', () => controllaVersione());
+    window.addEventListener('online', () => controllaVersione(true));
+    // tasto «↻» nel piè di pagina: controlla la versione e ricarica (dove non c'è il gesto per aggiornare la pagina)
+    // appena aggiornata: lo dico e tolgo «?agg=» dall'indirizzo
+    const qa = new URLSearchParams(location.search).get('agg');
+    if (qa) { history.replaceState(null, '', location.pathname + location.hash); setTimeout(() => UI.toast(`App aggiornata alla versione ${VERSIONE}`, 'ok'), 600); }
   }
 
   // ---------- c'è una versione più nuova? ----------
@@ -223,14 +232,35 @@ window.App = (function () {
   // mostro a tutti un avviso con il pulsante «Aggiorna».
   const piuNuova = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < Math.max(x.length, y.length); i++) { if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); } return false; };
   let ultimoControllo = 0;
-  async function controllaVersione() {
-    if (!location.protocol.startsWith('http') || Date.now() - ultimoControllo < 60000) return;
+  // si può aggiornare da soli solo se nessuno sta scrivendo o ha una finestra aperta
+  const aggiornabile = () => !daSalvare() && !document.querySelector('.modal-ov, .fg-over') &&
+    !(document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName));
+  async function versionePubblicata() {
+    const r = await fetch('sw.js?c=' + Date.now(), { cache: 'no-store' });
+    return ((await r.text()).match(/VERSIONE\s*=\s*'([\d.]+)'/) || [])[1] || '';
+  }
+  async function controllaVersione(forza) {
+    if (!location.protocol.startsWith('http') || (!forza && Date.now() - ultimoControllo < 30000)) return;
     ultimoControllo = Date.now();
     try {
-      const r = await fetch('sw.js?c=' + Date.now(), { cache: 'no-store' });
-      const m = (await r.text()).match(/VERSIONE\s*=\s*'([\d.]+)'/);
-      if (m && piuNuova(m[1], VERSIONE)) mostraAggiorna(m[1]);
+      const v = await versionePubblicata();
+      if (!v || !piuNuova(v, VERSIONE)) return;
+      // se è un buon momento mi aggiorno da solo, altrimenti avviso con il pulsante «Aggiorna»
+      // ma una volta sola per versione: se dopo il ricaricamento sono ancora indietro (file non ancora tutti pubblicati)
+      // non ricarico di nuovo (eviterei un giro infinito), mostro solo l'avviso
+      let tentata = ''; try { tentata = sessionStorage.getItem('gi-agg-tentata') || ''; } catch (e) {}
+      if (aggiornabile() && tentata !== v) { try { sessionStorage.setItem('gi-agg-tentata', v); } catch (e) {} aggiornaOra(v, true); }
+      else mostraAggiorna(v);
     } catch (e) { /* senza rete: riprovo dopo */ }
+  }
+  // tasto ↻: se c'è una versione nuova la prende, altrimenti ricarica la pagina (dati e schermata freschi)
+  async function ricarica() {
+    const b = document.getElementById('btnRicarica'); if (b) b.textContent = '↻ …';
+    let v = '';
+    try { if (location.protocol.startsWith('http')) v = await versionePubblicata(); } catch (e) {}
+    if (v && piuNuova(v, VERSIONE)) return aggiornaOra(v);
+    if (daSalvare() && !UI.conferma('Stai compilando qualcosa che non è ancora salvato. Ricaricare lo stesso?\n\nQuello che non è salvato andrà perso.')) { if (b) b.textContent = `v${VERSIONE} ↻`; return; }
+    guardia = null; location.reload();
   }
   function mostraAggiorna(nuova) {
     let b = document.getElementById('avvisoAgg');
@@ -238,10 +268,10 @@ window.App = (function () {
     b.innerHTML = `<span class="agg-ico">⬆️</span><span class="agg-txt"><b>È uscita una versione nuova dell'app</b><small>Tu hai la ${VERSIONE}, la nuova è la ${nuova}</small></span><button type="button" class="btn agg-btn">Aggiorna</button>`;
     b.querySelector('.agg-btn').onclick = () => aggiornaOra(nuova);
   }
-  async function aggiornaOra(nuova) {
+  async function aggiornaOra(nuova, daSolo) {
     // prima salvo quello che si sta compilando (come quando si esce da una pagina)
-    if (uscita) { try { uscita(); } catch (e) {} }
-    if (daSalvare() && !UI.conferma('Stai compilando qualcosa che non è ancora salvato. Aggiornare lo stesso?\n\nQuello che non è salvato andrà perso.')) return;
+    if (uscita && !daSolo) { try { uscita(); } catch (e) {} }
+    if (!daSolo && daSalvare() && !UI.conferma('Stai compilando qualcosa che non è ancora salvato. Aggiornare lo stesso?\n\nQuello che non è salvato andrà perso.')) return;
     const b = document.getElementById('avvisoAgg'); if (b) b.querySelector('.agg-btn').textContent = 'Aggiorno…';
     try {
       const reg = await navigator.serviceWorker?.getRegistration();

@@ -1332,6 +1332,7 @@ function renderMenu() {
     <button data-action="pdf">⬇️ Scarica il PDF del mese</button>` : ''}
     ${isAdmin() ? '<div class="menu-sep"></div><button data-action="log">Storico modifiche</button>' : ''}
     ${u ? '<div class="menu-sep"></div><button data-action="logout" class="danger-txt">Esci</button>' : ''}
+    <div class="menu-sep"></div><button data-action="ricarica">↻ Ricarica la lavagna</button>
     <div class="menu-ver">Versione ${APP_VERSION}</div>`;
 }
 
@@ -1550,6 +1551,7 @@ function handleAction(act, el) {
     case 'info': openInfo(el.dataset.topic); break;
     case 'info-close': closeInfo(); break;
     case 'pdf': if (puoStampare()) exportPdf(); break;
+    case 'ricarica': aggiornaLavagna(); break;   // per i tablet senza il gesto «tira giù per aggiornare»
     case 'log': openLog(); break;
     case 'log-filter': state.logFilter = el.dataset.f; renderLogList(); break;
     case 'log-restore': restoreLog(id); break;
@@ -1909,13 +1911,19 @@ init();
    ============================================================ */
 var ultimoControlloVer = 0;   // var: la funzione può essere chiamata prima di questa riga
 async function controllaVersione() {
-  if (!location.protocol.startsWith('http') || Date.now() - ultimoControlloVer < 60000) return;
+  if (!location.protocol.startsWith('http') || Date.now() - ultimoControlloVer < 30000) return;
   ultimoControlloVer = Date.now();
   const mia = +((document.querySelector('script[src*="app.js?v="]')?.getAttribute('src') || '').match(/v=(\d+)/) || [])[1] || 0;
   try {
     const t = await (await fetch('./sw.js?c=' + Date.now(), { cache: 'no-store' })).text();
     const nuova = +(t.match(/lavagna-v(\d+)/) || [])[1] || 0;
-    if (mia && nuova > mia) mostraAggiorna();
+    if (mia && nuova > mia) {
+      // se nessuno sta scrivendo o ha una finestra aperta mi aggiorno da sola, altrimenti avviso
+      const occupata = (document.activeElement && /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement.tagName)) || document.querySelector('.modal:not([hidden]), .sheet.open, dialog[open], .fg-over');
+      let tentata = ''; try { tentata = sessionStorage.getItem('lav-agg-tentata') || ''; } catch (e) {}
+      if (occupata || tentata === String(nuova)) mostraAggiorna();   // una volta sola per versione: niente giri infiniti
+      else { try { sessionStorage.setItem('lav-agg-tentata', String(nuova)); } catch (e) {} aggiornaLavagna(); }
+    }
   } catch (e) { /* senza rete */ }
 }
 function mostraAggiorna() {
@@ -1923,13 +1931,16 @@ function mostraAggiorna() {
   const b = document.createElement('div'); b.id = 'avvisoAgg'; b.setAttribute('role', 'status');
   b.innerHTML = '<span class="agg-ico">⬆️</span><span class="agg-txt"><b>È uscita una versione nuova della lavagna</b><small>Tocca «Aggiorna» per usarla</small></span><button type="button" class="agg-btn">Aggiorna</button>';
   document.body.appendChild(b);
-  b.querySelector('.agg-btn').onclick = async () => {
-    b.querySelector('.agg-btn').textContent = 'Aggiorno…';
-    try {
-      const reg = await navigator.serviceWorker?.getRegistration('./');
-      if (reg) await reg.update().catch(() => {});
-      if (window.caches) for (const k of await caches.keys()) if (k.startsWith('lavagna')) await caches.delete(k);
-    } catch (e) {}
-    location.replace(location.pathname + '?agg=' + Date.now() + location.hash);
-  };
+  b.querySelector('.agg-btn').onclick = () => { b.querySelector('.agg-btn').textContent = 'Aggiorno…'; aggiornaLavagna(); };
 }
+async function aggiornaLavagna() {
+  try {
+    const reg = await navigator.serviceWorker?.getRegistration('./');
+    if (reg) await reg.update().catch(() => {});
+    if (window.caches) for (const k of await caches.keys()) if (k.startsWith('lavagna')) await caches.delete(k);
+  } catch (e) {}
+  location.replace(location.pathname + '?agg=' + Date.now() + location.hash);
+}
+// quando la lavagna torna davanti (anche sui tablet Windows che la tengono «addormentata»)
+window.addEventListener('focus', () => controllaVersione());
+window.addEventListener('pageshow', () => controllaVersione());

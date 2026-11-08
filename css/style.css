@@ -1812,3 +1812,7 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .gho-ng { display: block; font-size: 10px; font-weight: 600; color: var(--muted, #667); }
 .gho-gdata { max-width: 220px; margin-bottom: 6px; }
 .gho-g .ap-tratto-h, .gho-mz .ap-tratto-h { flex-wrap: wrap; gap: 6px; }
+
+/* piè di pagina: versione + ricarica (per i tablet senza il gesto «tira giù per aggiornare») */
+.foot-ricarica { border: 1px solid var(--linea); background: transparent; color: inherit; font: inherit; font-size: 12px; padding: 6px 12px; border-radius: 999px; cursor: pointer; min-height: 34px; }
+.foot-ricarica:active { background: var(--linea); }
