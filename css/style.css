@@ -1816,3 +1816,15 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 /* piè di pagina: versione + ricarica (per i tablet senza il gesto «tira giù per aggiornare») */
 .foot-ricarica { border: 1px solid var(--linea); background: transparent; color: inherit; font: inherit; font-size: 12px; padding: 6px 12px; border-radius: 999px; cursor: pointer; min-height: 34px; }
 .foot-ricarica:active { background: var(--linea); }
+/* GHO: spunta messaggio WhatsApp inviato */
+.gho-wabtn { min-width: 44px; }
+.wa-ok { display: inline-flex; align-items: center; gap: 3px; font-weight: 800; color: #1a8f45; }
+.wa-ok small { font-size: 11px; letter-spacing: .02em; }
+.wa-ok.wa-mod { color: #c76a00; }
+.wa-stato { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; padding: 8px 10px; margin-bottom: 10px; border-radius: 10px; background: #e7f6ec; color: #165c31; font-size: 14px; }
+.wa-stato.wa-mod { background: #fff1de; color: #7a4300; }
+.wa-stato .link { font-size: 13px; }
+.btn.btn-wa { background: #1a8f45; border-color: #1a8f45; color: #fff; }
+.wa-conf { display: block; grid-column: 1 / -1; }
+.wa-modal .modal-body { display: block; }
+.wa-conf p { margin: 0 0 14px; }

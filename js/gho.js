@@ -87,14 +87,47 @@ window.GHO = (function () {
       note.length ? 'Annotazioni:\n' + note.map((x) => '• ' + x).join('\n') : ''
     ].filter(Boolean).join('\n\n').trim();
   }
+  // ---------- invio WhatsApp: spunta con le iniziali di chi l'ha mandato ----------
+  // L'app non può leggere WhatsApp: segna «inviato» quando tocchi Invia e, quando torni nell'app, chiede conferma.
+  const quando = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} alle ${d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`; };
+  const puoSegnare = () => UT.puo('gho.ore') && !UT.solaLettura();
+  const statoWa = (S, r) => { const w = r.waInviato; if (!w) return null; const u = utente(S, w.da); return { ...w, sigla: UT.sigla(u) || '?', nome: UT.breve(u) || 'qualcuno' }; };
+  const iconaWa = (S, r) => { const w = statoWa(S, r);
+    return w ? `<span class="wa-ok${w.modificato ? ' wa-mod' : ''}">${w.modificato ? '!' : '✓'}<small>${esc(w.sigla)}</small></span>` : '💬'; };
+  async function segna(S, r, w) {
+    const doc = JSON.parse(JSON.stringify((S.oreGho || []).find((x) => x.id === r.id) || r));
+    if (w) doc.waInviato = w; else delete doc.waInviato;
+    try { await UI.salva('oreGho', doc); } catch (e) { return false; }
+    Object.assign(r, { waInviato: doc.waInviato }); if (!w) delete r.waInviato;
+    return true;
+  }
+  let daConfermare = null;   // { id, prima } dopo il tocco su «Invia»
+  function chiediConferma() {
+    if (!daConfermare || document.hidden) return;
+    const { id, prima } = daConfermare; daConfermare = null;
+    const S = App.dati(), r = (S.oreGho || []).find((x) => x.id === id); if (!r) return;
+    const m = document.createElement('div'); m.className = 'modal-ov';
+    m.innerHTML = `<div class="modal"><div class="modal-head"><h2>💬 Messaggio partito?</h2></div>
+      <div class="modal-body"><div class="wa-conf"><p>Hai inviato su WhatsApp il messaggio di <b>${esc(r.cliente || 'questo intervento')}</b> del ${esc(fmt(r.data))}?</p>
+      <div class="azioni-form"><button type="button" class="btn ghost" id="waNo">No, non l'ho mandato</button><span class="grow"></span><button type="button" class="btn" id="waSi">✓ Sì, inviato</button></div></div></div></div>`;
+    document.body.appendChild(m);
+    m.querySelector('#waSi').onclick = () => { m.remove(); UI.toast('Segnato come inviato', 'ok'); };
+    m.querySelector('#waNo').onclick = async () => { m.remove(); if (await segna(S, r, prima)) { UI.toast('Tolta la spunta'); App.ridisegna(); } };
+  }
+  document.addEventListener('visibilitychange', () => setTimeout(chiediConferma, 400));
+  window.addEventListener('focus', () => setTimeout(chiediConferma, 400));
+
   function apriMessaggio(S, r) {
-    const testo = messaggio(S, r);
+    const testo = messaggio(S, r), w = statoWa(S, r);
     const m = document.createElement('div');
     m.className = 'modal-ov';
-    m.innerHTML = `<div class="modal"><div class="modal-head"><h2>💬 Messaggio WhatsApp</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
-      <div class="modal-body"><p class="muted small">Puoi correggerlo prima di inviarlo.</p><textarea id="wTesto" rows="11" class="gho-wa">${esc(testo)}</textarea>
-      <div class="azioni-form"><button type="button" class="btn ghost" id="wCopia">📋 Copia</button><span class="grow"></span>
-        <a class="btn" id="wApri" target="_blank" rel="noopener">Apri WhatsApp</a></div></div></div>`;
+    m.innerHTML = `<div class="modal wa-modal"><div class="modal-head"><h2>💬 Messaggio WhatsApp</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+      <div class="modal-body">
+      ${w ? `<div class="wa-stato${w.modificato ? ' wa-mod' : ''}"><span class="grow">${w.modificato ? `⚠️ <b>Modificato dopo l'invio</b>: mandato da ${esc(w.nome)} il ${esc(quando(w.il))}, ma poi l'intervento è cambiato. Rimandalo.` : `✓ <b>Già inviato</b> da ${esc(w.nome)} il ${esc(quando(w.il))}`}</span>
+        ${puoSegnare() ? '<button type="button" class="link" id="wTogli">Togli la spunta</button>' : ''}</div>` : ''}
+      <p class="muted small">Puoi correggerlo prima di inviarlo.</p><textarea id="wTesto" rows="11" class="gho-wa">${esc(testo)}</textarea>
+      <div class="azioni-form"><span class="grow"></span>
+        <a class="btn btn-wa" id="wApri" target="_blank" rel="noopener">${w ? 'Invia di nuovo su WhatsApp' : 'Invia su WhatsApp'}</a></div></div></div>`;
     document.body.appendChild(m);
     const chiudi = () => m.remove();
     m.querySelector('.modal-x').onclick = chiudi;
@@ -102,10 +135,13 @@ window.GHO = (function () {
     const ta = m.querySelector('#wTesto'), a = m.querySelector('#wApri');
     const agg = () => (a.href = 'https://wa.me/?text=' + encodeURIComponent(ta.value));
     ta.oninput = agg; agg();
-    m.querySelector('#wCopia').onclick = async () => {
-      try { await navigator.clipboard.writeText(ta.value); UI.toast('Messaggio copiato', 'ok'); }
-      catch (e) { ta.select(); document.execCommand('copy'); UI.toast('Messaggio copiato', 'ok'); }
-    };
+    a.addEventListener('click', () => {
+      if (!puoSegnare()) return;
+      const prima = r.waInviato ? JSON.parse(JSON.stringify(r.waInviato)) : null;
+      segna(S, r, { da: UT.attuale()?.id || '', il: new Date().toISOString() }).then((ok) => { if (ok) { daConfermare = { id: r.id, prima }; App.ridisegna(); } });
+      setTimeout(chiudi, 200);
+    });
+    m.querySelector('#wTogli')?.addEventListener('click', async () => { if (await segna(S, r, null)) { chiudi(); UI.toast('Tolta la spunta'); App.ridisegna(); } });
   }
 
   // ================= PAGINA GHO ELIGIO =================
@@ -138,7 +174,7 @@ window.GHO = (function () {
           <span>${prezzi.slice(0, 4).map((r) => `<a class="link" href="#/gho/ore/${r.id}">${fmt(r.data)} ${esc(r.cliente || '')}</a>`).join(' · ')}${prezzi.length > 4 ? ' …' : ''}</span></span></div>` : ''}
         <div class="card sg2-testa">
           <div class="grow"><h1>Registro ore</h1><p class="muted small">${righe.length} ${righe.length === 1 ? 'intervento' : 'interventi'} · ${hm(tot.uomo)} ore · ${tot.km} km${vedeSoldi ? ' · ' + euro(tot.costo) + ' di spese' : ''}
-            ${info('Ogni intervento fatto per GHO ELIGIO: orari, viaggio, persone, km, piattaforme e materiale. Le ore totali sono (ore lavorate + ore di viaggio) × persone. Il viaggio costa 0,50 € al km solo se andiamo con un nostro mezzo; la nostra piattaforma 5 € all\'ora. Il materiale messo da noi va con il prezzo: se non lo sai, lascialo vuoto e comparirà un promemoria. A fine mese stampa il riepilogo per la fattura.')}</p></div>
+            ${info('Ogni intervento fatto per GHO ELIGIO: orari, viaggio, persone, km, piattaforme e materiale. Le ore totali sono (ore lavorate + ore di viaggio) × persone. Il viaggio costa 0,50 € al km solo se andiamo con un nostro mezzo; la nostra piattaforma 5 € all\'ora. Il materiale messo da noi va con il prezzo: se non lo sai, lascialo vuoto e comparirà un promemoria. A fine mese stampa il riepilogo per la fattura. Il tasto 💬 apre il messaggio WhatsApp: quando lo invii diventa ✓ verde con le iniziali di chi l\'ha mandato; se poi modifichi l\'intervento diventa ! arancione, da rimandare.')}</p></div>
           <div class="anno anno-mini gho-mese"><a href="#/gho/ore?mese=${meseShift(mese, -1)}" aria-label="Mese prima">‹</a><b>${nomeMese(mese)}</b><a href="#/gho/ore?mese=${meseShift(mese, 1)}" aria-label="Mese dopo">›</a></div>
           ${UI.menu([UT.puo('stampa') && { t: `🖨️ Riepilogo di ${nomeMese(mese)}`, href: `#/gho/ore/stampa/${mese}` }])}
         </div>
@@ -150,7 +186,7 @@ window.GHO = (function () {
               <span class="d">${esc([r.cliente, r.citta].filter(Boolean).join(' · '))}${r.gru ? ` <small class="muted">gru ${esc(r.gru)}</small>` : ''}
                 <small>${giorniDi(r).length > 1 ? `${giorniDi(r).length} giorni, fino al ${esc(ggmm(giorniDi(r).slice(-1)[0].data))}` : esc(orari(r).join(' e '))}${viaggioTot(r) ? ' + viaggio ' + oreTesto(viaggioTot(r)) : ''} · ${esc(nomiPers(S, r).join(', '))}${puoPrezzi() && (r.materiali || []).some(senzaPrezzo) ? ' · <b class="txt-ko">prezzo da mettere</b>' : ''}</small></span>
               <span class="gho-ore">${hm(oreUomo(r))}</span></a>
-            <button type="button" class="btn ghost small" data-wa="${r.id}" aria-label="Messaggio WhatsApp">💬</button>
+            <button type="button" class="btn ghost small gho-wabtn" data-wa="${r.id}" aria-label="Messaggio WhatsApp${r.waInviato ? ' (già inviato)' : ''}">${iconaWa(S, r)}</button>
           </div>`).join('')}</div>` : `<p class="nessuno">Nessun intervento a ${nomeMese(mese)}.</p>`}
       </section>`;
     el.querySelectorAll('[data-wa]').forEach((b) => (b.onclick = () => apriMessaggio(S, S.oreGho.find((x) => x.id === b.dataset.wa))));
@@ -327,6 +363,7 @@ window.GHO = (function () {
         Object.assign(r, { cliente: up(r.cliente), citta: up(r.citta), gru: up(r.gru), descrizione: up(r.descrizione), segnalazioni: up(r.segnalazioni) });
         r.materiali = r.materiali.filter((m) => m.codice || m.descrizione).map((m) => ({ ...m, codice: up(m.codice), descrizione: up(m.descrizione), prezzo: m.nostro ? m.prezzo : undefined }));
         r.piattaforme = r.piattaforme.filter((p) => p.tipo || num(p.ore)).map((p) => ({ ...p, tipo: up(p.tipo) }));
+        if (orig?.waInviato && messaggio(S, orig) !== messaggio(S, r)) r.waInviato = { ...orig.waInviato, modificato: true };
         try { await UI.salva('oreGho', JSON.parse(JSON.stringify(r))); } catch (e) { return; }
         const manca = r.materiali.filter(senzaPrezzo).length;
         UI.toast(manca && puoPrezzi() ? `Salvato · ricordati il prezzo di ${manca} ${manca === 1 ? 'materiale' : 'materiali'}` : 'Salvato', manca ? '' : 'ok');
