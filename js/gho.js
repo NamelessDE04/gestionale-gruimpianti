@@ -91,7 +91,7 @@ window.GHO = (function () {
   // L'app non può leggere WhatsApp: segna «inviato» quando tocchi Invia e, quando torni nell'app, chiede conferma.
   const quando = (iso) => { const d = new Date(iso); return `${d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' })} alle ${d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' })}`; };
   const puoSegnare = () => UT.puo('gho.ore') && !UT.solaLettura();
-  const statoWa = (S, r) => { const w = r.waInviato; if (!w) return null; const u = utente(S, w.da); return { ...w, sigla: UT.sigla(u) || '?', nome: UT.breve(u) || 'qualcuno' }; };
+  const statoWa = (S, r) => { const w = r.waInviato; if (!w) return null; const u = utente(S, w.da); return { ...w, sigla: ((u?.nomeBreve || '').trim() || UT.iniziali(u?.nome || '')).toUpperCase(), nome: UT.breve(u) || 'qualcuno' }; };
   const iconaWa = (S, r) => { const w = statoWa(S, r);
     return w ? `<span class="wa-ok${w.modificato ? ' wa-mod' : ''}">${w.modificato ? '!' : '✓'}<small>${esc(w.sigla)}</small></span>` : '💬'; };
   async function segna(S, r, w) {
