@@ -42,7 +42,7 @@ window.GHO = (function () {
   const costoTot = (r) => costoKm(r) + costoPiatt(r) + costoMat(r);
   // chi vede i soldi nel GHO (prezzi materiale, spese, totali): funzione «gho.prezzi» in Gestione utenti
   const vp = () => UT.puo('gho.prezzi');
-  const puoPrezzi = () => vp() && UT.puo('prezzi.modifica');   // scrivere i prezzi del materiale
+  const puoPrezzi = () => vp() && UT.puo('gho.prezzi.modifica');   // scrivere i prezzi del materiale
   const daPrezzare = (S) => (S.oreGho || []).filter((r) => (r.materiali || []).some(senzaPrezzo));
   const badge = (S) => { if (!puoPrezzi()) return ''; const n = daPrezzare(S).reduce((t, r) => t + r.materiali.filter(senzaPrezzo).length, 0); return n ? `${n} ${n === 1 ? 'prezzo' : 'prezzi'} da controllare` : ''; };
 

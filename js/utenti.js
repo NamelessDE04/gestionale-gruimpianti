@@ -128,6 +128,7 @@ window.UT = (function () {
     { g: 'Ufficio', k: 'prezzi', nome: 'Listino prezzi: vedere prezzi e maggiorazioni (anche dei clienti)', def: ['master'] },
     { g: 'Ufficio', k: 'prezzi.modifica', nome: 'Listino prezzi: modificare prezzi e maggiorazioni', def: ['master'], scrive: true, eredita: 'prezzi' },
     { g: 'Ufficio', k: 'gho.prezzi', nome: 'GHO ELIGIO: vedere prezzi e spese (rapportino, messaggio WhatsApp e riepilogo del mese)', def: ['master'] },
+    { g: 'Ufficio', k: 'gho.prezzi.modifica', nome: 'GHO ELIGIO: scrivere il prezzo del materiale messo da noi negli interventi', def: ['master'], scrive: true, eredita: 'gho.prezzi' },
     { g: 'Ufficio', k: 'stampa', nome: 'Stampare e salvare in PDF (schede, elenchi, rapportini, layout)', def: UFFICIO },
     { g: 'Ufficio', k: 'invio', nome: 'Invia e archivia (email ai clienti)', def: UFFICIO },
     { g: 'Ufficio', k: 'ordini', nome: 'N° d\'ordine dei clienti: vedere l\'avviso e l\'elenco da aggiornare', def: UFFICIO },
