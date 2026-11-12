@@ -38,38 +38,111 @@ window.CABS = (function () {
     return { id: uid(), tipo: 'puls', titolo: o.titolo || 'PULSANTIERA', orient: o.orient === 'v' ? 'v' : 'o',
       tasti: Array.from({ length: n }, (_, k) => ({ id: uid(), nome: 'P' + (k + 1), schema: '', filo: '', tipo: k < n - nc ? 'NO' : 'NC', schemaSotto: '', filoSotto: '' })) };
   };
-  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera' };
+  NUOVO.mors = (o = {}) => {
+    const n = Math.max(1, Math.min(120, +o.n || 10)), tipo = MT[o.tipo] ? o.tipo : 'WDU 2,5';
+    return { id: uid(), tipo: 'mors', titolo: o.titolo || 'MORSETTIERA', morsetti: Array.from({ length: n }, (_, k) => ({ id: uid(), nome: String(k + 1), tipo, ev: false })), ponti: [] };
+  };
+  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera' };
 
   // ---------- pulsantiera: simbolo IEC del pulsante (testa a pressione «[», tratteggio, contatto NO o NC) ----------
-  function simboloPuls(t, conNome) {
-    const nome = conNome ? `<text x="47" y="62" class="cbs-pn" transform="rotate(-90 47 62)" text-anchor="middle">${esc(t.nome)}</text>` : '';
+  function simboloPuls(t) {
     const testa = `<path d="M6 50V74M6 50H2M6 74H2" class="cbs-pl"/><line x1="7" y1="62" x2="${t.tipo === 'NC' ? 31 : 24}" y2="62" class="cbs-pl cbs-pt"/>`;
     const fili = '<line x1="28" y1="0" x2="28" y2="40" class="cbs-pl"/><line x1="28" y1="84" x2="28" y2="118" class="cbs-pl"/>';
     const lama = t.tipo === 'NC' ? '<line x1="28" y1="40" x2="36" y2="40" class="cbs-pl"/><line x1="28" y1="84" x2="39" y2="36" class="cbs-pl"/>' : '<line x1="28" y1="84" x2="15" y2="44" class="cbs-pl"/>';
-    return `<svg viewBox="0 0 56 118" class="cbs-psym">${fili}${lama}${testa}${nome}</svg>`;
+    return `<svg viewBox="0 0 44 118" class="cbs-psym">${fili}${lama}${testa}</svg>`;
   }
-  const cerchio = (v, ed) => (v || ed ? `<span class="cbs-cerchio${v ? '' : ' vuoto'}">${esc(v || '·')}</span>` : '<span class="cbs-cerchio nulla"></span>');
   // il disegno dei pulsanti (orizzontale: colonne come sul foglio · verticale: una riga per pulsante)
-  let PSEL = null;   // pulsante selezionato in modifica
+  // in modifica i cerchietti, i numeri e il nome sono caselle da scrivere direttamente
+  let PSEL = null;   // pulsante selezionato in modifica (sotto: NO/NC, duplica, togli)
   function disegnoPuls(b, i, ed) {
     const v = b.orient === 'v';
+    const c = (k, campo, cls) => `<input class="cbs-pi ${cls}" data-pi="${k}.${campo}" value="${esc(b.tasti[k][campo] || '')}" autocomplete="off" spellcheck="false" ${cls === 'cer' ? 'inputmode="numeric"' : ''} aria-label="${campo}">`;
+    const cer = (val) => (val ? `<span class="cbs-cerchio">${esc(val)}</span>` : '<span class="cbs-cerchio nulla"></span>');
     return `<div class="cbs-scroll"><div class="cbs-prow ${v ? 'vert' : 'oriz'}" data-pr="${i}">${b.tasti.map((t, k) => `
       <div class="cbs-tasto${ed && PSEL === t.id ? ' sel' : ''}" data-tk="${i}.${k}">
         ${ed ? '<span class="cbs-presa" title="Trascina per spostare">⠿</span>' : ''}
-        ${cerchio(t.filo, ed)}<span class="cbs-pnum${t.schema ? '' : ' vuoto'}">${esc(t.schema || (ed ? '—' : ''))}</span>
-        <span class="cbs-psbox">${simboloPuls(t, !v)}</span>
-        <span class="cbs-pnum${t.schemaSotto ? '' : ' vuoto'}">${esc(t.schemaSotto || (ed ? '—' : ''))}</span>${cerchio(t.filoSotto, ed)}
-        ${v ? `<span class="cbs-pnome">${esc(t.nome)}</span>` : ''}
+        ${ed ? c(k, 'filo', 'cer') : cer(t.filo)}
+        ${ed ? c(k, 'schema', 'num') : `<span class="cbs-pnum">${esc(t.schema || '')}</span>`}
+        <span class="cbs-psbox">${simboloPuls(t)}${!v && !ed ? `<span class="cbs-pnv">${esc(t.nome)}</span>` : ''}</span>
+        ${ed ? c(k, 'schemaSotto', 'num') : `<span class="cbs-pnum">${esc(t.schemaSotto || '')}</span>`}
+        ${ed ? c(k, 'filoSotto', 'cer') : cer(t.filoSotto)}
+        ${ed ? c(k, 'nome', 'nome') : v ? `<span class="cbs-pnome">${esc(t.nome)}</span>` : ''}
       </div>`).join('')}</div></div>`;
   }
   function pannelloPuls(b, i) {
     const k = b.tasti.findIndex((t) => t.id === PSEL); if (k < 0) return '';
-    const t = b.tasti[k], p = `b.${i}.tasti.${k}`;
-    const campo = (c, l, num) => `<label>${l}<input class="cbs-in cbs-pin-in" data-p="${p}.${c}" data-pv="${i}" value="${esc(t[c] || '')}" ${num ? 'inputmode="numeric"' : ''} autocomplete="off"></label>`;
-    return `<div class="cbs-ped"><h4>Pulsante ${k + 1} di ${b.tasti.length}</h4>
-      ${campo('nome', 'Nome')}${campo('filo', 'N° filo in alto (cerchiato)', true)}${campo('schema', 'N° schema in alto')}${campo('schemaSotto', 'N° schema in basso')}${campo('filoSotto', 'N° filo in basso (cerchiato)', true)}
-      <div><span class="cbs-pedl">Contatto</span><div class="cbs-ptipo"><button type="button" class="btn ghost${t.tipo === 'NO' ? ' on' : ''}" data-ptipo="${i}.${k}.NO">NO</button><button type="button" class="btn ghost${t.tipo === 'NC' ? ' on' : ''}" data-ptipo="${i}.${k}.NC">NC</button></div></div>
-      <div class="cbs-pedb"><button type="button" class="btn ghost danger" data-pdel="${i}.${k}" ${b.tasti.length > 1 ? '' : 'disabled'}>🗑 Togli</button><button type="button" class="btn ghost" data-pok>Fatto</button></div></div>`;
+    const t = b.tasti[k];
+    return `<div class="cbs-ped cbs-ped2"><h4>Pulsante ${k + 1} di ${b.tasti.length}${t.nome ? ' · ' + esc(t.nome) : ''}</h4>
+      <div class="cbs-ptipo"><button type="button" class="btn ghost${t.tipo === 'NO' ? ' on' : ''}" data-ptipo="${i}.${k}.NO">NO</button><button type="button" class="btn ghost${t.tipo === 'NC' ? ' on' : ''}" data-ptipo="${i}.${k}.NC">NC</button></div>
+      <button type="button" class="btn ghost" data-pdup="${i}.${k}">⧉ Duplica</button>
+      <button type="button" class="btn ghost danger" data-pdel="${i}.${k}" ${b.tasti.length > 1 ? '' : 'disabled'}>🗑 Togli</button>
+      <button type="button" class="btn ghost" data-pok>Fatto</button></div>`;
+  }
+
+  // ---------- morsettiera: morsetti WDU / WPE con larghezze vere, ponticelli, gruppi per sezione ----------
+  const MT = { 'WDU 2,5': { mm: 5.1, s: '2,5' }, 'WDU 4': { mm: 6.1, s: '4' }, 'WDU 6': { mm: 7.9, s: '6' }, 'WDU 10': { mm: 9.9, s: '10' }, 'WPE 4': { mm: 6.1, s: '4', pe: 1 }, 'WPE 6': { mm: 8, s: '6', pe: 1 }, 'WPE 10': { mm: 10, s: '10', pe: 1 } };
+  const MT_NOMI = Object.keys(MT);
+  const MPX = 4.2, MH = 150, MTOP = 26;
+  const MST = {};   // stato di modifica per blocco: { modo, sel:Set, primo, multi }
+  const mst = (b) => (MST[b.id] = MST[b.id] || { modo: 'sel', sel: new Set(), primo: null, multi: false });
+  const mtipo = (m) => MT[m.tipo] || MT['WDU 2,5'];
+  const mpos = (b) => { let x = 0; return b.morsetti.map((m) => { const w = mtipo(m).mm * MPX; const p = { x, w }; x += w; return p; }); };
+  function morsSvg(b) {
+    const pos = mpos(b), st = MST[b.id], W = pos.length ? pos[pos.length - 1].x + pos[pos.length - 1].w : 0;
+    let s = `<svg class="cbs-ms" width="${W + 2}" height="${MTOP + MH + 58}" viewBox="-1 0 ${W + 2} ${MTOP + MH + 58}">
+      <defs><pattern id="gv-${b.id}" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(35)"><rect width="8" height="8" fill="#f4d21f"/><rect width="4" height="8" fill="#3aa346"/></pattern></defs>`;
+    b.morsetti.forEach((m, i) => {
+      const { x, w } = pos[i], t = mtipo(m), cx = x + w / 2, y = MTOP, r = Math.min(w * 0.32, 7);
+      const vite = (yy) => `<circle cx="${cx}" cy="${yy}" r="${r}" fill="#eef0f2" stroke="#55595f" stroke-width=".8"/><line x1="${cx - w * 0.22}" y1="${yy}" x2="${cx + w * 0.22}" y2="${yy}" stroke="#55595f" stroke-width="1"/>`;
+      s += `<g class="cbs-m${st && st.sel.has(m.id) ? ' sel' : ''}" data-mi="${i}"><title>${esc(m.nome)} · ${m.tipo}</title>
+        <rect x="${x}" y="${y}" width="${w}" height="${MH}" fill="${t.pe ? `url(#gv-${b.id})` : m.ev ? '#f7a46b' : '#e9e3d1'}" stroke="#3d3a30" stroke-width="1"/>
+        ${t.pe && m.ev ? `<rect x="${x}" y="${y}" width="${w}" height="${MH}" fill="#f7a46b" opacity=".55"/>` : ''}
+        ${vite(y + 16)}${vite(y + MH - 16)}
+        <rect x="${x + w * 0.16}" y="${y + 56}" width="${w * 0.68}" height="${MH - 92}" rx="1.5" fill="#fff" stroke="#9a957f" stroke-width=".6"/>
+        <text x="${cx}" y="${y + MH / 2 + 6}" transform="rotate(-90 ${cx} ${y + MH / 2 + 6})" text-anchor="middle" dominant-baseline="middle" font-size="${Math.min(11, w * 0.5)}" font-weight="800" fill="#1d2433">${esc(m.nome)}</text>
+        <rect class="cbs-msel" x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${MH - 2}"/></g>`;
+    });
+    const livelli = [];
+    (b.ponti || []).forEach((p, k) => {
+      let a = b.morsetti.findIndex((m) => m.id === p.da), c = b.morsetti.findIndex((m) => m.id === p.a); if (a < 0 || c < 0) return; if (a > c) [a, c] = [c, a];
+      let l = 0; while ((livelli[l] || []).some(([x, y]) => !(c < x || a > y))) l++; (livelli[l] = livelli[l] || []).push([a, c]);
+      const y = MTOP + 48 + (l % 2 ? -14 : 0) + Math.floor(l / 2) * 8, x1 = pos[a].x + pos[a].w / 2, x2 = pos[c].x + pos[c].w / 2;
+      s += `<g class="cbs-ponte" data-po="${k}"><title>Ponticello</title><line x1="${x1}" y1="${y}" x2="${x2}" y2="${y}" stroke="#1d2433" stroke-width="2.2"/>` +
+        Array.from({ length: c - a + 1 }, (_, j) => `<circle cx="${pos[a + j].x + pos[a + j].w / 2}" cy="${y}" r="3.4" fill="#1d2433"/>`).join('') +
+        `<rect x="${x1 - 6}" y="${y - 9}" width="${x2 - x1 + 12}" height="18" fill="transparent"/></g>`;
+    });
+    let g0 = 0;
+    for (let i = 1; i <= b.morsetti.length; i++) {
+      if (i < b.morsetti.length && mtipo(b.morsetti[i]).s === mtipo(b.morsetti[g0]).s) continue;
+      const x1 = pos[g0].x + 3, x2 = pos[i - 1].x + pos[i - 1].w - 3, y = MTOP + MH + 10;
+      s += `<path d="M${x1} ${y}V${y + 8}H${x2}V${y}" fill="none" stroke="#1d2433" stroke-width="1.2"/><text x="${(x1 + x2) / 2}" y="${y + 28}" text-anchor="middle" font-size="14" font-weight="800" fill="#1d2433">Ø ${mtipo(b.morsetti[g0]).s}</text>`;
+      g0 = i;
+    }
+    return s + '</svg>';
+  }
+  function morsDistinta(b) {
+    const c = {}; b.morsetti.forEach((m) => (c[m.tipo] = (c[m.tipo] || 0) + 1));
+    const pz = {}; (b.ponti || []).forEach((p) => { const a = b.morsetti.findIndex((m) => m.id === p.da), d = b.morsetti.findIndex((m) => m.id === p.a); if (a < 0 || d < 0) return; const n = Math.abs(d - a) + 1; pz[n] = (pz[n] || 0) + 1; });
+    return `<div class="cbs-mdist"><span>Distinta:</span>${MT_NOMI.filter((t) => c[t]).map((t) => `<span><b>${c[t]}</b> × ${t}</span>`).join('')}${Object.keys(pz).map((n) => `<span><b>${pz[n]}</b> × ponticello da ${n}</span>`).join('')}</div>`;
+  }
+  function morsHtml(b, i, ed) {
+    if (!ed) return `<div class="cbs-scroll"><div class="cbs-mriga">${morsSvg(b)}</div></div>${morsDistinta(b)}`;
+    const st = mst(b), pos = mpos(b);
+    return `<div class="cbs-mbar"><button type="button" class="btn ghost${st.modo === 'sel' ? ' on' : ''}" data-mmodo="sel">✋ Seleziona</button><button type="button" class="btn ghost${st.modo === 'ponte' ? ' on' : ''}" data-mmodo="ponte">🔗 Ponticelli</button>
+        ${st.modo === 'sel' ? `<label class="cbs-mmulti"><input type="checkbox" data-mmulti ${st.multi ? 'checked' : ''}> selezione multipla</label>` : ''}<span class="grow"></span><button type="button" class="btn ghost" data-madd>+ Morsetto</button></div>
+      ${st.modo === 'ponte' ? `<p class="cbs-mhint">${st.primo ? 'Ora tocca l\'<b>ultimo</b> morsetto del ponticello.' : 'Tocca il <b>primo</b> morsetto del ponticello, poi l\'ultimo. Tocca un ponticello per toglierlo.'}</p>` : ''}
+      <div class="cbs-scroll"><div class="cbs-mriga">
+        ${st.modo === 'sel' ? `<div class="cbs-mprese">${b.morsetti.map((m, k) => `<span class="cbs-mpresa" data-mpr="${k}" style="width:${pos[k].w}px" title="Trascina">⠿</span>`).join('')}</div>` : ''}
+        <div class="cbs-msvg">${morsSvg(b)}</div></div></div>
+      ${morsDistinta(b)}<div data-mpan></div>`;
+  }
+  function morsPannello(b) {
+    const st = mst(b), scelti = b.morsetti.filter((m) => st.sel.has(m.id)); if (st.modo !== 'sel' || !scelti.length) return '';
+    const uno = scelti.length === 1 ? scelti[0] : null, tipo = scelti.every((m) => m.tipo === scelti[0].tipo) ? scelti[0].tipo : '';
+    return `<div class="cbs-ped cbs-mped"><h4>${uno ? `Morsetto ${b.morsetti.indexOf(uno) + 1} di ${b.morsetti.length}` : `${scelti.length} morsetti selezionati`}</h4>
+      ${uno ? `<label>Nome<input class="cbs-in cbs-pin-in" data-mnome value="${esc(uno.nome)}" autocomplete="off"></label>` : ''}
+      <div class="cbs-mtipi">${MT_NOMI.map((t) => `<button type="button" class="btn ghost${MT[t].pe ? ' pe' : ''}${t === tipo ? ' on' : ''}" data-mtipo="${t}">${t}</button>`).join('')}</div>
+      <div class="cbs-pedb"><button type="button" class="btn ghost" data-mev>🟧 Evidenzia (variante)</button><button type="button" class="btn ghost danger" data-mdel>🗑 Togli</button><button type="button" class="btn ghost" data-mok>Fatto</button></div></div>`;
   }
 
   // simbolo del contatto: NA (aperto) o NC (chiuso)
@@ -110,9 +183,11 @@ window.CABS = (function () {
           <td>${cella(ed, rp + '.p2', r.p2)}</td><td>${cella(ed, rp + '.b', r.b)}</td><td class="cbs-fcn">${cella(ed, rp + '.nota', r.nota, 'nota')}</td>
           ${ed ? `<td><button type="button" class="cbs-mini danger" data-delr="${i}.${j}" aria-label="Togli riga" ${b.righe.length > 1 ? '' : 'disabled'}>×</button></td>` : ''}</tr>`; }).join('')}</table></div>
         ${ed ? `<button type="button" class="btn ghost small" data-addr="${i}">+ Riga</button>` : ''}`;
+    } else if (b.tipo === 'mors') {
+      corpo = `<div data-md="${i}">${morsHtml(b, i, ed)}</div>`;
     } else if (b.tipo === 'puls') {
       corpo = `<div data-pd="${i}">${disegnoPuls(b, i, ed)}</div>
-        ${ed ? `<p class="cbs-pnota">Tocca un pulsante per scrivere nome e numeri · tieni premuto ⠿ e trascinalo per spostarlo.</p><div data-pp="${i}">${pannelloPuls(b, i)}</div>
+        ${ed ? `<p class="cbs-pnota">Scrivi direttamente nei cerchietti, nei numeri e nel nome · tocca il simbolo per NO / NC, duplica o togli · ⠿ per spostare.</p><div data-pp="${i}">${pannelloPuls(b, i)}</div>
           <button type="button" class="btn ghost small" data-padd="${i}">+ Pulsante</button>` : ''}`;
     } else {
       corpo = `<div class="cbs-scroll"><table class="cbs-t cbs-cavo"><tr>${b.colonne.map((c, k) => `<th>${cella(ed, `${bp}.colonne.${k}`, c, 'th')}</th>`).join('')}${ed ? '<th></th>' : ''}</tr>
@@ -130,7 +205,7 @@ window.CABS = (function () {
     const lista = tutte.filter((s) => !q || [s.nome, s.note, ...(s.blocchi || []).map((b) => b.titolo)].join(' ').toLowerCase().includes(q));
     el.innerHTML = `
       <section class="cli cbs">
-        <div class="sez-head"><h1>Configuratore cablaggio ${info('Qui crei le tue schede di cablaggio partendo da zero. Ogni scheda è fatta di blocchi: <b>presa / spina</b> (connettore a 16, 24 o 32 poli), <b>finecorsa</b>, <b>cavo</b> e <b>pulsantiera</b>. La struttura la scegli tu, e anche tutto quello che c\'è scritto. Le schede valgono per tutti i dispositivi. Il vecchio configuratore è nel menu ⋯.')}</h1>
+        <div class="sez-head"><h1>Configuratore cablaggio ${info('Qui crei le tue schede di cablaggio partendo da zero. Ogni scheda è fatta di blocchi: <b>presa / spina</b> (connettore a 16, 24 o 32 poli), <b>finecorsa</b>, <b>cavo</b>, <b>pulsantiera</b> e <b>morsettiera</b>. La struttura la scegli tu, e anche tutto quello che c\'è scritto. Le schede valgono per tutti i dispositivi. Il vecchio configuratore è nel menu ⋯.')}</h1>
           ${UI.menu([{ t: '📄 Rapporti di collaudo', href: '#/cablaggio/rapporti' }, { t: '🗄 Configuratore vecchio', href: '#/cablaggio/vecchio' }])}</div>
         ${puoModificare() ? '<button type="button" class="sg2-inizia ap-nuovo" id="csNuova">＋ Nuova scheda di cablaggio</button>' : ''}
         ${tutte.length > 5 ? `<input type="search" id="csQ" class="cerca" placeholder="Cerca una scheda…" value="${esc(cerca)}">` : ''}
@@ -198,7 +273,8 @@ window.CABS = (function () {
             <button type="button" class="btn ghost" data-nuovo="conn">🔌 Presa / spina</button>
             <button type="button" class="btn ghost" data-nuovo="fc">⛔ Finecorsa</button>
             <button type="button" class="btn ghost" data-nuovo="cavo">〰 Cavo</button>
-            <button type="button" class="btn ghost" data-nuovo="puls">🎛 Pulsantiera</button></div>
+            <button type="button" class="btn ghost" data-nuovo="puls">🎛 Pulsantiera</button>
+            <button type="button" class="btn ghost" data-nuovo="mors">▥ Morsettiera</button></div>
           <div class="azioni-form cbs-salvabar"><a class="btn ghost" href="#/cablaggio/s/${id}">Chiudi</a><span class="grow"></span><button type="button" class="btn" id="csSalva">💾 Salva</button></div>
         </section>`;
       const nm = el.querySelector('#csNome'); nm.oninput = () => { bz.nome = nm.value.toUpperCase(); segna(); };
@@ -218,6 +294,7 @@ window.CABS = (function () {
       el.querySelectorAll('[data-nuovo]').forEach((x) => (x.onclick = () => nuovoBlocco(x.dataset.nuovo)));
       el.querySelector('#csSalva').onclick = salva;
       el.querySelectorAll('[data-pd]').forEach((c) => legaPuls(+c.dataset.pd));
+      el.querySelectorAll('[data-md]').forEach((c) => legaMors(+c.dataset.md));
       el.querySelectorAll('[data-padd]').forEach((x) => (x.onclick = () => { const b = bz.blocchi[+x.dataset.padd]; const t = { id: uid(), nome: 'P' + (b.tasti.length + 1), schema: '', filo: '', tipo: 'NO', schemaSotto: '', filoSotto: '' }; b.tasti.push(t); PSEL = t.id; segna(); disegna(b.id); }));
       if (scorriA) { const t = el.querySelector('#cb-' + scorriA); if (t) t.scrollIntoView({ block: 'center' }); }
     };
@@ -226,15 +303,23 @@ window.CABS = (function () {
       const ridisegnaDisegno = () => { box.innerHTML = disegnoPuls(b, i, true); legaTasti(); };
       const ridisegnaPannello = () => {
         pp.innerHTML = pannelloPuls(b, i);
-        pp.querySelectorAll('.cbs-in[data-p]').forEach((x) => (x.oninput = () => { imposta(x.dataset.p, x.value.toUpperCase()); segna(); ridisegnaDisegno(); }));
         pp.querySelectorAll('[data-ptipo]').forEach((x) => (x.onclick = () => { const [, k, tp] = x.dataset.ptipo.split('.'); b.tasti[+k].tipo = tp; segna(); ridisegnaDisegno(); ridisegnaPannello(); }));
+        pp.querySelector('[data-pdup]')?.addEventListener('click', (e) => { const k = +e.currentTarget.dataset.pdup.split('.')[1]; const t = { ...clona(b.tasti[k]), id: uid() }; b.tasti.splice(k + 1, 0, t); PSEL = t.id; segna(); ridisegnaDisegno(); ridisegnaPannello(); });
         pp.querySelector('[data-pdel]')?.addEventListener('click', (e) => { const k = +e.currentTarget.dataset.pdel.split('.')[1]; if (!UI.conferma(`Togliere il pulsante «${b.tasti[k].nome}»?`)) return; b.tasti.splice(k, 1); PSEL = null; segna(); ridisegnaDisegno(); ridisegnaPannello(); });
         pp.querySelector('[data-pok]')?.addEventListener('click', () => { PSEL = null; ridisegnaDisegno(); ridisegnaPannello(); });
       };
+      const seleziona = (id) => { PSEL = id; box.querySelectorAll('.cbs-tasto').forEach((c) => c.classList.toggle('sel', b.tasti[+c.dataset.tk.split('.')[1]].id === id)); ridisegnaPannello(); };
       function legaTasti() {
         box.querySelectorAll('.cbs-tasto').forEach((c) => {
-          c.onclick = () => { const t = b.tasti[+c.dataset.tk.split('.')[1]]; PSEL = PSEL === t.id ? null : t.id; ridisegnaDisegno(); ridisegnaPannello(); const n = pp.querySelector('input'); if (n) { n.focus({ preventScroll: true }); pp.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } };
+          // tocco fuori dalle caselle: seleziona (sotto NO/NC, duplica, togli)
+          c.onclick = (e) => { if (e.target.closest('input')) return; const t = b.tasti[+c.dataset.tk.split('.')[1]]; seleziona(t.id); if (PSEL) pp.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); };
           c.querySelector('.cbs-presa')?.addEventListener('pointerdown', (e) => trascina(e, c));
+        });
+        // caselle in linea: si scrive direttamente nel disegno (Invio passa alla casella dopo)
+        box.querySelectorAll('[data-pi]').forEach((x) => {
+          x.oninput = () => { const [k, campo] = x.dataset.pi.split('.'); b.tasti[+k][campo] = x.value.toUpperCase(); segna(); };
+          x.onfocus = () => { const t = b.tasti[+x.dataset.pi.split('.')[0]]; if (PSEL !== t.id) seleziona(t.id); x.select(); };
+          x.onkeydown = (e) => { if (e.key !== 'Enter') return; e.preventDefault(); const tutti = [...box.querySelectorAll('[data-pi]')], n = tutti[tutti.indexOf(x) + 1]; n ? n.focus() : x.blur(); };
         });
       }
       // trascinamento col dito o col mouse: la barretta gialla mostra dove finisce
@@ -263,6 +348,69 @@ window.CABS = (function () {
         document.addEventListener('pointermove', muovi); document.addEventListener('pointerup', fine); document.addEventListener('pointercancel', fine);
       }
       legaTasti(); ridisegnaPannello();
+    }
+    function legaMors(i) {
+      const b = bz.blocchi[i], box = el.querySelector(`[data-md="${i}"]`), st = mst(b);
+      const tutto = () => { box.innerHTML = morsHtml(b, i, true); lega(); };
+      const soloSvg = () => { box.querySelector('.cbs-msvg').innerHTML = morsSvg(b); legaSvg(); };
+      function legaPan() {
+        const pan = box.querySelector('[data-mpan]'); pan.innerHTML = morsPannello(b);
+        const nm = pan.querySelector('[data-mnome]');
+        if (nm) {
+          nm.oninput = () => { b.morsetti.find((m) => st.sel.has(m.id)).nome = nm.value.toUpperCase(); segna(); soloSvg(); };
+          nm.onkeydown = (e) => { if (e.key !== 'Enter') return; e.preventDefault(); const k = b.morsetti.findIndex((m) => st.sel.has(m.id)); if (k < b.morsetti.length - 1) { st.sel = new Set([b.morsetti[k + 1].id]); tutto(); const n = box.querySelector('[data-mnome]'); n?.focus(); n?.select(); } };
+        }
+        pan.querySelectorAll('[data-mtipo]').forEach((x) => (x.onclick = () => { b.morsetti.forEach((m) => { if (st.sel.has(m.id)) m.tipo = x.dataset.mtipo; }); segna(); tutto(); }));
+        pan.querySelector('[data-mev]')?.addEventListener('click', () => { const sc = b.morsetti.filter((m) => st.sel.has(m.id)), v = !sc.every((m) => m.ev); sc.forEach((m) => (m.ev = v)); segna(); tutto(); });
+        pan.querySelector('[data-mdel]')?.addEventListener('click', () => { if (!UI.conferma(`Togliere ${st.sel.size > 1 ? st.sel.size + ' morsetti' : 'il morsetto'}?`)) return; b.morsetti = b.morsetti.filter((m) => !st.sel.has(m.id)); b.ponti = (b.ponti || []).filter((q) => !st.sel.has(q.da) && !st.sel.has(q.a)); st.sel.clear(); segna(); tutto(); });
+        pan.querySelector('[data-mok]')?.addEventListener('click', () => { st.sel.clear(); tutto(); });
+      }
+      function legaSvg() {
+        box.querySelectorAll('.cbs-m').forEach((g) => (g.onclick = () => {
+          const m = b.morsetti[+g.dataset.mi];
+          if (st.modo === 'ponte') {
+            if (!st.primo) { st.primo = m.id; st.sel = new Set([m.id]); }
+            else if (st.primo === m.id) { st.primo = null; st.sel.clear(); }
+            else { (b.ponti = b.ponti || []).push({ da: st.primo, a: m.id }); st.primo = null; st.sel.clear(); segna(); }
+            tutto(); return;
+          }
+          if (st.multi) st.sel.has(m.id) ? st.sel.delete(m.id) : st.sel.add(m.id);
+          else st.sel = st.sel.has(m.id) && st.sel.size === 1 ? new Set() : new Set([m.id]);
+          tutto();
+          const n = box.querySelector('[data-mnome]'); if (n) { n.focus({ preventScroll: true }); n.select(); box.querySelector('[data-mpan]').scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+        }));
+        box.querySelectorAll('.cbs-ponte').forEach((g) => (g.onclick = (e) => { e.stopPropagation(); if (!UI.conferma('Togliere questo ponticello?')) return; b.ponti.splice(+g.dataset.po, 1); segna(); tutto(); }));
+      }
+      function lega() {
+        box.querySelectorAll('[data-mmodo]').forEach((x) => (x.onclick = () => { st.modo = x.dataset.mmodo; st.primo = null; st.sel.clear(); tutto(); }));
+        const mu = box.querySelector('[data-mmulti]'); if (mu) mu.onchange = () => { st.multi = mu.checked; if (!st.multi && st.sel.size > 1) st.sel = new Set([...st.sel].slice(-1)); tutto(); };
+        box.querySelector('[data-madd]').onclick = () => {
+          const ult = [...st.sel].pop(), k = ult ? b.morsetti.findIndex((m) => m.id === ult) + 1 : b.morsetti.length, prec = b.morsetti[k - 1];
+          const m = { id: uid(), nome: '', tipo: prec ? prec.tipo : 'WDU 2,5', ev: false }; b.morsetti.splice(k, 0, m); st.modo = 'sel'; st.sel = new Set([m.id]); segna(); tutto();
+          box.querySelector('[data-mnome]')?.focus();
+        };
+        box.querySelectorAll('.cbs-mpresa').forEach((h) => h.addEventListener('pointerdown', (e) => trascinaM(e, +h.dataset.mpr)));
+        legaSvg(); legaPan();
+      }
+      function trascinaM(e, da) {
+        e.preventDefault();
+        const riga = box.querySelector('.cbs-mriga'), pos = mpos(b), r0 = box.querySelector('.cbs-ms').getBoundingClientRect(), rr = riga.getBoundingClientRect();
+        const ins = document.createElement('div'); ins.className = 'cbs-mins'; riga.appendChild(ins);
+        const f = document.createElement('div'); f.className = 'cbs-fant cbs-mfant'; f.textContent = '⠿ ' + (b.morsetti[da].nome || '?'); document.body.appendChild(f);
+        let dove = da;
+        const muovi = (ev) => {
+          f.style.left = ev.clientX + 10 + 'px'; f.style.top = ev.clientY - 34 + 'px';
+          const x = ev.clientX - r0.left; dove = pos.length; for (let k = 0; k < pos.length; k++) if (x < pos[k].x + pos[k].w / 2) { dove = k; break; }
+          ins.style.left = (r0.left - rr.left) + (dove < pos.length ? pos[dove].x : pos[pos.length - 1].x + pos[pos.length - 1].w) + 'px';
+          const sc = riga.parentElement, sr = sc.getBoundingClientRect(); if (ev.clientX > sr.right - 30) sc.scrollLeft += 12; if (ev.clientX < sr.left + 30) sc.scrollLeft -= 12;
+        };
+        const fine = () => {
+          document.removeEventListener('pointermove', muovi); document.removeEventListener('pointerup', fine); document.removeEventListener('pointercancel', fine); f.remove(); ins.remove();
+          const a = dove > da ? dove - 1 : dove; if (a !== da) { const [m] = b.morsetti.splice(da, 1); b.morsetti.splice(a, 0, m); st.sel = new Set([m.id]); segna(); } tutto();
+        };
+        document.addEventListener('pointermove', muovi); document.addEventListener('pointerup', fine); document.addEventListener('pointercancel', fine);
+      }
+      lega();
     }
     async function salva() {
       if (!String(bz.nome || '').trim()) { UI.toast('Scrivi il nome della scheda'); el.querySelector('#csNome').focus(); return; }
@@ -296,6 +444,8 @@ window.CABS = (function () {
             b.righe = b.righe.map((r) => Array.from({ length: n }, (_, k) => r[k] ?? ''));
             segna(); disegna(b.id);
           } });
+      } else if (b.tipo === 'mors') {
+        UI.toast('Nella morsettiera: tocca un morsetto per nome e tipo, «🔗 Ponticelli» per unirli, ⠿ per spostarli');
       } else if (b.tipo === 'puls') {
         UI.modal({ titolo: 'Pulsantiera', infoTxt: 'Orizzontale: i pulsanti uno accanto all\'altro, come sul foglio. Verticale: un pulsante per riga, comodo sul telefono e per le pulsantiere lunghe.',
           valori: { orient: b.orient === 'v' ? 'Verticale' : 'Orizzontale' }, campi: [{ k: 'orient', label: 'Orientamento', tipo: 'select', opzioni: ['Orizzontale', 'Verticale'] }],
@@ -305,6 +455,13 @@ window.CABS = (function () {
       }
     }
     function nuovoBlocco(tipo) {
+      if (tipo === 'mors') {
+        UI.modal({ titolo: 'Nuova morsettiera', infoTxt: 'Dici quanti morsetti ha e il tipo di partenza. Poi tocchi ogni morsetto per dargli nome e tipo (WDU normali, WPE di terra gialloverdi), metti i ponticelli e li sposti con ⠿.',
+          valori: { titolo: '', n: '20', tipo: 'WDU 2,5' },
+          campi: [{ k: 'titolo', label: 'Titolo (es. MORSETTIERA CARRELLO)', req: true, maiuscolo: true }, { k: 'n', label: 'Quanti morsetti', mezza: true }, { k: 'tipo', label: 'Tipo di partenza', tipo: 'select', opzioni: MT_NOMI, mezza: true }],
+          onSalva: (v) => { const b = NUOVO.mors({ titolo: String(v.titolo).toUpperCase(), n: parseInt(v.n, 10), tipo: v.tipo }); bz.blocchi.push(b); segna(); disegna(b.id); } });
+        return;
+      }
       if (tipo === 'puls') {
         UI.modal({ titolo: 'Nuova pulsantiera', infoTxt: 'Dici quanti pulsanti ha e quanti sono NC (gli altri sono NO). Poi tocchi ogni pulsante per scrivere nome, n° schema e n° filo, e li trascini per metterli in ordine.',
           valori: { titolo: '', n: '14', nc: '1', orient: 'Orizzontale' },
