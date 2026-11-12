@@ -275,7 +275,8 @@ window.CABS = (function () {
             <button type="button" class="btn ghost" data-nuovo="fc">⛔ Finecorsa</button>
             <button type="button" class="btn ghost" data-nuovo="cavo">〰 Cavo</button>
             <button type="button" class="btn ghost" data-nuovo="puls">🎛 Pulsantiera</button>
-            <button type="button" class="btn ghost" data-nuovo="mors">▥ Morsettiera</button></div>
+            <button type="button" class="btn ghost" data-nuovo="mors">▥ Morsettiera</button>
+            ${schede(S).some((x) => x.id !== id && (x.blocchi || []).length) ? '<button type="button" class="btn ghost cbs-copia" id="csCopia">⧉ Copia blocchi da un\'altra scheda</button>' : ''}</div>
           <div class="azioni-form cbs-salvabar"><a class="btn ghost" href="#/cablaggio/s/${id}">Chiudi</a><span class="grow"></span><button type="button" class="btn" id="csSalva">💾 Salva</button></div>
         </section>`;
       const nm = el.querySelector('#csNome'); nm.oninput = () => { bz.nome = nm.value.toUpperCase(); segna(); };
@@ -293,6 +294,7 @@ window.CABS = (function () {
       el.querySelectorAll('[data-delr]').forEach((x) => (x.onclick = () => { const [i, j] = x.dataset.delr.split('.').map(Number); bz.blocchi[i].righe.splice(j, 1); segna(); disegna(bz.blocchi[i].id); }));
       el.querySelectorAll('[data-imp]').forEach((x) => (x.onclick = () => impostazioni(+x.dataset.imp)));
       el.querySelectorAll('[data-nuovo]').forEach((x) => (x.onclick = () => nuovoBlocco(x.dataset.nuovo)));
+      el.querySelector('#csCopia')?.addEventListener('click', copiaDa);
       el.querySelector('#csSalva').onclick = salva;
       el.querySelectorAll('[data-pd]').forEach((c) => legaPuls(+c.dataset.pd));
       el.querySelectorAll('[data-md]').forEach((c) => legaMors(+c.dataset.md));
@@ -479,6 +481,26 @@ window.CABS = (function () {
       } else {
         UI.toast('Nel finecorsa: aggiungi o togli righe direttamente nel blocco; tocca il contatto per passare da NA a NC');
       }
+    }
+    // copia di blocchi da un'altra scheda: prima si sceglie la scheda, poi si spuntano i blocchi
+    function copiaDa() {
+      const altre = schede(S).filter((x) => x.id !== id && (x.blocchi || []).length);
+      const etichetta = (x) => `${x.nome || 'SENZA NOME'} (${x.blocchi.length} blocchi)`;
+      UI.modal({ titolo: 'Copia blocchi', infoTxt: 'Scegli la scheda da cui copiare. Poi spunti i blocchi che ti servono: vengono aggiunti in fondo a questa scheda con tutto quello che c\'è scritto, e li puoi modificare senza toccare l\'originale.',
+        valori: { da: etichetta(altre[0]) }, campi: [{ k: 'da', label: 'Copia da', tipo: 'select', opzioni: altre.map(etichetta), req: true }], testoSalva: 'Avanti',
+        onSalva: (v) => {
+          const src = altre.find((x) => etichetta(x) === v.da); if (!src) return;
+          setTimeout(() => UI.modal({ titolo: 'Quali blocchi?', infoTxt: `Blocchi della scheda «${src.nome}». Spunta quelli da copiare.`,
+            valori: Object.fromEntries(src.blocchi.map((b, k) => ['b' + k, false])),
+            campi: src.blocchi.map((b, k) => ({ k: 'b' + k, label: `${NOME_TIPO[b.tipo] || ''} · ${b.titolo || ''}`, tipo: 'sino' })), testoSalva: '⧉ Copia',
+            onSalva: (w) => {
+              const scelti = src.blocchi.filter((b, k) => w['b' + k]);
+              if (!scelti.length) { UI.toast('Nessun blocco spuntato'); return; }
+              let ultimo = null;
+              scelti.forEach((b) => { const c = clona(b); c.id = uid(); bz.blocchi.push(c); ultimo = c.id; });
+              segna(); disegna(ultimo); UI.toast(scelti.length === 1 ? 'Blocco copiato' : `${scelti.length} blocchi copiati`, 'ok');
+            } }), 50);
+        } });
     }
     function nuovoBlocco(tipo) {
       if (tipo === 'mors') {
