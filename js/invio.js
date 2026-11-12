@@ -82,7 +82,7 @@ window.INVIO = (function () {
   const ddtDi = (S, c, anno) => !c || !UT.puo('sez.ddt') ? [] : (S.ddt || []).filter((d) => (eFornitore(S, c.id) ? d.fornitoreId === c.id : d.clienteId === c.id) && (+d.anno === +anno || !d.inviatoIl))
     .sort((a, b) => (b.anno - a.anno) || (b.numero - a.numero))
     .map((d) => { const s = (c.sedi || []).find((x) => x.id === d.sedeId);
-      return { id: d.id, t: `DDT N° ${DDT.numeroDi(d)}`, sub: `${fmt(d.data)} · ${d.firmaDestinatario ? 'firmato' : 'da firmare'}${s?.nome ? ' · ' + s.nome : ''}${d.inviatoIl ? ' · ✉️ inviato il ' + fmt(d.inviatoIl.slice(0, 10)) : ''}`,
+      return { id: d.id, t: `DDT N° ${DDT.numeroDi(d)}`, sub: `${fmt(d.data)} · copia cliente, senza prezzi · ${d.firmaDestinatario ? 'firmato' : 'da firmare'}${s?.nome ? ' · ' + s.nome : ''}${d.inviatoIl ? ' · ✉️ inviato il ' + fmt(d.inviatoIl.slice(0, 10)) : ''}`,
         on: !d.inviatoIl && !!d.firmaDestinatario }; });
   // schede di controllo fatte per GHO (modello GHO): si mandano a GHO ELIGIO (il cliente in anagrafica, se c'è)
   const GHO_ID = 'gho-schede';

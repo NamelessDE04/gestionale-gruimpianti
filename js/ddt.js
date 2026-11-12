@@ -5,6 +5,16 @@
 // Rapportini e DDT sono indipendenti: un rapportino dello stesso cliente può «abbinare» un DDT (r.ddtId sul rapportino).
 // Le righe scelte dal magazzino scalano la quantità (vedi MAG.usi). I prezzi non compaiono mai.
 window.DDT = (function () {
+  // prezzi: solo per noi (permesso «ddt.prezzi»), mai sulla copia del cliente
+  const vediPrezzi = () => UT.puo('ddt.prezzi');
+  const nu = (x) => { const v = parseFloat(String(x ?? '').replace(/\./g, '').replace(',', '.')); return Number.isFinite(v) ? v : null; };
+  const nuQ = (x) => { const v = parseFloat(String(x ?? '').replace(',', '.')); return Number.isFinite(v) ? v : null; };
+  const due = (v) => (v == null ? '' : (Math.round(v * 100) / 100).toFixed(2).replace('.', ','));
+  const euroD = (v) => (v == null ? '' : '€ ' + (Math.round(v * 100) / 100).toLocaleString('it-IT', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+  // sconto anche a cascata: «10+5» = 10% e poi 5%
+  const fattSc = (sc) => String(sc || '').split('+').map((x) => nuQ(x) || 0).reduce((f, x) => f * (1 - x / 100), 1);
+  const importo = (r) => { const p = nuQ(r.prezzo), q = nuQ(r.qta); return p == null ? null : p * (q == null ? 1 : q) * fattSc(r.sconto); };
+  const importoTxt = (r) => euroD(importo(r)) || '—';
   const { esc, uid, oggi, fmt, info } = UI;
   const PRIMO = { 2026: 93 };   // da che numero parte l'app in un anno (gli altri anni da 1)
   const CAUSALI = [['fornitura', 'FORNITURA E MONTAGGIO'], ['lavorazione', 'CONTO LAVORAZIONE'], ['visione', 'VISIONE'], ['riparato', 'RESO RIPARATO'], ['nonRiparato', 'NON RIPARATO'], ['nonConforme', 'RESO NON CONFORME']];
@@ -45,7 +55,7 @@ window.DDT = (function () {
     el.innerHTML = `
       <section class="cli">
         ${tabs('ddt')}
-        <div class="sez-head"><h1>Documenti di trasporto ${info('Il numero (es. 100/26/A = progressivo / anno / revisione) lo propone l\'app: si può cambiare a mano. Le righe prese dal magazzino scalano la quantità. Un DDT si può abbinare a un rapportino dello stesso cliente: lo propone il rapportino. I prezzi non compaiono mai.')}</h1>
+        <div class="sez-head"><h1>Documenti di trasporto ${info('Il numero (es. 100/26/A = progressivo / anno / revisione) lo propone l\'app: si può cambiare a mano. Le righe prese dal magazzino scalano la quantità. Un DDT si può abbinare a un rapportino dello stesso cliente: lo propone il rapportino. Sulla copia del cliente i prezzi non compaiono mai.')}</h1>
           ${scrive ? '<a class="btn fab" href="#/rapportini/ddt/nuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo DDT</span></a>' : ''}</div>
         <div class="barra-cerca"><input type="search" class="cerca" data-f="q" placeholder="Cerca numero, cliente, materiale, ordine…" value="${esc(cercaT)}"></div>
         <div class="elenco">${righe.map((d) => { const { c, s } = trovaSede(S, d.sedeId), rp = rapportinoDi(S, d.id), nr = (d.righe || []).filter((r) => r.descrizione).length;
@@ -69,7 +79,8 @@ window.DDT = (function () {
     if (!d.righe?.length) d.righe = [{ qta: '', um: 'PZ', descrizione: '' }];
     let sporco = false;
     // riga presa dal magazzino: descrizione, codice fornitore [codice GI]
-    const rigaArt = (a, r) => ({ articoloId: a.id, descrizione: `${[a.descrizione, a.codCostruttore].filter(Boolean).join(', ')} [${a.codice}]`, qta: r.qta || '1', um: r.um || 'PZ' });
+    const rigaArt = (a, r) => { const pc = MAG.prezzoCliente(S, a, trovaSede(S, d.sedeId).c);
+      return { articoloId: a.id, codice: a.codice || '', descrizione: [a.descrizione, a.codCostruttore].filter(Boolean).join(', '), qta: r.qta || '1', um: r.um || 'PZ', prezzo: r.prezzo || (pc != null ? due(pc) : ''), sconto: r.sconto || '' }; };
     const sedi = () => S.clienti.flatMap((c) => (c.sedi || []).map((s) => ({ c, s }))).concat((S.fornitori || []).flatMap((c) => FORN.sediDi(c).map((s) => ({ c, s, forn: true }))))
       .sort((a, b) => CLI.nome(a.c).localeCompare(CLI.nome(b.c)) || (a.s.nome || '').localeCompare(b.s.nome || ''));
     const etichettaCli = () => { const { c, s } = trovaSede(S, d.sedeId); return c ? `<b>${esc(CLI.nome(c))}</b><small>${esc([s?.nome, indirizzoSede(s).join(', ')].filter(Boolean).join(' · '))}</small>` : '<span class="muted">— tocca per scegliere —</span>'; };
@@ -97,7 +108,7 @@ window.DDT = (function () {
             </details>
           </div>
           <div class="card">
-            <div class="card-head"><h2>Merce ${info('Per il materiale del magazzino usa «📦 Dal magazzino»: scrivi codice o descrizione e tocca l\'articolo, si aggiunge una riga collegata (📦) e quando salvi la quantità a magazzino scende. Per tutto il resto scrivi la riga a mano. Vai a capo per una seconda riga (es. «per CP14»). I prezzi non compaiono mai.')}</h2></div>
+            <div class="card-head"><h2>Merce ${info('Per il materiale del magazzino usa «📦 Dal magazzino»: scrivi codice o descrizione e tocca l\'articolo, si aggiunge una riga collegata (📦) e quando salvi la quantità a magazzino scende. Per tutto il resto scrivi la riga a mano. Vai a capo per una seconda riga (es. «per CP14»). Codice e prezzo arrivano da soli con gli articoli del magazzino; per ritoccarli tocca ✏️ sotto la riga. I prezzi li vede solo chi ha il permesso e vanno solo sulla copia nostra: al cliente non arrivano mai.')}</h2></div>
             <div id="righe"></div>
             ${UT.puo('sez.magazzino') ? '<label class="art-cerca">📦 Dal magazzino<input id="ddtMag" placeholder="🔍 Cerca codice o descrizione" autocomplete="off"></label>' : ''}
             <button type="button" class="btn ghost aggiungi-riga" id="btnRiga">+ Riga scritta a mano</button>
@@ -162,12 +173,23 @@ window.DDT = (function () {
     function disegnaRighe() {
       el.querySelector('#righe').innerHTML = d.righe.map((r, i) => {
         const a = r.articoloId && MAG.trova(S, r.articoloId);
+        // riga snella: descrizione, U.M., q.tà. Codice e prezzo arrivano dal magazzino; si ritoccano da «dettagli»
+        const pr = vediPrezzi() && (r.prezzo || r.sconto) ? ` · 🔒 ${esc(r.prezzo || '—')} €${r.sconto ? ' −' + esc(r.sconto) + '%' : ''} = <b>${importoTxt(r)}</b>` : '';
+        const det = r.codice || pr ? `<span class="ddt-det-txt">${r.codice ? 'Cod. ' + esc(r.codice) : ''}${pr}</span>` : '';
         return `<div class="ddt-r" data-i="${i}">
-          <label class="ddt-q">Q.tà<input data-k="qta" inputmode="decimal" value="${esc(r.qta)}"></label>
+          <label class="ddt-d">Descrizione${a ? ' <span class="art-tag">📦 dal magazzino <button type="button" class="link" data-scolle="' + i + '" title="Scollega dal magazzino">✕</button></span>' : ''}<textarea data-k="descrizione" rows="${Math.max(1, (r.descrizione || '').split('\n').length)}" placeholder="es. CAVO PIATTO 16 X 1,5 MMQ">${esc(r.descrizione)}</textarea></label>
           <label class="ddt-um">U.M.<input data-k="um" list="dlUm" value="${esc(r.um)}"></label>
-          <label class="ddt-d">Descrizione${a ? ` <span class="art-tag">📦 ${esc(a.codice)} <button type="button" class="link" data-scolle="${i}" title="Scollega dal magazzino">✕</button></span>` : ''}<textarea data-k="descrizione" rows="${Math.max(1, (r.descrizione || '').split('\n').length)}" placeholder="es. CAVO PIATTO 16 X 1,5 MMQ">${esc(r.descrizione)}</textarea></label>
+          <label class="ddt-q">Q.tà<input data-k="qta" inputmode="decimal" value="${esc(r.qta)}"></label>
           ${d.righe.length > 1 ? `<button type="button" class="btn ghost small danger ddt-x" data-rm="${i}" aria-label="Togli riga">×</button>` : ''}
+          <div class="ddt-det">${det}<button type="button" class="link" data-det="${i}">${det ? '✏️' : '+ codice' + (vediPrezzi() ? ' / prezzo' : '')}</button></div>
         </div>`; }).join('');
+      el.querySelectorAll('[data-det]').forEach((b) => (b.onclick = () => {
+        leggiRighe(); const r = d.righe[+b.dataset.det], scrive = UT.puo('ddt.prezzi.modifica');
+        UI.modal({ titolo: 'Dettagli della riga', infoTxt: 'Il codice è il nostro interno e va anche sulla copia del cliente. Prezzo e sconto vanno solo sulla copia nostra. Per gli articoli del magazzino si mettono da soli.',
+          valori: { codice: r.codice || '', prezzo: r.prezzo || '', sconto: r.sconto || '' },
+          campi: [{ k: 'codice', label: 'Codice interno', maiuscolo: true }, ...(vediPrezzi() && scrive ? [{ k: 'prezzo', label: 'Prezzo €', mezza: true }, { k: 'sconto', label: 'Sconto % (es. 10+5)', mezza: true }] : [])],
+          onSalva: (v) => { r.codice = String(v.codice || '').trim().toUpperCase(); if (vediPrezzi() && scrive) { r.prezzo = String(v.prezzo || '').trim().replace('.', ','); r.sconto = String(v.sconto || '').trim().replace('.', ','); } sporco = true; disegnaRighe(); } });
+      }));
       el.querySelectorAll('.ddt-r').forEach((b) => {
         const i = +b.dataset.i, ta = b.querySelector('textarea');
         ta.addEventListener('input', () => { ta.rows = Math.max(1, ta.value.split('\n').length); });
@@ -234,7 +256,7 @@ window.DDT = (function () {
         destinatario: up(f.destinatario.value), destinazione: up(f.destinazione.value), ordine: up(f.ordine.value), dataOrdine: f.dataOrdine.value || '', offerta: up(f.offerta.value), riferimento: up(f.riferimento.value),
         vettore: up(f.vettore.value), aspetto: up(f.aspetto.value), colli: f.colli.value.trim(), dataTrasporto: f.dataTrasporto.value || ''
       });
-      d.righe = d.righe.map((r) => ({ ...r, qta: String(r.qta || '').trim().replace('.', ','), um: up(r.um), descrizione: up(r.descrizione).replace(/\n{3,}/g, '\n\n') })).filter((r) => r.descrizione || r.qta);
+      d.righe = d.righe.map((r) => ({ ...r, qta: String(r.qta || '').trim().replace('.', ','), um: up(r.um), codice: up(r.codice || '').trim(), prezzo: String(r.prezzo || '').trim().replace('.', ','), sconto: String(r.sconto || '').trim().replace('.', ','), descrizione: up(r.descrizione).replace(/\n{3,}/g, '\n\n') })).filter((r) => r.descrizione || r.qta);
       if (!d.numero) { f.numero.focus(); return UI.toast('Manca il numero del DDT', 'err'); }
       if (!d.destinatario) return UI.toast('Scegli il cliente o scrivi il destinatario', 'err');
       if (!d.righe.length) { d.righe = [{ qta: '', um: 'PZ', descrizione: '' }]; disegnaRighe(); return UI.toast('Scrivi almeno una riga di merce', 'err'); }
@@ -250,15 +272,15 @@ window.DDT = (function () {
   }
 
   // ---------- STAMPA: come il modulo cartaceo ----------
-  const RIGHE_PAG = 22;
+  const RIGHE_PAG = 20;
   function pagine(d) {
     // ogni «a capo» della descrizione occupa una riga del modulo
     const linee = [];
-    (d.righe || []).forEach((r) => String(r.descrizione || '').split('\n').forEach((t, k) => linee.push(k === 0 ? { qta: r.qta, um: r.um, t } : { t })));
+    (d.righe || []).forEach((r) => String(r.descrizione || '').split('\n').forEach((t, k) => linee.push(k === 0 ? { qta: r.qta, um: r.um, cod: r.codice || '', prezzo: r.prezzo, sconto: r.sconto, imp: importo(r), t } : { t })));
     const out = []; for (let i = 0; i < Math.max(1, linee.length); i += RIGHE_PAG) out.push(linee.slice(i, i + RIGHE_PAG));
     return out;
   }
-  function foglio(d, linee, pag, tot) {
+  function foglio(d, linee, pag, tot, interna) {
     const box = (x0, y0, x1, y1, cls = '') => `<div class="r2-b ${cls}" style="left:${x0}mm;top:${y0}mm;width:${(x1 - x0).toFixed(2)}mm;height:${(y1 - y0).toFixed(2)}mm"></div>`;
     const t = (x0, y0, x1, y1, txt, cls = '') => `<div class="r2-t ${cls}" data-adatta="0.5" style="left:${x0}mm;top:${y0}mm;width:${(x1 - x0).toFixed(2)}mm;height:${(y1 - y0).toFixed(2)}mm">${txt}</div>`;
     const lin = (x0, x1, y) => `<div class="dd-l" style="left:${x0}mm;top:${y}mm;width:${(x1 - x0).toFixed(2)}mm"></div>`;
@@ -289,16 +311,26 @@ window.DDT = (function () {
       return s;
     };
     h += blocco(L, 100, 'destinazione:', d.destinazione) + blocco(107, R, 'destinatario:', d.destinatario);
-    // righe della merce
-    const C = [L, 29.3, 44.8, R], T0 = 103, RH = 6;
-    h += box(L, T0, R, T0 + RIGHE_PAG * RH);
-    h += `<div class="dd-v" style="left:${C[1]}mm;top:${T0}mm;height:${RIGHE_PAG * RH}mm"></div><div class="dd-v" style="left:${C[2]}mm;top:${T0}mm;height:${RIGHE_PAG * RH}mm"></div>`;
-    for (let k = 1; k < RIGHE_PAG; k++) h += `<div class="dd-l dd-pt" style="left:${L}mm;top:${T0 + k * RH}mm;width:${R - L}mm"></div>`;
+    // righe della merce: codice, descrizione, U.M., quantità (+ prezzo, sconto, importo solo sulla copia interna)
+    const C = interna ? [L, 32, 122, 132, 145, 163, 173, R] : [L, 34, 162, 176, R], T0 = 103, TH = 5, RH = 6, TF = T0 + TH + RIGHE_PAG * RH;
+    const TIT = ['Codice', 'Descrizione', 'UM', 'Quantità', 'Prezzo', 'Sc. %', 'Importo'];
+    h += box(L, T0, R, TF + RH) + lin(L, R, T0 + TH) + lin(L, R, TF);
+    C.slice(1, -1).forEach((x) => (h += `<div class="dd-v" style="left:${x}mm;top:${T0}mm;height:${TF - T0}mm"></div>`));
+    C.slice(0, -1).forEach((x, k) => (h += t(x, T0, C[k + 1], T0 + TH, `<b>${TIT[k]}</b>`, 'dd-lab c dd-tit')));
+    for (let k = 1; k < RIGHE_PAG; k++) h += `<div class="dd-l dd-pt" style="left:${L}mm;top:${T0 + TH + k * RH}mm;width:${R - L}mm"></div>`;
     linee.forEach((x, k) => {
-      const y = T0 + k * RH;
-      if (x.qta !== undefined) h += t(C[0], y, C[1], y + RH, esc(x.qta), 'dd-val c') + t(C[1], y, C[2], y + RH, esc(x.um || ''), 'dd-val c');
-      h += t(C[2] + 0.6, y, C[3] - 0.6, y + RH, esc(x.t), 'dd-val' + (x.qta === undefined ? ' dd-sotto' : ''));
+      const y = T0 + TH + k * RH;
+      h += t(C[1] + 0.6, y, C[2] - 0.6, y + RH, esc(x.t), 'dd-val' + (x.qta === undefined ? ' dd-sotto' : ''));
+      if (x.qta === undefined) return;
+      h += t(C[0] + 0.6, y, C[1] - 0.6, y + RH, esc(x.cod), 'dd-val dd-cod') + t(C[2], y, C[3], y + RH, esc(x.um || ''), 'dd-val c') + t(C[3], y, C[4], y + RH, esc(x.qta), 'dd-val c');
+      if (interna) h += t(C[4], y, C[5] - 0.8, y + RH, x.prezzo ? esc(due(nuQ(x.prezzo))) : '', 'dd-val dx') + t(C[5], y, C[6], y + RH, esc(x.sconto || ''), 'dd-val c') + t(C[6], y, C[7] - 0.8, y + RH, x.imp != null ? esc(euroD(x.imp)) : '', 'dd-val dx');
     });
+    if (interna && pag === tot) {
+      const totale = (d.righe || []).reduce((s2, r) => s2 + (importo(r) || 0), 0);
+      h += `<div class="dd-v" style="left:${C[6]}mm;top:${TF}mm;height:${RH}mm"></div>`;
+      h += t(C[4], TF, C[6] - 0.8, TF + RH, '<b>TOTALE</b>', 'dd-lab dx') + t(C[6], TF, C[7] - 0.8, TF + RH, esc(euroD(totale)), 'dd-val dx');
+    }
+    if (interna) h += `<div class="r2-t dd-interna" style="left:109mm;top:40mm;width:91mm;height:5mm">COPIA NOSTRA CON PREZZI · NON CONSEGNARE AL CLIENTE</div>`;
     // piede: trasporto, vettore, causale
     const P = [237, 241.6, 246.2, 250.8, 255.4, 260, 264.6, 284];
     const A = 48, B = 124.8;
@@ -325,8 +357,9 @@ window.DDT = (function () {
     return `<article class="recap rap2 ddt-pag">${h}</article>`;
   }
 
-  function vista(el, S, d) {
+  function vista(el, S, d, query) {
     const { c } = trovaSede(S, d.sedeId), rp = rapportinoDi(S, d.id), pp = pagine(d);
+    const interna = false;   // a video la copia cliente; la copia nostra si sceglie quando si stampa
     el.innerHTML = `
       <section class="stampa-recap">
         <div class="azioni-lista no-print">
@@ -337,15 +370,34 @@ window.DDT = (function () {
           ${rp ? `<a class="pill st-inv" href="#/rapportini/r/${rp.id}">🔗 Rapportino N° ${esc(rp.numero ? rp.numero + '/' + rp.anno : 'in arrivo')}</a>` : '<span class="muted small">Non abbinato a nessun rapportino</span>'}
           ${info('Scegli «Salva come PDF» nella finestra di stampa, formato A4 verticale, margini «Nessuno».')}
         </div>
-        <div class="recap-wrap">${pp.map((l, i) => foglio(d, l, i + 1, pp.length)).join('')}</div>
+        <div class="recap-wrap">${pp.map((l, i) => foglio(d, l, i + 1, pp.length, interna)).join('')}</div>
       </section>`;
     const fogli = [...el.querySelectorAll('.ddt-pag')];
     fogli.forEach((x) => { x.style.zoom = 1; UI.adattaTesti(x); });
     const scala = () => fogli.forEach((x) => { const w = x.parentElement.clientWidth; if (w < 50) return; x.style.zoom = Math.min(1, (w - 4) / x.offsetWidth).toFixed(3); });
     scala(); window.addEventListener('resize', scala);
+    const wrap = el.querySelector('.recap-wrap');
+    const stampa = (cosa) => {
+      // cosa: 'cliente' | 'nostra' | 'entrambe'
+      const set = (cosa === 'entrambe' ? [false, true] : [cosa === 'nostra']).flatMap((int) => pp.map((l, i) => foglio(d, l, i + 1, pp.length, int)));
+      const prima = wrap.innerHTML; wrap.innerHTML = set.join('');
+      wrap.querySelectorAll('.ddt-pag').forEach((x) => { x.style.zoom = 1; UI.adattaTesti(x); });
+      const t0 = document.title; document.title = `DDT_${d.numero}-${aa(d.anno)}-${d.rev || 'A'}_${c ? CLI.nome(c) : ''}${cosa === 'nostra' ? '_COPIA_NOSTRA' : cosa === 'entrambe' ? '_CLIENTE_E_NOSTRA' : ''}`.replace(/[^\w\-]+/g, '_');
+      window.print();
+      setTimeout(() => { document.title = t0; wrap.innerHTML = prima; const f = [...wrap.querySelectorAll('.ddt-pag')]; f.forEach((x) => { x.style.zoom = 1; UI.adattaTesti(x); }); fogli.splice(0, fogli.length, ...f); scala(); }, 1000);
+    };
     el.querySelector('#btnStampa')?.addEventListener('click', () => {
-      const t0 = document.title; document.title = `DDT_${d.numero}-${aa(d.anno)}-${d.rev || 'A'}_${c ? CLI.nome(c) : ''}`.replace(/[^\w\-]+/g, '_');
-      window.print(); setTimeout(() => (document.title = t0), 1000);
+      if (!vediPrezzi()) return stampa('cliente');
+      const m = document.createElement('div'); m.className = 'modal-ov';
+      m.innerHTML = `<div class="modal ddt-scelta"><div class="modal-head"><h2>🖨️ Cosa stampo?</h2><button type="button" class="modal-x" aria-label="Chiudi">×</button></div>
+        <div class="modal-body"><div class="ddt-scelte">
+          <button type="button" class="btn" data-c="entrambe">Copia cliente + copia nostra</button>
+          <button type="button" class="btn ghost" data-c="cliente">Solo copia cliente <small>senza prezzi</small></button>
+          <button type="button" class="btn ghost" data-c="nostra">Solo copia nostra <small>🔒 con prezzi e totale</small></button></div></div></div>`;
+      document.body.appendChild(m);
+      m.querySelector('.modal-x').onclick = () => m.remove();
+      m.addEventListener('click', (e) => { if (UI.toccoFuori(e, m)) m.remove(); });
+      m.querySelectorAll('[data-c]').forEach((b) => (b.onclick = () => { m.remove(); setTimeout(() => stampa(b.dataset.c), 50); }));
     });
     return { titolo: 'DDT N° ' + numeroDi(d), indietro: '#/rapportini/ddt', live: true };
   }
@@ -356,7 +408,7 @@ window.DDT = (function () {
       const d = elenco(S).find((x) => x.id === parti[2]);
       if (!d) { el.innerHTML = '<p class="nessuno">DDT non trovato.</p>'; return { titolo: 'DDT', indietro: '#/rapportini/ddt' }; }
       if (parti[3] === 'modifica') return form(el, S, d, query);
-      return vista(el, S, d);
+      return vista(el, S, d, query);
     }
     return lista(el, S);
   }

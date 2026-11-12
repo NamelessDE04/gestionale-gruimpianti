@@ -110,6 +110,8 @@ window.UT = (function () {
     { g: 'Lavoro', k: 'firma.grande', nome: 'Firma a tutto schermo (rapportini e DDT)', def: TUTTI },
     { g: 'Lavoro', k: 'rap.scrivere', nome: 'Scrivere e firmare i rapportini', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'ddt.scrivere', nome: 'Scrivere e firmare i DDT', def: LAVORO, scrive: true },
+    { g: 'Ufficio', k: 'ddt.prezzi', nome: 'DDT: vedere prezzo, sconto e importo (copia interna)', def: ['master'] },
+    { g: 'Ufficio', k: 'ddt.prezzi.modifica', nome: 'DDT: scrivere prezzo e sconto', def: ['master'], scrive: true, eredita: 'ddt.prezzi' },
     { g: 'Lavoro', k: 'mag.modifica', nome: 'Magazzino: aggiungere articoli, caricare merce, modificare quantità e ubicazioni', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'gho.ore', nome: 'Registrare le ore GHO', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'gho.schede', nome: 'GHO: aggiungere e modificare le gru da controllare per GHO (senza anagrafica)', def: LAVORO, scrive: true },
