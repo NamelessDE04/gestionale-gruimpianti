@@ -1971,3 +1971,5 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .cbs-mtarga-hit { fill: transparent; }
 .cbs-mod .cbs-mtarga-hit { cursor: text; } .cbs-mod .cbs-m:hover .cbs-mtarga { fill: #fff8dc; stroke: #f2b705; }
 .cbs-mtin { position: absolute; z-index: 5; width: 96px; height: 40px; border: 2px solid #f2b705; border-radius: 8px; background: #fff; font: inherit; font-size: 16px; font-weight: 800; text-align: center; text-transform: uppercase; box-shadow: 0 6px 18px rgba(0,0,0,.2); padding: 0; margin: 0; min-height: 0; }
+.cbs-in, .cbs-pi, .cbs-mtin, .cbs-nome { text-transform: uppercase; }
+.cbs-blocco td, .cbs-blocco th, .cbs-bt h3, .cbs-nota, .cbs-pnome, .cbs-pnv, .cbs-pnum, .cbs-cerchio { text-transform: uppercase; }

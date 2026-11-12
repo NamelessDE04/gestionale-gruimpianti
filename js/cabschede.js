@@ -99,7 +99,7 @@ window.CABS = (function () {
         ${t.pe && m.ev ? `<rect x="${x}" y="${y}" width="${w}" height="${MH}" fill="#f7a46b" opacity=".55"/>` : ''}
         ${vite(y + 16)}${vite(y + MH - 16)}
         <rect class="cbs-mtarga" x="${x + w * 0.16}" y="${y + 56}" width="${w * 0.68}" height="${MH - 92}" rx="1.5" fill="#fff" stroke="#9a957f" stroke-width=".6"/>
-        <text x="${cx}" y="${y + MH / 2 + 6}" transform="rotate(-90 ${cx} ${y + MH / 2 + 6})" text-anchor="middle" dominant-baseline="middle" font-size="${Math.min(11, w * 0.5)}" font-weight="800" fill="#1d2433" pointer-events="none">${esc(m.nome)}</text>
+        <text x="${cx}" y="${y + MH / 2 + 6}" transform="rotate(-90 ${cx} ${y + MH / 2 + 6})" text-anchor="middle" dominant-baseline="middle" font-size="${Math.min(11, w * 0.5)}" font-weight="800" fill="#1d2433" pointer-events="none">${esc(String(m.nome || "").toUpperCase())}</text>
         <rect class="cbs-msel" x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${MH - 2}"/>
         <rect class="cbs-mtarga-hit" data-mt="${i}" x="${x + w * 0.1}" y="${y + 50}" width="${w * 0.8}" height="${MH - 80}"/></g>`;
     });
@@ -155,7 +155,7 @@ window.CABS = (function () {
   // p = percorso del valore nella bozza, es. «b.2.righe.3.sx.0»
   const cella = (ed, p, val, cls = '') => ed
     ? `<input class="cbs-in ${cls}" data-p="${p}" value="${esc(val ?? '')}" autocomplete="off" spellcheck="false">`
-    : `<span class="${cls}">${esc(val ?? '')}</span>`;
+    : `<span class="${cls}">${esc(String(val ?? '').toUpperCase())}</span>`;
   function bloccoHtml(b, i, ed) {
     const bp = 'b.' + i;
     const testa = `<div class="cbs-bt">${ed ? `<input class="cbs-in cbs-tit" data-p="${bp}.titolo" value="${esc(b.titolo)}" placeholder="Titolo del blocco">` : `<h3>${esc(b.titolo)}</h3>`}
@@ -279,7 +279,7 @@ window.CABS = (function () {
           <div class="azioni-form cbs-salvabar"><a class="btn ghost" href="#/cablaggio/s/${id}">Chiudi</a><span class="grow"></span><button type="button" class="btn" id="csSalva">💾 Salva</button></div>
         </section>`;
       const nm = el.querySelector('#csNome'); nm.oninput = () => { bz.nome = nm.value.toUpperCase(); segna(); };
-      el.querySelectorAll('.cbs-in[data-p]').forEach((x) => (x.oninput = () => { imposta(x.dataset.p, x.value); segna(); }));
+      el.querySelectorAll('.cbs-in[data-p]').forEach((x) => (x.oninput = () => { const p0 = x.selectionStart; x.value = x.value.toUpperCase(); x.setSelectionRange(p0, p0); imposta(x.dataset.p, x.value); segna(); }));
       el.querySelectorAll('[data-su]').forEach((x) => (x.onclick = () => { const i = +x.dataset.su; [bz.blocchi[i - 1], bz.blocchi[i]] = [bz.blocchi[i], bz.blocchi[i - 1]]; segna(); disegna(bz.blocchi[i - 1].id); }));
       el.querySelectorAll('[data-giu]').forEach((x) => (x.onclick = () => { const i = +x.dataset.giu; if (i >= bz.blocchi.length - 1) return; [bz.blocchi[i + 1], bz.blocchi[i]] = [bz.blocchi[i], bz.blocchi[i + 1]]; segna(); disegna(bz.blocchi[i + 1].id); }));
       el.querySelectorAll('[data-del]').forEach((x) => (x.onclick = () => { const b = bz.blocchi[+x.dataset.del]; if (!UI.conferma(`Togliere il blocco «${b.titolo}»?`)) return; bz.blocchi.splice(+x.dataset.del, 1); segna(); disegna(); }));
@@ -429,7 +429,16 @@ window.CABS = (function () {
       }
       lega();
     }
+    // tutte le scritte in maiuscolo (non gli identificativi interni)
+    const maiuscolo = (o) => {
+      if (Array.isArray(o)) return o.map((x) => (typeof x === 'string' ? x.toUpperCase() : maiuscolo(x)));
+      if (!o || typeof o !== 'object') return o;
+      const salta = new Set(['id', 'tipo', 'orient', 'c', 'agg', ...('da' in o ? ['da', 'a'] : [])]);
+      Object.keys(o).forEach((k) => { if (salta.has(k)) return; o[k] = typeof o[k] === 'string' ? o[k].toUpperCase() : maiuscolo(o[k]); });
+      return o;
+    };
     async function salva() {
+      bz.blocchi = maiuscolo(bz.blocchi); bz.nome = String(bz.nome || '').toUpperCase();
       if (!String(bz.nome || '').trim()) { UI.toast('Scrivi il nome della scheda'); el.querySelector('#csNome').focus(); return; }
       bz.agg = { il: new Date().toISOString(), da: UT.breve(UT.attuale()) };
       try { await UI.salva('impostazioni', clona(bz)); } catch (e) { return; }
