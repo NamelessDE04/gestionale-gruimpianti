@@ -152,7 +152,7 @@ window.GHO = (function () {
         <div class="home-head"><h1>GHO ELIGIO</h1><p>Lavori per GHO ELIGIO</p></div>
         <div class="tiles due-tiles">
           <a class="tile attiva" href="#/gho/ore"><div class="tile-ill">${ILL.registroOre}</div><div class="tile-txt"><h2>Registro ore</h2><p>Interventi mese per mese, per la fattura</p>${b ? `<span class="tile-badge">${b}</span>` : ''}</div></a>
-          ${UT.puo('sez.schede') ? `<a class="tile attiva" href="#/gho/schede"><div class="tile-ill">${ILL.schede || ILL.cablaggio}</div><div class="tile-txt"><h2>Schede di controllo</h2><p>Gru dei clienti di GHO, senza anagrafica</p>${GHOS.gru(S).length ? `<span class="tile-badge">${GHOS.gru(S).length}</span>` : ''}</div></a>` : ''}
+          ${UT.puo('sez.schede') ? `<a class="tile attiva" href="#/gho/schede"><div class="tile-ill">${ILL.schede || ILL.cablaggio}</div><div class="tile-txt"><h2>Schede di controllo</h2><p>Gru dei clienti di GHO, senza anagrafica</p></div></a>` : ''}
           <a class="tile attiva" href="#/cablaggio"><div class="tile-ill">${ILL.cablaggio}</div><div class="tile-txt"><h2>Configuratore cablaggio gru</h2><p>Schemi di cablaggio e collaudo</p></div></a>
         </div>
       </section>`;
