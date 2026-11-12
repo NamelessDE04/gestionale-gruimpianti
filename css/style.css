@@ -1847,3 +1847,43 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .ddt-scelta .modal-body { display: block; }
 .ap-fasce-cli { margin: 0 0 12px; }
 .ap-fasce-cli .fasc { height: 34px; font-size: 13px; text-transform: uppercase; }
+/* ===== Configuratore cablaggio: schede modulabili ===== */
+.cbs .cbs-fr { font-size: 22px; color: #9aa3b2; margin-left: auto; }
+.cbs-modbtn { width: 100%; margin: 0 0 12px; }
+.cbs-blocchi { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 420px), 1fr)); gap: 12px; align-items: start; }
+.cbs-blocco { background: #fff; border: 1px solid #c9d0dc; border-radius: 14px; padding: 12px 14px 14px; min-width: 0; }
+.cbs-bt { display: flex; align-items: center; gap: 8px; border-bottom: 2px solid #f2b705; padding-bottom: 6px; margin-bottom: 8px; }
+.cbs-bt h3 { margin: 0; font-size: 15px; letter-spacing: .03em; color: #16324f; flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.cbs-strum { display: flex; gap: 4px; flex-shrink: 0; }
+.cbs-mini { width: 34px; height: 34px; border-radius: 9px; border: 1.5px solid var(--linea); background: #fff; font-size: 15px; cursor: pointer; display: grid; place-items: center; padding: 0; }
+.cbs-mini:disabled { opacity: .35; } .cbs-mini.danger { color: #c62828; }
+.cbs-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.cbs-t { border-collapse: collapse; font-size: 15px; margin: 0 auto; }
+.cbs-t th { font-size: 11px; color: #5b6578; font-weight: 800; letter-spacing: .04em; padding: 2px 6px 6px; text-align: center; white-space: nowrap; }
+.cbs-t td { padding: 5px 8px; text-align: center; font-weight: 600; border-bottom: 1px solid #edf0f4; }
+.cbs-conn .cbs-pin { width: 30px; color: #16324f; background: #f6f7f9; border-bottom: 0; font-weight: 700; }
+.cbs-conn .cbs-pin.l { border-left: 1.5px dashed #33415a; } .cbs-conn .cbs-pin.r { border-right: 1.5px dashed #33415a; }
+.cbs-conn .cbs-pin.top { border-top: 1.5px dashed #33415a; } .cbs-conn .cbs-pin.bot { border-bottom: 1.5px dashed #33415a; }
+.cbs-conn th.cs-pinh { color: #16324f; }
+.cbs-nota { margin: 8px 0 0; font-weight: 700; font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.cbs-fc td { border: 0; padding: 4px 6px; } .cbs-fc .cbs-sig { font-weight: 800; color: #16324f; } .cbs-fc .cbs-fcn { text-align: left; color: #5b6578; font-size: 13px; }
+.cbs-ct { width: 54px; height: 14px; color: #1d2433; vertical-align: middle; }
+.cbs-ctb { border: 1.5px dashed #9aa3b2; border-radius: 8px; background: #fff; padding: 3px 4px; cursor: pointer; display: flex; flex-direction: column; align-items: center; line-height: 1; }
+.cbs-ctb small { font-size: 10px; color: #5b6578; font-weight: 800; }
+.cbs-in { width: 100%; height: auto; min-height: 0; margin: 0; box-shadow: none; display: block; min-width: 46px; border: 0; border-bottom: 1.5px dashed #9fb3cc; background: #f7f9fc; border-radius: 4px; padding: 6px 4px; font: inherit; font-weight: 600; text-align: center; color: #1d2433; }
+.cbs-in:focus { outline: none; border-bottom-color: #f2b705; background: #fff8dc; }
+.cbs-in.th { font-size: 11px; font-weight: 800; color: #5b6578; letter-spacing: .03em; min-width: 70px; }
+.cbs-in.cs-tit { text-align: left; font-size: 15px; font-weight: 800; color: #16324f; letter-spacing: .02em; }
+.cbs-in.nota { text-align: left; min-width: 120px; }
+.cbs-fc .cbs-in { min-width: 40px; max-width: 64px; } .cbs-fc .cbs-in.nota { max-width: none; min-width: 100px; } .cbs-fc .cbs-in.sig { max-width: 34px; min-width: 30px; }
+.cbs-blocco .btn.small { margin-top: 8px; }
+.cbs-nome { text-transform: uppercase; font-weight: 700; }
+.cbs-agg { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin: 14px 0; padding: 12px; border: 2px dashed #c9d0dc; border-radius: 14px; }
+.cbs-agg span { width: 100%; font-weight: 800; color: #16324f; font-size: 14px; }
+.cbs-agg .btn { flex: 1 1 140px; }
+.cbs-salvabar { position: sticky; bottom: 0; background: var(--bg, #f2f4f7); padding: 10px 0; z-index: 3; }
+#csSalva.pulsa { box-shadow: 0 0 0 3px rgba(242,183,5,.6); }
+@media (max-width: 560px) { .cbs-t { font-size: 14px; } .cbs-t td { padding: 4px 5px; } .cbs-blocco { padding: 10px; } }
+@media (max-width: 560px) { .cbs-mod .cbs-bt { flex-wrap: wrap; } .cbs-mod .cbs-bt .cbs-in.cbs-tit { flex: 1 1 100%; } .cbs-mod .cbs-strum { margin-left: auto; } }
+.cbs-mod .cbs-bt .cbs-in.cbs-tit { flex: 1; }
+.cbs-in.nota { text-transform: none; }

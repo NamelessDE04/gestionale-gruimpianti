@@ -127,6 +127,7 @@ window.UT = (function () {
     { g: 'Impostazioni', k: 'ctr.modelloSede', nome: 'Cambiare il modello di scheda di una sede, salvare voci come modello, azzerare i controlli di una sede', def: ['master'], scrive: true },
     { g: 'Impostazioni', k: 'imp.tipi', nome: 'Tipi di impianto (voci dell\'anagrafica impianti)', def: ['master'], scrive: true },
     { g: 'Impostazioni', k: 'cablaggio.modifica', nome: 'Modificare il configuratore cablaggio', def: ['master'], scrive: true },
+    { g: 'Impostazioni', k: 'cablaggio.schede', nome: 'Configuratore cablaggio: creare e modificare le schede di cablaggio', def: ['master'], scrive: true, eredita: 'cablaggio.modifica' },
     { g: 'Ufficio', k: 'prezzi', nome: 'Listino prezzi: vedere prezzi e maggiorazioni (anche dei clienti)', def: ['master'] },
     { g: 'Ufficio', k: 'prezzi.modifica', nome: 'Listino prezzi: modificare prezzi e maggiorazioni', def: ['master'], scrive: true, eredita: 'prezzi' },
     { g: 'Ufficio', k: 'gho.prezzi', nome: 'GHO ELIGIO: vedere prezzi e spese (rapportino, messaggio WhatsApp e riepilogo del mese)', def: ['master'] },
@@ -197,7 +198,7 @@ window.UT = (function () {
       case 'attrezzi': return `${d.tipo === 'magnete' ? 'Magnete' : 'Pinza / gancio a C'} ${d.nInterno ? 'n° ' + d.nInterno + ' ' : ''}– ${sede(d.sedeId)}`;
       case 'controlliAttrezzi': { const a = S.attrezzi?.find((x) => x.id === d.attrezzoId); return `Controllo ${d.slot}° ${d.anno} ${a ? (a.tipoDesc || '') + (a.nInterno ? ' n° ' + a.nInterno : '') : ''} – ${sede(d.sedeId)}`; }
       case 'schedeApprofondite': return `${({ fune: 'Scheda fune e carrucole', bozzello: 'Scheda controllo gancio', indagine: 'Indagine approfondita' })[d.tipo] || 'Controllo approfondito'} ${d.data || ''} – ${sede(d.sedeId)}`;
-      case 'impostazioni': return d.id === 'modelliScheda' ? 'Modelli di scheda' : d.id === 'modificheCablaggio' ? 'Valori del configuratore cablaggio' : d.id === 'modelliImpianto' ? 'Tipi di impianto' : d.id === 'tipologieGru' ? 'Tipologie di gru' : 'Impostazioni';
+      case 'impostazioni': return d.id === 'modelliScheda' ? 'Modelli di scheda' : d.id === 'modificheCablaggio' ? 'Valori del configuratore cablaggio' : d.id === 'modelliImpianto' ? 'Tipi di impianto' : d.id === 'tipologieGru' ? 'Tipologie di gru' : d.tipo === 'cabScheda' ? `Scheda di cablaggio ${d.nome || ''}` : 'Impostazioni';
       default: return NOMI_COL[col] || col;
     }
   }

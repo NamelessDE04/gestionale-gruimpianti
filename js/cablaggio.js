@@ -69,7 +69,7 @@ window.CAB = (function () {
     }).catch(() => {
       box.innerHTML = '<p class="nessuno">Impossibile caricare il configuratore. Controlla la connessione e riprova.</p>';
     });
-    return { titolo: 'Configuratore cablaggio gru', indietro: '#/gho', live: false };
+    return { titolo: 'Configuratore vecchio', indietro: '#/cablaggio', live: false };
   }
 
   async function salvaRapporto(S, r) {
@@ -116,6 +116,7 @@ window.CAB = (function () {
     return { titolo: 'Rapporti di collaudo', indietro: '#/cablaggio', live: true };
   }
 
-  function route(el, S, parti) { return parti[1] === 'rapporti' ? rapporti(el, S) : pagina(el, S); }
+  // #/cablaggio = schede modulabili (CABS) · #/cablaggio/vecchio = configuratore di prima (nascosto nel menu)
+  function route(el, S, parti) { return parti[1] === 'rapporti' ? rapporti(el, S) : parti[1] === 'vecchio' ? pagina(el, S) : CABS.route(el, S, parti); }
   return { route };
 })();

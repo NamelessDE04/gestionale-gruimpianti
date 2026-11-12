@@ -153,7 +153,7 @@ window.GHO = (function () {
         <div class="tiles due-tiles">
           <a class="tile attiva" href="#/gho/ore"><div class="tile-ill">${ILL.registroOre}</div><div class="tile-txt"><h2>Registro ore</h2><p>Interventi mese per mese, per la fattura</p>${b ? `<span class="tile-badge">${b}</span>` : ''}</div></a>
           ${UT.puo('sez.schede') ? `<a class="tile attiva" href="#/gho/schede"><div class="tile-ill">${ILL.schede || ILL.cablaggio}</div><div class="tile-txt"><h2>Schede di controllo</h2><p>Gru dei clienti di GHO, senza anagrafica</p></div></a>` : ''}
-          <a class="tile attiva" href="#/cablaggio"><div class="tile-ill">${ILL.cablaggio}</div><div class="tile-txt"><h2>Configuratore cablaggio gru</h2><p>Schemi di cablaggio e collaudo</p></div></a>
+          <a class="tile attiva" href="#/cablaggio"><div class="tile-ill">${ILL.cablaggio}</div><div class="tile-txt"><h2>Configuratore cablaggio gru</h2><p>Schede di cablaggio da creare e modificare</p></div></a>
         </div>
       </section>`;
     return { titolo: 'GHO ELIGIO', indietro: '#/', live: true };
