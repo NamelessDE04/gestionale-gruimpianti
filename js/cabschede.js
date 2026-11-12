@@ -685,18 +685,28 @@ window.CABS = (function () {
     function copiaDa() {
       const altre = schede(S).filter((x) => x.id !== id && (x.blocchi || []).length);
       const etichetta = (x) => `${x.nome || 'SENZA NOME'} (${x.blocchi.length} blocchi)`;
-      UI.modal({ titolo: 'Copia blocchi', infoTxt: 'Scegli la scheda da cui copiare. Poi spunti i blocchi che ti servono: vengono aggiunti in fondo a questa scheda con tutto quello che c\'è scritto, e li puoi modificare senza toccare l\'originale.',
+      UI.modal({ titolo: 'Copia blocchi', infoTxt: 'Scegli la scheda da cui copiare. Poi spunti i blocchi che ti servono: vengono aggiunti in fondo a questa scheda con tutto quello che c\'è scritto e finiscono nelle stesse zone della gru in cui erano nell\'originale. Li puoi modificare senza toccare l\'originale.',
         valori: { da: etichetta(altre[0]) }, campi: [{ k: 'da', label: 'Copia da', tipo: 'select', opzioni: altre.map(etichetta), req: true }], testoSalva: 'Avanti',
         onSalva: (v) => {
           const src = altre.find((x) => etichetta(x) === v.da); if (!src) return;
           setTimeout(() => UI.modal({ titolo: 'Quali blocchi?', infoTxt: `Blocchi della scheda «${src.nome}». Spunta quelli da copiare.`,
-            valori: Object.fromEntries(src.blocchi.map((b, k) => ['b' + k, false])),
-            campi: src.blocchi.map((b, k) => ({ k: 'b' + k, label: `${NOME_TIPO[b.tipo] || ''} · ${b.titolo || ''}`, tipo: 'sino' })), testoSalva: '⧉ Copia',
+            valori: { tutti: false, ...Object.fromEntries(src.blocchi.map((b, k) => ['b' + k, false])) },
+            campi: [{ k: 'tutti', label: 'TUTTI I BLOCCHI', tipo: 'sino' }, ...src.blocchi.map((b, k) => { const zz = PUNTI[src.gru] ? zoneDi(src).map((a, j) => (a.blocchi.includes(b.id) ? j + 1 : 0)).filter(Boolean) : [];
+              return { k: 'b' + k, label: `${NOME_TIPO[b.tipo] || ''} · ${b.titolo || ''}${zz.length ? ' · zona ' + zz.join(', ') : ''}`, tipo: 'sino' }; })], testoSalva: '⧉ Copia',
             onSalva: (w) => {
-              const scelti = src.blocchi.filter((b, k) => w['b' + k]);
+              const scelti = src.blocchi.filter((b, k) => w.tutti || w['b' + k]);
               if (!scelti.length) { UI.toast('Nessun blocco spuntato'); return; }
-              let ultimo = null;
-              scelti.forEach((b) => { const c = clona(b); c.id = uid(); bz.blocchi.push(c); ultimo = c.id; });
+              let ultimo = null; const mappa = {};
+              scelti.forEach((b) => { const c = clona(b); c.id = uid(); mappa[b.id] = c.id; bz.blocchi.push(c); ultimo = c.id; });
+              // la scatola copiata insieme alla sua morsettiera resta collegata a quella nuova
+              scelti.forEach((b) => { const c = bz.blocchi.find((x) => x.id === mappa[b.id]); if (c.morsId) c.morsId = mappa[c.morsId] || (bz.blocchi.some((x) => x.id === c.morsId) ? c.morsId : ''); });
+              // stesse zone della gru dell'originale (se la scheda non ha ancora la gru, prende quella dell'originale)
+              if (PUNTI[src.gru]) {
+                if (!PUNTI[bz.gru]) bz.gru = src.gru;
+                const zs = zoneDi(src);
+                zs.forEach((a, j) => { const ids = a.blocchi.filter((x) => mappa[x]).map((x) => mappa[x]); if (!ids.length) return;
+                  const t = bz.aree[j]; if (!t.blocchi.length && t.nome === ZONE_DEF()[j].nome) t.nome = a.nome; t.blocchi.push(...ids); });
+              }
               segna(); disegna(ultimo); UI.toast(scelti.length === 1 ? 'Blocco copiato' : `${scelti.length} blocchi copiati`, 'ok');
             } }), 50);
         } });
