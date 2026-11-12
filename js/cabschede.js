@@ -42,7 +42,98 @@ window.CABS = (function () {
     const n = Math.max(1, Math.min(120, +o.n || 10)), tipo = MT[o.tipo] ? o.tipo : 'WDU 2,5';
     return { id: uid(), tipo: 'mors', titolo: o.titolo || 'MORSETTIERA', morsetti: Array.from({ length: n }, (_, k) => ({ id: uid(), nome: MT[tipo].pe ? 'PE' : String(k + 1), tipo, ev: false })), ponti: [] };
   };
-  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera' };
+  // scatola di derivazione MISIA (8 pressacavi motore cilindrico, 7 conico: senza il n. 3)
+  const SCAT_DEF = () => {
+    const pic = () => ({ uso: '', pressacavo: 'M20 × 1,5', foro: 'Ø 20,5 MM (DA CONFERMARE)', lama: '' });
+    const gra = () => ({ uso: '', pressacavo: 'M25 × 1,5 (DA CONFERMARE)', foro: 'Ø 25,5 MM (DA CONFERMARE)', lama: '' });
+    return { pressacavi: [pic(), pic(), pic(), pic(), pic(), pic(), gra(), gra()],
+      din: { tipo: '35 × 7,5 MM (DA CONFERMARE)', lunghezza: '', fori: '', maschiatura: '', bulloni: '' },
+      fori: { quanti: '4, UNO PER ANGOLO', foro: '', minuteria: 'VITE TESTA ESAGONALE + RONDELLA + DADO AUTOBLOCCANTE (DA CONFERMARE)' },
+      piatto: { uso: 'INGRESSO DEL CAVO PIATTO DEL FESTONE', modello: 'CARPEL PRA80X25 IN ALLUMINIO (DA CONFERMARE)', viti: '', procedura: '' } };
+  };
+  let SCAT_VECCHI = null;   // valori già scritti nel configuratore vecchio (se ci sono), per partire da quelli
+  NUOVO.scat = (o = {}) => ({ id: uid(), tipo: 'scat', titolo: o.titolo || 'SCATOLA DI DERIVAZIONE', versione: o.versione === 'con' ? 'con' : 'cil', morsId: o.morsId || '',
+    dati: SCAT_VECCHI ? clona(SCAT_VECCHI) : SCAT_DEF() });
+  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera', scat: 'Scatola di derivazione' };
+
+  // ---------- scatola di derivazione: 3 viste da toccare, scheda del pezzo sotto ----------
+  const SDV = {};   // vista e pezzo scelto, per blocco
+  let BLOCCHI_ORA = [];   // blocchi della scheda che si sta disegnando (per la morsettiera sulla guida DIN)
+  const SD_CAMPI = {
+    p: [['uso', 'A cosa serve'], ['pressacavo', 'Pressacavo'], ['foro', 'Foro da fare'], ['lama', 'Lama / punzone della pressa']],
+    din: [['tipo', 'Tipo'], ['lunghezza', 'Lunghezza'], ['fori', 'Fori di fissaggio'], ['maschiatura', 'Maschiatura sulla scatola'], ['bulloni', 'Bulloni']],
+    fori: [['quanti', 'Quanti'], ['foro', 'Foro da fare'], ['minuteria', 'Minuteria']],
+    piatto: [['uso', 'A cosa serve'], ['modello', 'Modello'], ['viti', 'Viti della flangia'], ['procedura', 'Procedura per il foro']]
+  };
+  // la morsettiera collegata, disegnata sulla guida DIN (stessi morsetti, colori e proporzioni)
+  function morsSuGuida(b) {
+    const m = BLOCCHI_ORA.find((x) => x.id === b.morsId && x.tipo === 'mors'); if (!m || !m.morsetti.length) return '';
+    const tot = m.morsetti.reduce((a, x) => a + mtipo(x).mm, 0), L = 296, R2 = 344, Y0 = 104, LUN = 292;
+    let y = Y0, h = '<g class="sd-mg">';
+    m.morsetti.forEach((x, k) => {
+      const hh = mtipo(x).mm / tot * LUN, pe = mtipo(x).pe;
+      h += `<g class="sd-pz sd-mors" data-id="m${k}"><title>${esc(x.nome)} · ${x.tipo}</title>
+        <rect x="${L}" y="${y.toFixed(1)}" width="${R2 - L}" height="${hh.toFixed(1)}" fill="${pe ? '#f4d21f' : x.ev ? '#f7a46b' : '#d8d3c6'}" stroke="#6b6658" stroke-width=".8"/>
+        ${pe ? `<rect x="${L}" y="${(y + hh * .3).toFixed(1)}" width="${R2 - L}" height="${(hh * .4).toFixed(1)}" fill="#3aa346"/>` : ''}
+        ${hh >= 6 ? `<text x="${(L + R2) / 2}" y="${(y + hh / 2).toFixed(1)}" font-size="${Math.min(8, hh * .8).toFixed(1)}" font-weight="800" text-anchor="middle" dominant-baseline="middle" fill="#1d2433">${esc(String(x.nome || '').toUpperCase())}</text>` : ''}</g>`;
+      y += hh;
+    });
+    return h + '</g>';
+  }
+  function scatHtml(b, i, ed) {
+    const st = (SDV[b.id] = SDV[b.id] || { vista: 1, sel: null }), con = b.versione === 'con';
+    const ammessi = { 1: ['din', 'fori'], 2: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'], 3: ['piatto'] }[st.vista];
+    if (!ammessi.includes(st.sel) || (con && st.sel === 'p3')) st.sel = null;
+    const svg = (window.CBS_SD || {})['v' + st.vista] || '';
+    const vb = st.vista === 1 ? '32 34 502 416' : '20 20 480 300';
+    let info = `<p class="sd-hint">${st.vista === 1 ? `Tocca la guida DIN o un angolo (fori di fissaggio)${b.morsId ? ', un morsetto per aprire la morsettiera' : ''}. A sinistra i pressacavi, a destra il pressacavo del festone.` : st.vista === 2 ? 'Tocca un pressacavo.' : 'Tocca il pressacavo per cavo piatto.'}</p>`;
+    if (st.sel) {
+      const pi = /^p(\d)$/.exec(st.sel), tipo = pi ? 'p' : st.sel, base = pi ? `b.${i}.dati.pressacavi.${pi[1] - 1}` : `b.${i}.dati.${st.sel}`, dati = pi ? b.dati.pressacavi[pi[1] - 1] : b.dati[st.sel];
+      const tit = pi ? `PRESSACAVO ${pi[1]}${+pi[1] >= 7 ? ' (GRANDE)' : ''}` : { din: 'GUIDA DIN', fori: 'FORI DI FISSAGGIO DELLA SCATOLA (4)', piatto: 'PRESSACAVO PER CAVO PIATTO (FESTONE)' }[st.sel];
+      info = `<h4>${tit}</h4><dl>${SD_CAMPI[tipo].map(([k, l]) => `<dt>${l}</dt><dd>${ed ? `<input class="cbs-in cbs-sdin" data-p="${base}.${k}" value="${esc(dati[k] || '')}" autocomplete="off">` : (dati[k] ? esc(String(dati[k]).toUpperCase()) : '<span class="sd-dd">da definire</span>')}</dd>`).join('')}</dl>`;
+    }
+    return `<div class="sd cbs-sdw${con ? ' sd-conico' : ''}" data-sdb="${i}">
+      <p class="cbs-sdver">MISIA · MOTORE ${con ? 'CONICO · 7' : 'CILINDRICO · 8'} PRESSACAVI</p>
+      <div class="cbs-sdtab no-print">${[[1, 'Dall\'alto'], [2, 'Pressacavi'], [3, 'Festone']].map(([n, t]) => `<button type="button" class="${st.vista === n ? 'on' : ''}" data-sdv="${n}">${n} · ${t}</button>`).join('')}</div>
+      <svg viewBox="${vb}" class="cbs-sdsvg">${svg.replace('{{MORS}}', st.vista === 1 ? morsSuGuida(b) : '')}</svg>
+      <div class="cbs-sdinfo">${info}</div></div>`;
+  }
+  // tocchi nella scatola (vale in lettura e in modifica): rid = ridisegna solo il blocco
+  function legaScat(box, b, i, ed, onInput) {
+    const st = SDV[b.id], rid = () => { box.outerHTML = scatHtml(b, i, ed); const nb = document.querySelector(`[data-sdb="${i}"]`); legaScat(nb, b, i, ed, onInput); return nb; };
+    box.querySelectorAll('[data-sdv]').forEach((x) => (x.onclick = () => { st.vista = +x.dataset.sdv; st.sel = null; rid(); }));
+    box.querySelectorAll('.sd-zona').forEach((x) => (x.onclick = () => { st.vista = +x.dataset.vai; st.sel = null; rid(); }));
+    box.querySelectorAll('.sd-pz').forEach((g) => g.classList.toggle('sd-on', g.dataset.id === st.sel));
+    box.querySelectorAll('.sd-pz').forEach((g) => (g.onclick = (e) => {
+      e.stopPropagation();
+      const mm = /^m(\d+)$/.exec(g.dataset.id);
+      if (mm) {   // morsetto: si va alla morsettiera, su quel morsetto
+        const t = document.getElementById('cb-' + b.morsId); if (!t) return;
+        const mb = BLOCCHI_ORA.find((x) => x.id === b.morsId);
+        if (ed && mb) { const ms = mst(mb); ms.modo = 'sel'; ms.sel = new Set([mb.morsetti[+mm[1]].id]); const mdx = t.querySelector('[data-md]'); if (mdx) mdx.dispatchEvent(new CustomEvent('cbs-rid')); }
+        t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.classList.add('cbs-lampo'); setTimeout(() => t.classList.remove('cbs-lampo'), 1400);
+        return;
+      }
+      st.sel = g.dataset.id; const nb = rid(); nb.querySelector('.cbs-sdinfo')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    }));
+    if (ed) box.querySelectorAll('.cbs-sdin').forEach((x) => (x.oninput = () => { const p0 = x.selectionStart; x.value = x.value.toUpperCase(); x.setSelectionRange(p0, p0); onInput(x.dataset.p, x.value); }));
+  }
+
+  // ---------- zone della gru (foto monotrave / bitrave con i punti da toccare) ----------
+  const ZONE_DEF = () => [{ k: 'quadro', nome: 'QUADRO ELETTRICO', blocchi: [] }, { k: 'carrello', nome: 'ZONA CARRELLO', blocchi: [] }, { k: 'pulsantiera', nome: 'DERIVAZIONE PULSANTIERA', blocchi: [] }, { k: 'ponte', nome: 'MOTORI PONTE', blocchi: [] }];
+  const PUNTI = {
+    monotrave: { img: 'img/cablaggio/monotrave.jpg', p: [['quadro', 24.7, 35], ['carrello', 49.4, 44.5], ['pulsantiera', 40.9, 76], ['ponte', 8.3, 45], ['ponte', 70.2, 6.6]] },
+    bitrave: { img: 'img/cablaggio/bitrave.jpg', p: [['quadro', 24.2, 35.8], ['carrello', 45, 24.3], ['pulsantiera', 38.5, 77], ['ponte', 11, 47.3], ['ponte', 88.5, 16]] }
+  };
+  const zoneDi = (s) => { const z = ZONE_DEF(); (s.aree || []).forEach((a) => { const t = z.find((x) => x.k === a.k); if (t) Object.assign(t, a); }); return z; };
+  function fotoGru(s, link) {
+    const F = PUNTI[s.gru]; if (!F) return '';
+    const z = zoneDi(s), n = (k) => z.findIndex((x) => x.k === k) + 1;
+    return `<div class="cbs-foto"><img src="${F.img}" alt="${s.gru}" draggable="false">
+      ${F.p.map(([k, x, y]) => { const a = z.find((q) => q.k === k), vuota = !a.blocchi.length;
+        return `<a class="cbs-punto${vuota ? ' vuota' : ''}" ${link && !vuota ? `href="${link}/z/${k}"` : ''} style="left:${x}%;top:${y}%" aria-label="${esc(a.nome)}"><b>${n(k)}</b><span>${esc(a.nome)}</span></a>`; }).join('')}</div>`;
+  }
+
 
   // ---------- pulsantiera: simbolo IEC del pulsante (testa a pressione «[», tratteggio, contatto NO o NC) ----------
   function simboloPuls(t) {
@@ -185,6 +276,8 @@ window.CABS = (function () {
           <td>${cella(ed, rp + '.p2', r.p2)}</td><td>${cella(ed, rp + '.b', r.b)}</td><td class="cbs-fcn">${cella(ed, rp + '.nota', r.nota, 'nota')}</td>
           ${ed ? `<td><button type="button" class="cbs-mini danger" data-delr="${i}.${j}" aria-label="Togli riga" ${b.righe.length > 1 ? '' : 'disabled'}>×</button></td>` : ''}</tr>`; }).join('')}</table></div>
         ${ed ? `<button type="button" class="btn ghost small" data-addr="${i}">+ Riga</button>` : ''}`;
+    } else if (b.tipo === 'scat') {
+      corpo = scatHtml(b, i, ed);
     } else if (b.tipo === 'mors') {
       corpo = `<div data-md="${i}">${morsHtml(b, i, ed)}</div>`;
     } else if (b.tipo === 'puls') {
@@ -207,7 +300,7 @@ window.CABS = (function () {
     const lista = tutte.filter((s) => !q || [s.nome, s.note, ...(s.blocchi || []).map((b) => b.titolo)].join(' ').toLowerCase().includes(q));
     el.innerHTML = `
       <section class="cli cbs">
-        <div class="sez-head"><h1>Configuratore cablaggio ${info('Qui crei le tue schede di cablaggio partendo da zero. Ogni scheda è fatta di blocchi: <b>presa / spina</b> (connettore a 16, 24 o 32 poli), <b>finecorsa</b>, <b>cavo</b>, <b>pulsantiera</b> e <b>morsettiera</b>. La struttura la scegli tu, e anche tutto quello che c\'è scritto. Le schede valgono per tutti i dispositivi. Il vecchio configuratore è nel menu ⋯.')}</h1>
+        <div class="sez-head"><h1>Configuratore cablaggio ${info('Qui crei le tue schede di cablaggio partendo da zero. Ogni scheda è fatta di blocchi: <b>presa / spina</b> (connettore a 16, 24 o 32 poli), <b>finecorsa</b>, <b>cavo</b>, <b>pulsantiera</b>, <b>morsettiera</b> e <b>scatola di derivazione</b>. Puoi scegliere la foto della gru (monotrave o bitrave) e mettere i blocchi nelle sue zone. La struttura la scegli tu, e anche tutto quello che c\'è scritto. Le schede valgono per tutti i dispositivi. Il vecchio configuratore è nel menu ⋯.')}</h1>
           ${UI.menu([{ t: '📄 Rapporti di collaudo', href: '#/cablaggio/rapporti' }, { t: '🗄 Configuratore vecchio', href: '#/cablaggio/vecchio' }])}</div>
         ${puoModificare() ? '<button type="button" class="sg2-inizia ap-nuovo" id="csNuova">＋ Nuova scheda di cablaggio</button>' : ''}
         ${tutte.length > 5 ? `<input type="search" id="csQ" class="cerca" placeholder="Cerca una scheda…" value="${esc(cerca)}">` : ''}
@@ -233,26 +326,73 @@ window.CABS = (function () {
   }
 
   // ---------- SCHEDA: lettura ----------
-  function vista(el, S, id) {
+  // blocchi larghi (pulsantiera, morsettiera, scatola) a tutta riga; gli altri in colonne
+  const LARGHI = ['puls', 'mors', 'scat'];
+  function blocchiHtml(lista, compatta) {
+    if (!compatta) return `<div class="cbs-blocchi">${lista.map(([b, i]) => bloccoHtml(b, i, false)).join('')}</div>`;
+    // compatta: prima i piccoli, uno sotto l'altro in colonne (riempiono i buchi), poi i larghi
+    const pic = lista.filter(([b]) => !LARGHI.includes(b.tipo)), lar = lista.filter(([b]) => LARGHI.includes(b.tipo));
+    return `${pic.length ? `<div class="cbs-colonne">${pic.map(([b, i]) => bloccoHtml(b, i, false)).join('')}</div>` : ''}${lar.length ? `<div class="cbs-blocchi">${lar.map(([b, i]) => bloccoHtml(b, i, false)).join('')}</div>` : ''}`;
+  }
+  function legaLettura(el, s) {
+    el.querySelectorAll('[data-sdb]').forEach((x) => { const i = +x.dataset.sdb; legaScat(x, s.blocchi[i], i, false); });
+  }
+  function stampa(titolo) {
+    const t0 = document.title; document.title = 'Cablaggio_' + String(titolo || '').replace(/[^\w\-]+/g, '_');
+    document.body.classList.add('cbs-stampa'); window.print();
+    setTimeout(() => { document.body.classList.remove('cbs-stampa'); document.title = t0; }, 800);
+  }
+  function vista(el, S, id, zona) {
     const s = S.impostazioni.find((d) => d.id === id);
     if (!s) { el.innerHTML = '<p class="nessuno">Scheda non trovata.</p>'; return { titolo: 'Configuratore cablaggio', indietro: '#/cablaggio' }; }
+    BLOCCHI_ORA = s.blocchi || [];
+    const tutti = (s.blocchi || []).map((b, i) => [b, i]), base = `#/cablaggio/s/${id}`;
+    const z = zoneDi(s), conGru = !!PUNTI[s.gru];
+    const inZona = new Set(conGru ? z.flatMap((a) => a.blocchi) : []);
+    let corpo;
+    if (zona) {
+      const a = z.find((x) => x.k === zona);
+      const lista = tutti.filter(([b]) => a && a.blocchi.includes(b.id)).sort((p, q) => a.blocchi.indexOf(p[0].id) - a.blocchi.indexOf(q[0].id));
+      corpo = `<h2 class="cbs-zt"><span>${z.indexOf(a) + 1}</span>${esc(a ? a.nome : '')}</h2>${lista.length ? blocchiHtml(lista, s.compatta) : '<p class="nessuno">Nessun blocco in questa zona.</p>'}`;
+    } else {
+      const altri = tutti.filter(([b]) => !inZona.has(b.id));
+      corpo = `${conGru ? `<div class="card cbs-gru"><h2>Tocca la zona della gru</h2>${fotoGru(s, base)}
+          <div class="cbs-zbtn">${z.map((a, k) => `<a class="btn ghost${a.blocchi.length ? '' : ' disabled'}" ${a.blocchi.length ? `href="${base}/z/${a.k}"` : ''}><span class="cbs-zn">${k + 1}</span>${esc(a.nome)}<small>${a.blocchi.length}</small></a>`).join('')}</div></div>` : ''}
+        ${altri.length ? `${conGru ? '<h2 class="cbs-zt">Altri blocchi</h2>' : ''}${blocchiHtml(altri, s.compatta)}` : (tutti.length ? '' : '<p class="nessuno">La scheda è vuota.</p>')}
+        ${conGru ? `<div class="cbs-solostampa">${z.map((a, k) => { const l = tutti.filter(([b]) => a.blocchi.includes(b.id)).sort((p, q) => a.blocchi.indexOf(p[0].id) - a.blocchi.indexOf(q[0].id)); return l.length ? `<h2 class="cbs-zt"><span>${k + 1}</span>${esc(a.nome)}</h2>${blocchiHtml(l, s.compatta)}` : ''; }).join('')}</div>` : ''}`;
+    }
     el.innerHTML = `
       <section class="cbs cbs-scheda">
-        <div class="card sg2-testa"><div class="grow"><h1>${esc(s.nome || 'Senza nome')}</h1>
-          <p class="muted small">${(s.blocchi || []).length} blocchi${s.agg?.il ? ' · modificata il ' + quando(s.agg.il) + (s.agg.da ? ' da ' + esc(s.agg.da) : '') : ''}</p></div>
-          ${puoModificare() ? UI.menu([{ t: '✏️ Modifica', href: `#/cablaggio/s/${id}/modifica` }, { t: '⧉ Duplica', id: 'csDup' }, { t: '🗑 Elimina scheda', id: 'csDel', cls: 'txt-ko' }]) : ''}</div>
-        ${puoModificare() ? `<a class="btn ghost cbs-modbtn" href="#/cablaggio/s/${id}/modifica">✏️ Modifica la scheda</a>` : ''}
-        ${(s.blocchi || []).length ? `<div class="cbs-blocchi">${s.blocchi.map((b, i) => bloccoHtml(b, i, false)).join('')}</div>` : '<p class="nessuno">La scheda è vuota.</p>'}
+        <div class="card sg2-testa"><div class="grow"><h1>${esc(s.nome || 'Senza nome')}${zona ? '' : ''}</h1>
+          <p class="muted small">${(s.blocchi || []).length} blocchi${s.gru ? ' · ' + s.gru.toUpperCase() : ''}${s.agg?.il ? ' · modificata il ' + quando(s.agg.il) + (s.agg.da ? ' da ' + esc(s.agg.da) : '') : ''}</p></div>
+          ${puoModificare() ? UI.menu([{ t: '✏️ Modifica', href: `${base}/modifica` }, { t: '⧉ Duplica', id: 'csDup' }, { t: '🗑 Elimina scheda', id: 'csDel', cls: 'txt-ko' }]) : ''}</div>
+        <div class="cbs-azioni no-print">
+          ${puoModificare() ? `<a class="btn ghost" href="${base}/modifica">✏️ Modifica</a>` : ''}
+          <button type="button" class="btn ghost" id="csComp" title="Riordina i blocchi per occupare meno spazio">${s.compatta ? '▤ In ordine' : '▦ Compatta'}</button>
+          <button type="button" class="btn ghost" id="csStampa">🖨 Stampa</button></div>
+        <h1 class="cbs-stit">${esc(s.nome || '')}${zona ? ' · ' + esc((z.find((x) => x.k === zona) || {}).nome || '') : ''}</h1>
+        ${corpo}
       </section>`;
+    legaLettura(el, s);
+    el.querySelector('#csComp').onclick = async () => {
+      const d = clona(s); d.compatta = !s.compatta;
+      if (UT.solaLettura() || !puoModificare()) { s.compatta = d.compatta; App.ridisegna(); return; }   // chi non modifica: solo su questo schermo
+      await UI.salva('impostazioni', d); App.ridisegna();
+    };
+    el.querySelector('#csStampa').onclick = () => stampa(s.nome + (zona ? '_' + zona : ''));
     el.querySelector('#csDup')?.addEventListener('click', async () => {
-      const d = clona(s); d.id = 'cab-' + uid(); d.nome = (s.nome || '') + ' (COPIA)'; d.blocchi.forEach((b) => (b.id = uid())); d.agg = { il: new Date().toISOString(), da: UT.breve(UT.attuale()) };
+      const d = clona(s), mappa = {}; d.id = 'cab-' + uid(); d.nome = (s.nome || '') + ' (COPIA)';
+      d.blocchi.forEach((b) => { const n = uid(); mappa[b.id] = n; b.id = n; });
+      d.blocchi.forEach((b) => { if (b.morsId) b.morsId = mappa[b.morsId] || ''; });
+      (d.aree || []).forEach((a) => (a.blocchi = a.blocchi.map((x) => mappa[x]).filter(Boolean)));
+      d.agg = { il: new Date().toISOString(), da: UT.breve(UT.attuale()) };
       await UI.salva('impostazioni', d); UI.toast('Scheda duplicata', 'ok'); location.hash = `#/cablaggio/s/${d.id}/modifica`;
     });
     el.querySelector('#csDel')?.addEventListener('click', async () => {
       if (!UI.conferma(`Eliminare la scheda «${s.nome}»?\n\nNon si potrà recuperare.`)) return;
       await Backend.remove('impostazioni', s.id); UT.registra?.('elimina', 'Scheda di cablaggio ' + s.nome); UI.toast('Scheda eliminata'); location.hash = '#/cablaggio';
     });
-    return { titolo: 'Configuratore cablaggio', indietro: '#/cablaggio', live: true };
+    return { titolo: zona ? (z.find((x) => x.k === zona) || {}).nome || 'Zona' : 'Configuratore cablaggio', indietro: zona ? base : '#/cablaggio', live: true };
   }
 
   // ---------- SCHEDA: modifica ----------
@@ -260,16 +400,24 @@ window.CABS = (function () {
     const orig = S.impostazioni.find((d) => d.id === id);
     if (!orig) { el.innerHTML = '<p class="nessuno">Scheda non trovata.</p>'; return { titolo: 'Configuratore cablaggio', indietro: '#/cablaggio' }; }
     if (!puoModificare()) { location.hash = `#/cablaggio/s/${id}`; return null; }
-    const bz = clona(orig); bz.blocchi = bz.blocchi || [];
+    const bz = clona(orig); bz.blocchi = bz.blocchi || []; bz.aree = zoneDi(bz);
+    try { const m = JSON.parse((S.impostazioni.find((x) => x.id === 'modificheCablaggio') || {}).json || '{}'); const v = m['misia/scatola-derivazione']; SCAT_VECCHI = v && v.scatola && v.scatola.pressacavi ? v.scatola : null; } catch (e) { SCAT_VECCHI = null; }
     let sporco = false;
     App.proteggi(() => sporco);
     const segna = () => { sporco = true; const b = el.querySelector('#csSalva'); if (b) b.classList.add('pulsa'); };
     const imposta = (p, v) => { const k = p.split('.'); let o = { b: bz.blocchi }; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = v; };
+    // disegno della gru e zone: nome modificabile, blocchi da mettere dentro (un blocco sta in una zona sola)
+    const gruHtml = () => `<div class="card cbs-gruc"><label>Disegno della gru<select id="csGru">${[['', 'Nessuno'], ['monotrave', 'Monotrave'], ['bitrave', 'Bitrave']].map(([v, t]) => `<option value="${v}" ${bz.gru === v || (!bz.gru && !v) ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
+      ${PUNTI[bz.gru] ? `${fotoGru(bz, '')}<p class="muted small">Dai il nome alle zone e tocca i blocchi da mettere dentro ciascuna. Un blocco sta in una zona sola; quelli in nessuna zona si vedono sotto la foto.</p>
+        ${bz.aree.map((a, k) => `<div class="cbs-zed"><div class="cbs-zedt"><span class="cbs-zn">${k + 1}</span><input class="cbs-in cbs-zin" data-z="${k}" value="${esc(a.nome)}" autocomplete="off"></div>
+          <div class="cbs-chips">${bz.blocchi.map((b) => { const dove = bz.aree.findIndex((x) => x.blocchi.includes(b.id)); return `<button type="button" class="cbs-chip${dove === k ? ' on' : dove >= 0 ? ' altrove' : ''}" data-zb="${k}.${b.id}" title="${dove >= 0 && dove !== k ? 'Ora è nella zona ' + (dove + 1) : ''}">${dove >= 0 && dove !== k ? `<i>${dove + 1}</i>` : ''}${esc(b.titolo || NOME_TIPO[b.tipo])}</button>`; }).join('') || '<span class="muted small">Prima aggiungi dei blocchi.</span>'}</div></div>`).join('')}` : ''}</div>`;
     const disegna = (scorriA) => {
+      BLOCCHI_ORA = bz.blocchi;
       el.innerHTML = `
         <section class="cbs cbs-scheda cbs-mod">
           <div class="card"><label>Nome della scheda<input id="csNome" class="cbs-nome" value="${esc(bz.nome || '')}" autocomplete="off"></label>
             <p class="muted small">Scrivi direttamente nelle caselle. ⚙ cambia la struttura del blocco (poli, colonne, orientamento), ↑ ↓ lo spostano.</p></div>
+          ${gruHtml()}
           <div class="cbs-blocchi">${bz.blocchi.map((b, i) => bloccoHtml(b, i, true)).join('') || '<p class="nessuno">Nessun blocco: aggiungine uno qui sotto.</p>'}</div>
           <div class="cbs-agg"><span>Aggiungi un blocco</span>
             <button type="button" class="btn ghost" data-nuovo="conn">🔌 Presa / spina</button>
@@ -277,6 +425,7 @@ window.CABS = (function () {
             <button type="button" class="btn ghost" data-nuovo="cavo">〰 Cavo</button>
             <button type="button" class="btn ghost" data-nuovo="puls">🎛 Pulsantiera</button>
             <button type="button" class="btn ghost" data-nuovo="mors">▥ Morsettiera</button>
+            <button type="button" class="btn ghost" data-nuovo="scat">📦 Scatola di derivazione</button>
             ${schede(S).some((x) => x.id !== id && (x.blocchi || []).length) ? '<button type="button" class="btn ghost cbs-copia" id="csCopia">⧉ Copia blocchi da un\'altra scheda</button>' : ''}</div>
           <div class="azioni-form cbs-salvabar"><a class="btn ghost" href="#/cablaggio/s/${id}">Chiudi</a><span class="grow"></span><button type="button" class="btn" id="csSalva">💾 Salva</button></div>
         </section>`;
@@ -301,6 +450,14 @@ window.CABS = (function () {
       el.querySelector('#csSalva').onclick = salva;
       el.querySelectorAll('[data-pd]').forEach((c) => legaPuls(+c.dataset.pd));
       el.querySelectorAll('[data-md]').forEach((c) => legaMors(+c.dataset.md));
+      el.querySelectorAll('[data-sdb]').forEach((x) => { const i = +x.dataset.sdb; legaScat(x, bz.blocchi[i], i, true, (p, v) => { imposta(p, v); segna(); }); });
+      const sg = el.querySelector('#csGru'); sg.onchange = () => { bz.gru = sg.value; segna(); disegna(); el.querySelector('.cbs-gruc')?.scrollIntoView({ block: 'start' }); };
+      el.querySelectorAll('.cbs-zin').forEach((x) => (x.oninput = () => { const p0 = x.selectionStart; x.value = x.value.toUpperCase(); x.setSelectionRange(p0, p0); bz.aree[+x.dataset.z].nome = x.value; segna(); }));
+      el.querySelectorAll('[data-zb]').forEach((x) => (x.onclick = () => {
+        const [k, bid] = [+x.dataset.zb.split('.')[0], x.dataset.zb.split('.').slice(1).join('.')], era = bz.aree[k].blocchi.includes(bid);
+        bz.aree.forEach((a) => (a.blocchi = a.blocchi.filter((y) => y !== bid))); if (!era) bz.aree[k].blocchi.push(bid);
+        segna(); const y = scrollY; disegna(); scrollTo(0, y);
+      }));
       el.querySelectorAll('[data-padd]').forEach((x) => (x.onclick = () => { const b = bz.blocchi[+x.dataset.padd]; const t = { id: uid(), nome: 'P' + (b.tasti.length + 1), schema: '', filo: '', tipo: 'NO', schemaSotto: '', filoSotto: '' }; b.tasti.push(t); PSEL = t.id; segna(); disegna(b.id); }));
       if (scorriA) { const t = el.querySelector('#cb-' + scorriA); if (t) t.scrollIntoView({ block: 'center' }); }
     };
@@ -433,17 +590,20 @@ window.CABS = (function () {
         document.addEventListener('pointermove', muovi); document.addEventListener('pointerup', fine); document.addEventListener('pointercancel', fine);
       }
       lega();
+      box.addEventListener('cbs-rid', tutto);
     }
     // tutte le scritte in maiuscolo (non gli identificativi interni)
     const maiuscolo = (o) => {
       if (Array.isArray(o)) return o.map((x) => (typeof x === 'string' ? x.toUpperCase() : maiuscolo(x)));
       if (!o || typeof o !== 'object') return o;
-      const salta = new Set(['id', 'tipo', 'orient', 'c', 'agg', ...('da' in o ? ['da', 'a'] : [])]);
+      const salta = new Set(['id', 'tipo', 'orient', 'c', 'agg', 'versione', 'morsId', ...('da' in o ? ['da', 'a'] : [])]);
       Object.keys(o).forEach((k) => { if (salta.has(k)) return; o[k] = typeof o[k] === 'string' ? o[k].toUpperCase() : maiuscolo(o[k]); });
       return o;
     };
     async function salva() {
       bz.blocchi = maiuscolo(bz.blocchi); bz.nome = String(bz.nome || '').toUpperCase();
+      const ids = new Set(bz.blocchi.map((b) => b.id)); bz.aree = bz.aree.map((a) => ({ k: a.k, nome: String(a.nome || '').toUpperCase(), blocchi: a.blocchi.filter((x) => ids.has(x)) }));
+      bz.blocchi.forEach((b) => { if (b.morsId && !ids.has(b.morsId)) b.morsId = ''; });
       if (!String(bz.nome || '').trim()) { UI.toast('Scrivi il nome della scheda'); el.querySelector('#csNome').focus(); return; }
       bz.agg = { il: new Date().toISOString(), da: UT.breve(UT.attuale()) };
       try { await UI.salva('impostazioni', clona(bz)); } catch (e) { return; }
@@ -475,6 +635,13 @@ window.CABS = (function () {
             b.righe = b.righe.map((r) => Array.from({ length: n }, (_, k) => r[k] ?? ''));
             segna(); disegna(b.id);
           } });
+      } else if (b.tipo === 'scat') {
+        const mors = bz.blocchi.filter((x) => x.tipo === 'mors'), et = (x) => x.titolo || 'MORSETTIERA';
+        UI.modal({ titolo: 'Scatola di derivazione', infoTxt: 'Versione: cilindrico = 8 pressacavi, conico = 7 (senza il n. 3). La morsettiera scelta viene disegnata sulla guida DIN: toccando un morsetto si va alla morsettiera.',
+          valori: { versione: b.versione === 'con' ? 'Motore conico · 7 pressacavi' : 'Motore cilindrico · 8 pressacavi', mors: (mors.find((x) => x.id === b.morsId) && et(mors.find((x) => x.id === b.morsId))) || 'Nessuna' },
+          campi: [{ k: 'versione', label: 'Versione', tipo: 'select', opzioni: ['Motore cilindrico · 8 pressacavi', 'Motore conico · 7 pressacavi'] },
+            { k: 'mors', label: 'Morsettiera sulla guida DIN', tipo: 'select', opzioni: ['Nessuna', ...mors.map(et)] }],
+          onSalva: (v) => { b.versione = /conico/i.test(v.versione) ? 'con' : 'cil'; const m = mors.find((x) => et(x) === v.mors); b.morsId = m ? m.id : ''; segna(); disegna(b.id); } });
       } else if (b.tipo === 'mors') {
         UI.toast('Nella morsettiera: tocca un morsetto per nome e tipo, «🔗 Ponticelli» per unirli, ⠿ per spostarli');
       } else if (b.tipo === 'puls') {
@@ -506,6 +673,15 @@ window.CABS = (function () {
         } });
     }
     function nuovoBlocco(tipo) {
+      if (tipo === 'scat') {
+        const mors = bz.blocchi.filter((x) => x.tipo === 'mors');
+        UI.modal({ titolo: 'Scatola di derivazione', infoTxt: 'La scatola dei paranchi MISIA: 3 viste da toccare (dall\'alto, lato pressacavi, lato festone) con la scheda di ogni pezzo. Le voci si scrivono in modifica.',
+          valori: { titolo: 'SCATOLA DI DERIVAZIONE', versione: 'Motore cilindrico · 8 pressacavi', mors: mors.length ? (mors[0].titolo || 'MORSETTIERA') : 'Nessuna' },
+          campi: [{ k: 'titolo', label: 'Titolo', req: true, maiuscolo: true }, { k: 'versione', label: 'Versione', tipo: 'select', opzioni: ['Motore cilindrico · 8 pressacavi', 'Motore conico · 7 pressacavi'] },
+            { k: 'mors', label: 'Morsettiera sulla guida DIN', tipo: 'select', opzioni: ['Nessuna', ...mors.map((x) => x.titolo || 'MORSETTIERA')] }],
+          onSalva: (v) => { const m = mors.find((x) => (x.titolo || 'MORSETTIERA') === v.mors); const b = NUOVO.scat({ titolo: String(v.titolo).toUpperCase(), versione: /conico/i.test(v.versione) ? 'con' : 'cil', morsId: m ? m.id : '' }); bz.blocchi.push(b); segna(); disegna(b.id); } });
+        return;
+      }
       if (tipo === 'mors') {
         UI.modal({ titolo: 'Nuova morsettiera', infoTxt: 'Dici quanti morsetti ha e il tipo di partenza. Poi tocchi ogni morsetto per dargli nome e tipo (WDU normali, WPE di terra gialloverdi), metti i ponticelli e li sposti con ⠿.',
           valori: { titolo: '', n: '20', tipo: 'WDU 2,5' },
@@ -549,7 +725,7 @@ window.CABS = (function () {
   }
 
   function route(el, S, parti) {
-    if (parti[1] === 's' && parti[2]) return parti[3] === 'modifica' ? modifica(el, S, parti[2]) : vista(el, S, parti[2]);
+    if (parti[1] === 's' && parti[2]) return parti[3] === 'modifica' ? modifica(el, S, parti[2]) : vista(el, S, parti[2], parti[3] === 'z' ? parti[4] : null);
     return elenco(el, S);
   }
   return { route, schede };
