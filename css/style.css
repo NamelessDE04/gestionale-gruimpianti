@@ -2037,21 +2037,33 @@ body.cbs-stampa .cbs-pag { width: 190mm; box-sizing: border-box; margin: 0 0 6mm
 body.cbs-stampa .cbs-ptit { display: block; font-size: 10pt; font-weight: 800; color: #5b6578; margin: 0 0 1mm; letter-spacing: .04em; }
 body.cbs-stampa .cbs-indice { display: block; margin: 4mm 0 0; padding-left: 0; list-style: none; font-size: 10pt; } body.cbs-stampa .cbs-indice li { margin: 0 0 2mm; }
 body.cbs-stampa .cbs-pag .cbs-zt { margin: 0 0 3mm; }
-body.cbs-stampa .cbs-pag .cbs-blocchi { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; align-items: start; }
-body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-puls, body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-mors, body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-scat { grid-column: 1 / -1; }
-body.cbs-stampa .cbs-pag .cbs-colonne { columns: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; align-items: start; margin-bottom: 3mm; }
+body.cbs-stampa .cbs-pag .cbs-blocchi { display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; align-items: start; }
+body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-blocco { grid-column: auto; min-width: 0; }
+body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-puls { grid-column: 1 / -1; }
+body.cbs-stampa .cbs-pfoto .cbs-pin { padding: 0 34px; box-sizing: border-box; }
+body.cbs-stampa .cbs-pag .cbs-colonne { columns: auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(330px, 1fr)); gap: 10px; align-items: start; margin-bottom: 10px; }
 body.cbs-stampa .cbs-pag .cbs-blocco { margin: 0; box-shadow: none !important; break-inside: avoid; }
 body.cbs-stampa .cbs-foto { max-width: 100%; } body.cbs-stampa .cbs-sdsvg { max-height: 150mm; }
 body.cbs-stampa .cbs-ms, body.cbs-stampa .cbs-mriga, body.cbs-stampa .cbs-pag [data-md] > div { overflow: visible !important; }
 @page cbs { size: A4 portrait; margin: 10mm; }
+@page cbsL { size: A4 landscape; margin: 10mm; }
+.cbs-solostampa { display: none; } body.cbs-stampa .cbs-solostampa { display: block; }
+body.cbs-stampa .cbs-sdsvg { max-height: none !important; }
 @media print {
   body.cbs-stampa { background: #fff; }
   body.cbs-stampa main, body.cbs-stampa .cbs-scheda { padding: 0 !important; margin: 0 !important; max-width: none !important; page: cbs; }
   body.cbs-stampa .no-print { display: none !important; }
-  body.cbs-stampa .cbs-pag { page: cbs; break-after: page; margin: 0; }
+  body.cbs-stampa .cbs-pag { page: cbs; break-before: page; margin: 0; }
+  body.cbs-stampa .cbs-pag.cbs-pagL { page: cbsL; }
   body.cbs-stampa .cbs-pag:last-of-type { break-after: auto; }
   body.cbs-stampa .cbs-scheda, body.cbs-stampa .cbs-scheda * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
 .cbs-pin { transform-origin: 0 0; }
 body.cbs-stampa .cbs-pag { overflow: hidden; break-inside: avoid; }
 body.cbs-stampa .cbs-pin { width: 190mm; }
+body.cbs-stampa .cbs-pfoto { padding: 0 !important; }
+.cbs-zn0 { background: #8a94a3; }
+/* stampa: i blocchi a colonne (riempiono i buchi), le colonne si adattano alla larghezza scelta */
+body.cbs-stampa .cbs-pag .cbs-blocchi, body.cbs-stampa .cbs-pag .cbs-colonne { display: block; columns: 300px; column-gap: 10px; margin: 0; }
+body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-blocco, body.cbs-stampa .cbs-pag .cbs-colonne > .cbs-blocco { display: inline-block; width: 100%; margin: 0 0 10px; break-inside: avoid; vertical-align: top; }
+body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-puls { column-span: all; }

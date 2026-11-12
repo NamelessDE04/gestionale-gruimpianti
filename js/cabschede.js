@@ -337,17 +337,28 @@ window.CABS = (function () {
   function legaLettura(el, s) {
     el.querySelectorAll('[data-sdb]').forEach((x) => { const i = +x.dataset.sdb; legaScat(x, s.blocchi[i], i, false); });
   }
-  // A4 verticale: ogni zona su un foglio; se una zona è più alta del foglio la si rimpicciolisce fino a farla stare
+  // Stampa A4: un foglio per zona. Per ogni foglio si prova verticale e orizzontale con varie larghezze di impaginazione
+  // e si tiene la combinazione che rende tutto più grande possibile (anche ingrandendo se c'è poco).
   function stampa(titolo) {
     const t0 = document.title; document.title = 'Cablaggio_' + String(titolo || '').replace(/[^\w\-]+/g, '_');
     document.body.classList.add('cbs-stampa');
-    const ALTO = 990;   // 277 mm utili a 96 dpi (1047 px), con margine di sicurezza
+    const FOGLIO = { P: [718, 1047], L: [1047, 718] }, SICURO = 0.96;   // 190×277 mm utili a 96 dpi
     const pagine = [...document.querySelectorAll('.cbs-scheda .cbs-pag')];
-    const pulisci = () => pagine.forEach((p) => { p.style.height = ''; const n = p.querySelector('.cbs-pin'); if (n) n.style.transform = ''; });
+    const pulisci = () => pagine.forEach((p) => { p.style.height = ''; p.style.width = ''; p.classList.remove('cbs-pagP', 'cbs-pagL'); const n = p.querySelector('.cbs-pin'); if (n) { n.style.transform = ''; n.style.width = ''; } });
     pulisci();
-    // rimpicciolisce con scale (lo zoom CSS non viene rispettato nell'impaginazione) e fissa l'altezza del foglio
-    pagine.forEach((p) => { const n = p.querySelector('.cbs-pin'); if (!n) return; const r = n.getBoundingClientRect(), f = Math.max(0.3, Math.min(1, ALTO / r.height, r.width / Math.max(r.width, n.scrollWidth)));
-      if (f < 1) { n.style.transform = `scale(${f.toFixed(3)})`; p.style.height = Math.ceil(r.height * f) + 'px'; } });
+    pagine.forEach((p) => {
+      const n = p.querySelector('.cbs-pin'); if (!n) return;
+      let best = null;
+      // si sceglie quella che riempie di più il foglio (a parità, quella con le scritte più grandi)
+      [380, 480, 600, 718, 800, 900, 1047, 1150, 1300, 1450].forEach((wd) => {
+        n.style.width = wd + 'px';
+        const w = Math.max(wd, n.scrollWidth), h = n.scrollHeight;
+        ['P', 'L'].forEach((o) => { const f = Math.min(FOGLIO[o][0] / w, FOGLIO[o][1] * SICURO / h, 3), pieno = (f * f * w * h) / (FOGLIO[o][0] * FOGLIO[o][1]);
+          if (!best || pieno > best.pieno + 0.02 || (pieno > best.pieno - 0.02 && f > best.f)) best = { f, o, wd, h, pieno }; });
+      });
+      n.style.width = best.wd + 'px'; n.style.transform = `scale(${best.f.toFixed(3)})`;
+      p.classList.add('cbs-pag' + best.o); p.style.width = FOGLIO[best.o][0] + 'px'; p.style.height = Math.floor(best.h * best.f) + 'px';
+    });
     const fine = () => { document.body.classList.remove('cbs-stampa'); pulisci(); document.title = t0; window.removeEventListener('afterprint', fine); };
     window.addEventListener('afterprint', fine);
     window.print();
@@ -365,16 +376,19 @@ window.CABS = (function () {
     const pag = (num, nome, lista) => `<div class="cbs-pag"><div class="cbs-pin"><p class="cbs-ptit">${esc(s.nome || '')}</p>
       ${nome ? `<h2 class="cbs-zt">${num ? `<span>${num}</span>` : ''}${esc(nome)}</h2>` : ''}${blocchiHtml(lista, s.compatta)}</div></div>`;
     let corpo;
-    if (zona) {
+    const altri = tutti.filter(([b]) => !inZona.has(b.id));
+    if (zona === 'altri') {
+      corpo = altri.length ? pag(0, 'Altri blocchi', altri) : '<p class="nessuno">Nessun blocco.</p>';
+    } else if (zona) {
       const a = z.find((x) => x.k === zona), lista = a ? diZona(a) : [];
       corpo = lista.length ? pag(z.indexOf(a) + 1, a.nome, lista) : '<p class="nessuno">Nessun blocco in questa zona.</p>';
+    } else if (!conGru) {
+      corpo = tutti.length ? pag(0, '', tutti) : '<p class="nessuno">La scheda è vuota.</p>';
     } else {
-      const altri = tutti.filter(([b]) => !inZona.has(b.id));
       corpo = `${conGru ? `<div class="card cbs-gru cbs-pag cbs-pfoto"><div class="cbs-pin"><p class="cbs-ptit">${esc(s.nome || '')}</p><h2>Tocca la zona della gru</h2>${fotoGru(s, base)}
-          <div class="cbs-zbtn">${z.map((a, k) => `<a class="btn ghost${a.blocchi.length ? '' : ' disabled'}" ${a.blocchi.length ? `href="${base}/z/${a.k}"` : ''}><span class="cbs-zn">${k + 1}</span>${esc(a.nome)}<small>${a.blocchi.length}</small></a>`).join('')}</div>
+          <div class="cbs-zbtn">${z.map((a, k) => `<a class="btn ghost${a.blocchi.length ? '' : ' disabled'}" ${a.blocchi.length ? `href="${base}/z/${a.k}"` : ''}><span class="cbs-zn">${k + 1}</span>${esc(a.nome)}<small>${a.blocchi.length}</small></a>`).join('')}${altri.length ? `<a class="btn ghost" href="${base}/z/altri"><span class="cbs-zn cbs-zn0">+</span>ALTRI BLOCCHI<small>${altri.length}</small></a>` : ''}</div>
           <ol class="cbs-indice">${z.filter((a) => a.blocchi.length).map((a) => `<li><b>${z.indexOf(a) + 1} · ${esc(a.nome)}</b> — ${diZona(a).map(([b]) => esc(b.titolo || NOME_TIPO[b.tipo])).join(', ')}</li>`).join('')}</ol></div></div>` : ''}
-        ${conGru ? z.map((a, k) => { const l = diZona(a); return l.length ? pag(k + 1, a.nome, l) : ''; }).join('') : ''}
-        ${altri.length ? pag(0, conGru ? 'Altri blocchi' : '', altri) : (tutti.length ? '' : '<p class="nessuno">La scheda è vuota.</p>')}`;
+        <div class="cbs-solostampa">${z.map((a, k) => { const l = diZona(a); return l.length ? pag(k + 1, a.nome, l) : ''; }).join('')}${altri.length ? pag(0, 'Altri blocchi', altri) : ''}</div>`;
     }
     el.innerHTML = `
       <section class="cbs cbs-scheda">
@@ -383,12 +397,12 @@ window.CABS = (function () {
           ${puoModificare() ? UI.menu([{ t: '✏️ Modifica', href: `${base}/modifica` }, { t: '⧉ Duplica', id: 'csDup' }, { t: '🗑 Elimina scheda', id: 'csDel', cls: 'txt-ko' }]) : ''}</div>
         <div class="cbs-azioni no-print">
           ${puoModificare() ? `<a class="btn ghost" href="${base}/modifica">✏️ Modifica</a>` : ''}
-          <button type="button" class="btn ghost" id="csComp" title="Riordina i blocchi per occupare meno spazio">${s.compatta ? '▤ In ordine' : '▦ Compatta'}</button>
+          ${zona || !conGru ? `<button type="button" class="btn ghost" id="csComp" title="Riordina i blocchi per occupare meno spazio">${s.compatta ? '▤ In ordine' : '▦ Compatta'}</button>` : ''}
           <button type="button" class="btn ghost" id="csStampa">🖨 Stampa</button></div>
         ${corpo}
       </section>`;
     legaLettura(el, s);
-    el.querySelector('#csComp').onclick = async () => {
+    const cmp = el.querySelector('#csComp'); if (cmp) cmp.onclick = async () => {
       const d = clona(s); d.compatta = !s.compatta;
       if (UT.solaLettura() || !puoModificare()) { s.compatta = d.compatta; App.ridisegna(); return; }   // chi non modifica: solo su questo schermo
       await UI.salva('impostazioni', d); App.ridisegna();
@@ -406,7 +420,7 @@ window.CABS = (function () {
       if (!UI.conferma(`Eliminare la scheda «${s.nome}»?\n\nNon si potrà recuperare.`)) return;
       await Backend.remove('impostazioni', s.id); UT.registra?.('elimina', 'Scheda di cablaggio ' + s.nome); UI.toast('Scheda eliminata'); location.hash = '#/cablaggio';
     });
-    return { titolo: zona ? (z.find((x) => x.k === zona) || {}).nome || 'Zona' : 'Configuratore cablaggio', indietro: zona ? base : '#/cablaggio', live: true };
+    return { titolo: zona === 'altri' ? 'Altri blocchi' : zona ? (z.find((x) => x.k === zona) || {}).nome || 'Zona' : 'Configuratore cablaggio', indietro: zona ? base : '#/cablaggio', live: true };
   }
 
   // ---------- SCHEDA: modifica ----------
