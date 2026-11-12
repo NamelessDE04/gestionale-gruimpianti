@@ -514,7 +514,21 @@ const CSS_SD = `
   .sd { text-align: left; }
   .sd-zona { fill: transparent; stroke: #2d6fd6; stroke-width: 2; stroke-dasharray: 7 5; cursor: pointer; } .sd-zona:hover { fill: rgba(45,111,214,.08); }
   .sd-lati { display: flex; gap: 8px; margin: 6px 0 8px; } .sd-lati .btn { flex: 1 1 0; min-height: 48px; font-size: .9rem; }
-  .sd-vista1 .sd-v svg { max-height: 70vh; } .sd-v h3, .sd-sub { text-align: left; }
+  main.sd-pag { max-width: 1100px; }
+  @media (min-width: 761px) { main.sd-pag .sd-v svg { width: 100%; height: max(420px, calc(100vh - 250px)); } }
+  .sd-top { display: none; }
+  @media (max-width: 760px) {
+    main.sd-pag { position: fixed; inset: 0; z-index: 2000; max-width: none; background: #fff; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 0 24px; display: block; }
+    main.sd-pag .sd-top { display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 2; background: #16324f; color: #fff; padding: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); font-size: 1rem; letter-spacing: .03em; }
+    main.sd-pag .sd-ind { background: rgba(255,255,255,.14); color: #fff; border: 0; border-radius: 10px; width: 42px; height: 42px; font-size: 1.6rem; line-height: 1; cursor: pointer; }
+    main.sd-pag .sd-h2 { display: none; }
+    main.sd-pag .sd-ver { margin: 10px 12px; text-align: left; }
+    main.sd-pag .sd-v { border: 0; border-radius: 0; padding: 0 4px; margin: 0 0 8px; }
+    main.sd-pag .sd-v h3, main.sd-pag .sd-sub { padding: 0 8px; }
+    main.sd-pag .sd-v svg { height: auto; }
+    main.sd-pag .sd-lati { padding: 0 8px; }
+    main.sd-pag .sd-info { margin: 0 12px; }
+  } .sd-v h3, .sd-sub { text-align: left; }
   .sd-info dt { color: #5b6578; }
   @media (max-width: 520px) { .sd-info dl { grid-template-columns: 1fr; gap: 2px; } .sd-info dd { margin-bottom: 8px; } }
 `;
@@ -755,7 +769,7 @@ function mount(container, opts) {
   const backBtn = $('back');
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
-  function render(html, keepScroll) { view.innerHTML = html; if (!keepScroll) scrollTop0(); }
+  function render(html, keepScroll) { view.classList.remove('sd-pag'); view.innerHTML = html; if (!keepScroll) scrollTop0(); }
   function go(fn) { history.push(fn); fn(); backBtn.hidden = history.length <= 1; if (history.length > 1 && opts.onPasso) { try { opts.onPasso(); } catch (e) {} } }
   // torna alla schermata di prima del modulo; false se si e' gia' alla prima
   function indietro() { if (history.length <= 1) return false; history.pop(); const prev = history[history.length - 1]; if (prev) { prev(); backBtn.hidden = history.length <= 1; } return true; }
@@ -1226,13 +1240,16 @@ function mount(container, opts) {
     const [tit, sub, vb, svg] = VISTE[vista];
     const draw = (prima) => {
       render(`
-        <h2>SCATOLA DI DERIVAZIONE</h2>
+        <div class="sd-top"><button type="button" class="sd-ind" aria-label="Indietro">‹</button><b>SCATOLA DI DERIVAZIONE</b></div>
+        <h2 class="sd-h2">SCATOLA DI DERIVAZIONE</h2>
         <p class="sd-ver">MISIA · MOTORE ${conico ? 'CONICO · 7' : 'CILINDRICO · 8'} PRESSACAVI</p>
         <div class="sd ${conico ? 'sd-conico' : ''} sd-vista${vista}">
           <section class="sd-v"><h3>${tit}</h3><p class="sd-sub">${sub}</p><svg viewBox="${vb}">${svg}</svg>
             ${vista === 1 ? `<div class="sd-lati"><button type="button" class="btn" data-vai="2">◀ LATO PRESSACAVI</button><button type="button" class="btn" data-vai="3">LATO FESTONE ▶</button></div>` : ''}</section>
           <section class="sd-info" id="sdinfo">${info()}</section>
         </div>`, !prima);
+      view.classList.add('sd-pag');   // pagina larga su PC, a tutto schermo sul telefono
+      view.querySelector('.sd-ind').onclick = () => backBtn.onclick();
       view.querySelectorAll('.sd-pz').forEach(g => g.classList.toggle('sd-on', g.dataset.id === SD_SEL));
       view.querySelectorAll('.sd-pz').forEach(g => g.onclick = () => {
         const id = g.dataset.id, mm = /^m(\d+)$/.exec(id);
