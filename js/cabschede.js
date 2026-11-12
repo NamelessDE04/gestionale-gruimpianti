@@ -92,7 +92,7 @@ window.CABS = (function () {
       <div class="cbs-sdviste">${vista(1, '32 34 502 416', '1 · Vista dall\'alto')}${vista(2, '20 20 480 300', '2 · Lato pressacavi')}${vista(3, '20 20 480 300', '3 · Lato festone')}</div></div>`,
       `<div class="sd cbs-sdw cbs-sdst cbs-sdlista${con ? ' sd-conico' : ''}">${ver}<table class="cbs-sdmat"><thead><tr><th>N.</th><th>A cosa serve</th><th>Pressacavo</th><th>Foro da fare</th><th>Lama / punzone</th></tr></thead>
         <tbody>${pc.map(([n, x]) => `<tr><td><b>${n}</b></td><td>${v(x.uso)}</td><td>${v(x.pressacavo)}</td><td>${v(x.foro)}</td><td>${v(x.lama)}</td></tr>`).join('')}</tbody></table>
-      <dl class="cbs-sdaltro"><dt>Guida DIN</dt><dd>${det('din', SD_CAMPI.din)}</dd><dt>Fori di fissaggio</dt><dd>${det('fori', SD_CAMPI.fori)}</dd><dt>Pressacavo cavo piatto</dt><dd>${det('piatto', SD_CAMPI.piatto)}</dd></dl></div>`];
+      <dl class="cbs-sdaltro"><dt>Guida DIN</dt><dd>${det('din', SD_CAMPI.din)}</dd><dt>Fori di fissaggio</dt><dd>${det('fori', SD_CAMPI.fori)}</dd><dt>Pressacavo cavo piatto</dt><dd>${det('piatto', SD_CAMPI.piatto)}</dd>${String(b.note || '').trim() ? `<dt>Note</dt><dd>${esc(String(b.note).toUpperCase()).replace(/\n/g, '<br>')}</dd>` : ''}</dl></div>`];
   }
   function scatHtml(b, i, ed) {
     const st = (SDV[b.id] = SDV[b.id] || { vista: 1, sel: null }), con = b.versione === 'con';
@@ -304,7 +304,10 @@ window.CABS = (function () {
           ${ed ? `<td><button type="button" class="cbs-mini danger" data-delr="${i}.${j}" aria-label="Togli riga" ${b.righe.length > 1 ? '' : 'disabled'}>×</button></td>` : ''}</tr>`).join('')}</table></div>
         ${ed ? `<button type="button" class="btn ghost small" data-addr="${i}">+ Riga</button>` : ''}`;
     }
-    return `<section class="cbs-blocco cbs-${b.tipo}" id="cb-${b.id}">${testa}${corpo}</section>`;
+    // note libere del blocco (in modifica sempre, in lettura e in stampa solo se scritte)
+    const note = ed ? `<label class="cbs-notebox"><span>Note</span><textarea class="cbs-in cbs-note" data-p="${bp}.note" rows="${Math.max(2, String(b.note || '').split('\n').length)}" placeholder="Scrivi qui eventuali note…" spellcheck="false">${esc(b.note || '')}</textarea></label>`
+      : (String(b.note || '').trim() ? `<div class="cbs-notebox cbs-notel"><span>Note</span><p>${esc(String(b.note).toUpperCase()).replace(/\n/g, '<br>')}</p></div>` : '');
+    return `<section class="cbs-blocco cbs-${b.tipo}" id="cb-${b.id}">${testa}${corpo}${note}</section>`;
   }
 
   // ---------- ELENCO ----------

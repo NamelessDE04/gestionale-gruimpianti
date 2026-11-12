@@ -2092,3 +2092,8 @@ body.cbs-stampa .cbs-uno .cbs-mriga, body.cbs-stampa .cbs-uno .cbs-msvg { overfl
 .cbs-sdst .cbs-sdviste { grid-template-columns: 1.25fr 1fr; }
 .cbs-sdst .cbs-sdf1 { grid-row: 1 / span 2; }
 .cbs-sdlista .cbs-sdmat { font-size: 1rem; } .cbs-sdlista .cbs-sdmat th { font-size: .85rem; } .cbs-sdlista .cbs-sdaltro { font-size: 1rem; margin-top: 10px; }
+/* note del blocco */
+.cbs-notebox { display: block; margin-top: 10px; border-top: 1px dashed #d5dce4; padding-top: 8px; }
+.cbs-notebox > span { display: block; font-size: .78rem; font-weight: 800; color: #5b6578; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 4px; }
+.cbs-blocco .cbs-in.cbs-note { display: block; width: 100%; max-width: none; min-width: 0; box-sizing: border-box; text-align: left; resize: vertical; font: inherit; font-size: .92rem; line-height: 1.35; padding: 6px 8px; min-height: 44px; }
+.cbs-notel p { margin: 0; font-weight: 700; font-size: .92rem; white-space: normal; overflow-wrap: anywhere; }
