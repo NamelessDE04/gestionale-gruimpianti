@@ -246,7 +246,7 @@ window.GHO = (function () {
               </div></div>`).join('')}</div>
           <button type="button" class="btn ghost small" id="gAddZ">+ Aggiungi mezzo</button>
 
-          <h2 class="sez-form">Piattaforme ${info('Per ogni piattaforma: quante, che tipo, per quante ore. La nostra costa 5 € all\'ora, quella loro non si conta.')}</h2>
+          <h2 class="sez-form">Piattaforme ${info('Per ogni piattaforma: quante, che tipo, per quante ore. Il tasto «Copia le ore dell\'intervento» mette le ore lavorate (senza il viaggio): es. dalle 8 alle 9 = 1 h. La nostra costa 5 € all\'ora, quella loro non si conta.')}</h2>
           <div id="gPiatt">${r.piattaforme.map((p, i) => `
             <div class="ap-tratto gho-p" data-i="${i}"><div class="ap-tratto-h">
               <div class="ap-scelte"><button type="button" data-pn="1" class="${p.nostra ? 'on' : ''}">Nostra</button><button type="button" data-pn="0" class="${p.nostra ? '' : 'on'}">Loro</button></div>
@@ -254,7 +254,7 @@ window.GHO = (function () {
               <div class="tre"><label>Quante<input data-k="qta" inputmode="numeric" value="${esc(p.qta ?? 1)}"></label>
                 <label>Tipo<input data-k="tipo" list="ghoPiatt" value="${esc(p.tipo || '')}" placeholder="es. SEMOVENTE A FORBICE"></label>
                 <label>Ore di utilizzo<input data-k="ore" inputmode="decimal" value="${esc(p.ore || '')}"></label></div>
-              <p class="gho-calc" data-pc></p></div>`).join('')}</div>
+              <div class="gho-p-azioni"><button type="button" class="btn ghost small" data-co="${i}">⏱ Copia le ore dell'intervento</button><p class="gho-calc" data-pc></p></div></div>`).join('')}</div>
           <datalist id="ghoPiatt">${[...new Set([...piattMie.map((m) => MEZ.tipoP(m)), 'MOBILE CON STABILIZZATORI', 'SEMOVENTE A FORBICE', 'SEMOVENTE ARTICOLATA', 'CINGOLATA (RAGNO)', 'SU AUTOCARRO'])].map((x) => `<option value="${esc(x)}">`).join('')}</datalist>
           <button type="button" class="btn ghost small" id="gAddP">+ Aggiungi piattaforma</button>
 
@@ -302,7 +302,7 @@ window.GHO = (function () {
       const F = f();
       F.querySelector('#gOre').innerHTML = `${r.giorni.length > 1 ? r.giorni.length + ' giorni: ' : ''}Lavoro <b>${hm(lavoro(r))}</b> + viaggio <b>${hm(viaggioTot(r))}</b> × ${nPers(r)} ${nPers(r) === 1 ? 'persona' : 'persone'} = <b>${hm(oreUomo(r))} ore</b>`;
       F.querySelectorAll('.gho-mz').forEach((b, i) => { const m = r.mezzi[i]; b.querySelector('[data-kmc]').textContent = nostro(m) ? (vp() ? `= ${euro(num(m.km) * EURO_KM)}` : 'mezzo nostro: si conta') : 'non si conta (mezzo loro)'; });
-      F.querySelectorAll('.gho-p').forEach((b, i) => { const p = r.piattaforme[i]; b.querySelector('[data-pc]').innerHTML = p.nostra ? (vp() ? `${num(p.qta) || 1} × ${num(p.ore)} h × 5 € = <b>${euro(num(p.ore) * (num(p.qta) || 1) * EURO_ORA_PIATT)}</b>` : `${num(p.qta) || 1} × ${num(p.ore)} h: si conta`) : 'piattaforma loro: non si conta'; });
+      F.querySelectorAll('.gho-p').forEach((b, i) => { const p = r.piattaforme[i]; b.querySelector('[data-pc]').innerHTML = p.nostra ? (vp() ? `${num(p.qta) || 1} × ${String(num(p.ore)).replace('.', ',')} h × 5 € = <b>${euro(num(p.ore) * (num(p.qta) || 1) * EURO_ORA_PIATT)}</b>` : `${num(p.qta) || 1} × ${String(num(p.ore)).replace('.', ',')} h: si conta`) : 'piattaforma loro: non si conta'; });
       const manca = r.materiali.filter(senzaPrezzo).length;
       F.querySelector('#gTot').innerHTML = vp() ? `Spese: viaggio ${euro(costoKm(r))} · piattaforme ${euro(costoPiatt(r))} · materiale ${euro(costoMat(r))} → <b>${euro(costoTot(r))}</b>${manca && puoPrezzi() ? ` <span class="txt-ko">· ${manca} ${manca === 1 ? 'prezzo' : 'prezzi'} da mettere</span>` : ''}`
         : '';
@@ -328,6 +328,9 @@ window.GHO = (function () {
         const d = u.data ? new Date(u.data + 'T12:00') : new Date(); d.setDate(d.getDate() + 1);
         r.giorni.push({ ...u, data: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }); disegna(); };
       F.querySelectorAll('[data-rmg]').forEach((b) => (b.onclick = () => { leggi(); r.giorni.splice(+b.dataset.rmg, 1); disegna(); }));
+      F.querySelectorAll('[data-co]').forEach((b) => (b.onclick = () => { leggi(); const h = Math.round(lavoro(r) / 60 * 100) / 100;
+        if (!h) { UI.toast('Prima scrivi gli orari dell\'intervento'); return; }
+        r.piattaforme[+b.dataset.co].ore = String(h).replace('.', ','); disegna(); UI.toast(`Messe ${String(h).replace('.', ',')} h`, 'ok'); }));
       F.querySelector('#gAddP').onclick = () => { leggi(); r.piattaforme.push({ qta: 1, tipo: '', ore: '', nostra: true }); disegna(); };
       F.querySelector('#gAddM').onclick = () => { leggi(); r.materiali.push({ codice: '', descrizione: '', qta: 1, nostro: false }); disegna(); };
       F.querySelectorAll('[data-rmp]').forEach((b) => (b.onclick = () => { leggi(); r.piattaforme.splice(+b.dataset.rmp, 1); disegna(); }));
