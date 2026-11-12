@@ -1976,3 +1976,5 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .cbs-agg .btn.cbs-copia { flex: 1 1 100%; border-style: dashed; }
 @media (max-width: 560px) { .cbs-mod .cbs-strum { gap: 3px; } .cbs-mod .cbs-mini { width: 32px; height: 32px; } }
 @media (max-width: 560px) { .cbs-mod .cbs-bt { flex-wrap: wrap; } .cbs-mod .cbs-bt .cbs-in.cbs-tit { flex: 1 1 100%; } .cbs-mod .cbs-strum { margin-left: auto; } }
+.cbs-blocco .cbs-in.cbs-tit { max-width: none; min-width: 0; }
+.cbs-fc .cbs-bt .cbs-in.cbs-tit { flex: 1 1 auto; }
