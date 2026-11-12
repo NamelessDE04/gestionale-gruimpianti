@@ -163,6 +163,7 @@ window.CABS = (function () {
           <button type="button" class="cbs-mini" data-su="${i}" aria-label="Sposta su" ${i ? '' : 'disabled'}>↑</button>
           <button type="button" class="cbs-mini" data-giu="${i}" aria-label="Sposta giù">↓</button>
           <button type="button" class="cbs-mini" data-imp="${i}" aria-label="Impostazioni del blocco">⚙</button>
+          <button type="button" class="cbs-mini" data-dupb="${i}" aria-label="Duplica il blocco" title="Duplica il blocco">⧉</button>
           <button type="button" class="cbs-mini danger" data-del="${i}" aria-label="Elimina blocco">🗑</button></div>` : ''}</div>`;
     let corpo = '';
     if (b.tipo === 'conn') {
@@ -293,6 +294,8 @@ window.CABS = (function () {
       }));
       el.querySelectorAll('[data-delr]').forEach((x) => (x.onclick = () => { const [i, j] = x.dataset.delr.split('.').map(Number); bz.blocchi[i].righe.splice(j, 1); segna(); disegna(bz.blocchi[i].id); }));
       el.querySelectorAll('[data-imp]').forEach((x) => (x.onclick = () => impostazioni(+x.dataset.imp)));
+      // duplica: la copia va subito sotto l'originale, con «(COPIA)» nel titolo
+      el.querySelectorAll('[data-dupb]').forEach((x) => (x.onclick = () => { const i = +x.dataset.dupb, c = clona(bz.blocchi[i]); c.id = uid(); c.titolo = (c.titolo || '') + ' (COPIA)'; bz.blocchi.splice(i + 1, 0, c); segna(); disegna(c.id); UI.toast('Blocco duplicato: cambia il titolo e i valori', 'ok'); }));
       el.querySelectorAll('[data-nuovo]').forEach((x) => (x.onclick = () => nuovoBlocco(x.dataset.nuovo)));
       el.querySelector('#csCopia')?.addEventListener('click', copiaDa);
       el.querySelector('#csSalva').onclick = salva;
