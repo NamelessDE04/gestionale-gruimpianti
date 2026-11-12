@@ -510,8 +510,11 @@ const CSS_SD = `
   .sd-info dl { display: grid; grid-template-columns: minmax(130px, 38%) 1fr; gap: 8px 12px; margin: 0; }
   .sd-info dt { color: var(--dim); font-size: .9rem; } .sd-info dd { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
   .sd-dd { color: #b26a00; font-weight: 600; }
-  .sd-hint { margin: 0; color: var(--dim); }
-  .sd { text-align: left; } .sd-v h3, .sd-sub { text-align: left; }
+  .sd-hint { margin: 0; color: #5b6578; }
+  .sd { text-align: left; }
+  .sd-zona { fill: transparent; stroke: #2d6fd6; stroke-width: 2; stroke-dasharray: 7 5; cursor: pointer; } .sd-zona:hover { fill: rgba(45,111,214,.08); }
+  .sd-lati { display: flex; gap: 8px; margin: 6px 0 8px; } .sd-lati .btn { flex: 1 1 0; min-height: 48px; font-size: .9rem; }
+  .sd-vista1 .sd-v svg { max-height: 70vh; } .sd-v h3, .sd-sub { text-align: left; }
   .sd-info dt { color: #5b6578; }
   @media (max-width: 520px) { .sd-info dl { grid-template-columns: 1fr; gap: 2px; } .sd-info dd { margin-bottom: 8px; } }
 `;
@@ -753,7 +756,9 @@ function mount(container, opts) {
   const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 
   function render(html, keepScroll) { view.innerHTML = html; if (!keepScroll) scrollTop0(); }
-  function go(fn) { history.push(fn); fn(); backBtn.hidden = history.length <= 1; }
+  function go(fn) { history.push(fn); fn(); backBtn.hidden = history.length <= 1; if (history.length > 1 && opts.onPasso) { try { opts.onPasso(); } catch (e) {} } }
+  // torna alla schermata di prima del modulo; false se si e' gia' alla prima
+  function indietro() { if (history.length <= 1) return false; history.pop(); const prev = history[history.length - 1]; if (prev) { prev(); backBtn.hidden = history.length <= 1; } return true; }
 
   function reset() { history = []; go(home); }
 
@@ -957,7 +962,7 @@ function mount(container, opts) {
     const pezzi = [];
     if (a.k === 'carrello' && state.marca === 'MISIA') pezzi.push({ g: { nome: 'SCATOLA DI DERIVAZIONE' }, scatola: true });   // solo per i paranchi MISIA
     gruppi.forEach(g => {
-      if (g.morsettiera) { pezzi.push({ g, morsettiera: g.morsettiera }); return; }
+      if (g.morsettiera) { if (!pezzi.some(p => p.scatola)) pezzi.push({ g, morsettiera: g.morsettiera }); return; }   // con la scatola la morsettiera si apre da li'
       g.voci.forEach(v => { const key = state.cartella + '/' + v.f; if (SCHEDE[key]) pezzi.push({ g, v, key, titolo: (v.t && etichetta(v)) || g.nome }); });
     });
     render(`
@@ -967,7 +972,7 @@ function mount(container, opts) {
       </section>`).join('')}</div>`);
     pezzi.forEach((p, i) => { if (!p.morsettiera && !p.scatola) mountScheda(view.querySelector(`[data-sch="${i}"]`), p.key, p.titolo, p.v.f, false, { inFila: true }); });
     view.querySelectorAll('[data-mors]').forEach(b => b.onclick = () => go(() => morsettieraScreen(pezzi[+b.dataset.mors].morsettiera)));
-    view.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => go(scatolaScreen));
+    view.querySelectorAll('[data-sd]').forEach(b => b.onclick = () => { SD_SEL = null; go(() => scatolaScreen(1)); });
     view.querySelectorAll('[data-vai]').forEach(b => b.onclick = () => { const t = view.querySelector('#pz' + b.dataset.vai); if (t) t.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
   }
 
@@ -1194,32 +1199,38 @@ function mount(container, opts) {
     piatto: [['uso', 'A cosa serve'], ['modello', 'Modello'], ['viti', 'Viti della flangia'], ['procedura', 'Procedura per il foro']]
   };
   let SD_SEL = null;
-  function scatolaScreen() {
+  // zone da toccare nella vista dall'alto: a sinistra i pressacavi (vista 2), a destra il pressacavo festone (vista 3)
+  const SD_ZONE = '<rect class="sd-zona" data-vai="2" x="36" y="100" width="146" height="300" rx="14"/><rect class="sd-zona" data-vai="3" x="462" y="168" width="68" height="164" rx="12"/>';
+  function scatolaScreen(vista) {
+    vista = vista || 1;
     const conico = state.motore === 'CONICO';
-    if (conico && SD_SEL === 'p3') SD_SEL = null;   // nella versione conica il 3 non c'e'
     const val = (path, v) => {
       const s = v == null ? '' : String(v);
       if (state.edit) return `<span class="ed" data-p="${esc(path)}">${esc(s) || '···'}</span>`;
       return s ? esc(s) : '<span class="sd-dd">da definire</span>';
     };
+    const ammessi = { 1: ['din', 'fori'], 2: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'], 3: ['piatto'] }[vista];
+    if (!ammessi.includes(SD_SEL) || (conico && SD_SEL === 'p3')) SD_SEL = null;
     const info = () => {
-      if (!SD_SEL) return `<p class="sd-hint">Tocca la guida DIN${conico ? ', un morsetto' : ''} o i fori di fissaggio nella vista dall'alto, un pressacavo nella vista 2 o il pressacavo del festone nella vista 3.</p>`;
+      if (!SD_SEL) return `<p class="sd-hint">${vista === 1 ? `Tocca il centro per la guida DIN${conico ? ' o un morsetto' : ''}, un angolo per i fori di fissaggio. A sinistra vai ai pressacavi, a destra al pressacavo del festone.` : vista === 2 ? 'Tocca un pressacavo.' : 'Tocca il pressacavo per cavo piatto.'}</p>`;
       const D = SCHEDE[SD_KEY].scatola, pi = /^p(\d)$/.exec(SD_SEL);
       const tipo = pi ? 'p' : SD_SEL, base = pi ? 'scatola.pressacavi.' + (pi[1] - 1) : 'scatola.' + SD_SEL, dati = pi ? D.pressacavi[pi[1] - 1] : D[SD_SEL];
       const tit = pi ? `PRESSACAVO ${pi[1]}${+pi[1] >= 7 ? ' (GRANDE)' : ''}` : { din: 'GUIDA DIN', fori: 'FORI DI FISSAGGIO DELLA SCATOLA (4)', piatto: 'PRESSACAVO PER CAVO PIATTO (FESTONE)' }[SD_SEL];
       return `<h3>${tit}</h3><dl>${SD_CAMPI[tipo].map(([k, l]) => `<dt>${l}</dt><dd>${val(base + '.' + k, dati[k])}</dd>`).join('')}</dl>`;
     };
+    const VISTE = {
+      1: ['VISTA DALL\'ALTO', 'coperchio tolto', '32 48 502 402', W.SD_SVG.v1 + SD_ZONE],
+      2: ['LATO PRESSACAVI', 'vista da dentro · lato finecorsa a sinistra', '20 20 480 300', W.SD_SVG.v2],
+      3: ['LATO PRESSACAVO FESTONE', 'vista da fuori', '20 20 480 300', W.SD_SVG.v3]
+    };
+    const [tit, sub, vb, svg] = VISTE[vista];
     const draw = (prima) => {
       render(`
         <h2>SCATOLA DI DERIVAZIONE</h2>
         <p class="sd-ver">MISIA · MOTORE ${conico ? 'CONICO · 7' : 'CILINDRICO · 8'} PRESSACAVI</p>
-        <div class="sd ${conico ? 'sd-conico' : ''}">
-          <section class="sd-v sd-a1"><h3>1 · VISTA DALL'ALTO</h3><p class="sd-sub">coperchio tolto · si toccano la guida DIN${conico ? ', i morsetti' : ''} e i fori di fissaggio</p>
-            <svg viewBox="30 40 500 410">${W.SD_SVG.v1}</svg></section>
-          <section class="sd-v sd-a2"><h3>2 · LATO PRESSACAVI</h3><p class="sd-sub">vista da dentro · tocca un pressacavo</p>
-            <svg viewBox="20 20 480 300">${W.SD_SVG.v2}</svg></section>
-          <section class="sd-v sd-a3"><h3>3 · LATO PRESSACAVO FESTONE</h3><p class="sd-sub">vista da fuori · tocca il pressacavo per cavo piatto</p>
-            <svg viewBox="20 20 480 300">${W.SD_SVG.v3}</svg></section>
+        <div class="sd ${conico ? 'sd-conico' : ''} sd-vista${vista}">
+          <section class="sd-v"><h3>${tit}</h3><p class="sd-sub">${sub}</p><svg viewBox="${vb}">${svg}</svg>
+            ${vista === 1 ? `<div class="sd-lati"><button type="button" class="btn" data-vai="2">◀ LATO PRESSACAVI</button><button type="button" class="btn" data-vai="3">LATO FESTONE ▶</button></div>` : ''}</section>
           <section class="sd-info" id="sdinfo">${info()}</section>
         </div>`, !prima);
       view.querySelectorAll('.sd-pz').forEach(g => g.classList.toggle('sd-on', g.dataset.id === SD_SEL));
@@ -1229,6 +1240,7 @@ function mount(container, opts) {
         SD_SEL = id; draw();
         const inf = $('sdinfo'); if (inf && inf.scrollIntoView) inf.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
       });
+      view.querySelectorAll('[data-vai]').forEach(z => z.onclick = () => { const n = +z.dataset.vai; SD_SEL = null; go(() => scatolaScreen(n)); });
       $('sdinfo').onclick = e => { const t = state.edit && e.target.closest ? e.target.closest('[data-p]') : null; if (t) askEdit(SD_KEY, t.dataset.p, () => draw()); };
     };
     draw(true);
@@ -1894,11 +1906,7 @@ function mount(container, opts) {
     draw();
   }
 
-  backBtn.onclick = () => {
-    history.pop();
-    const prev = history[history.length - 1];
-    if (prev) { prev(); backBtn.hidden = history.length <= 1; }
-  };
+  backBtn.onclick = () => { if (opts.onIndietro) opts.onIndietro(); else indietro(); };   // nel gestionale: come il gesto «indietro»
 
   function avvio() {
     utente = opts.utente || { nome: '', ruolo: 'operatore' };
@@ -1916,7 +1924,7 @@ function mount(container, opts) {
     primo = false;
   }
   avvio();
-  return { reset: () => reset(), destroy: () => { shadow.innerHTML = ''; } };
+  return { reset: () => reset(), indietro, destroy: () => { shadow.innerHTML = ''; } };
 
 }
 

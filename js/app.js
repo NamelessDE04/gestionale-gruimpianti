@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.46.17';
+  const VERSIONE = '0.46.18';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori', 'ghoControlli'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], ghoControlli: [], clientiCongelati: [] };
   // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
@@ -23,6 +23,15 @@ window.App = (function () {
   // una pagina con modifiche non salvate (es. controllo sottoganci) mette qui una funzione che dice se c'è qualcosa da perdere
   let guardia = null, uscita = null, hashOra = location.hash;
   const percorso = [location.hash], posizioni = {};
+  // «indietro» uguale al gesto del telefono: ogni voce della cronologia del browser ha un numero (gi).
+  // cur = voce attuale; salta = voci di moduli già chiusi (es. il modulo dopo «Salva»), da saltare tornando indietro.
+  // Le pagine con schermate interne (configuratore) aggiungono voci con passoInterno e tornano indietro con indietroInterno.
+  let cur = 0, indietroInterno = null;
+  const salta = new Set();
+  try { if (!(history.state && typeof history.state.gi === 'number')) history.replaceState({ gi: 0 }, ''); cur = history.state.gi; } catch (e) {}
+  const passoInterno = () => { cur++; try { history.pushState({ gi: cur, interno: true }, ''); } catch (e) {} };
+  const suIndietroInterno = (fn) => { indietroInterno = fn; };
+  const tornaIndietro = (alternativa) => { if (cur > 0) history.back(); else if (alternativa) location.hash = alternativa; };
   const proteggi = (fn) => { guardia = fn; };
   // una pagina che si salva da sola quando esci (es. controllo gru): fn salva e restituisce true se ci è riuscita
   const allUscita = (fn) => { uscita = fn; };
@@ -140,7 +149,7 @@ window.App = (function () {
       tit.innerHTML = `<span class="tb-data">${UI.esc(data.charAt(0).toUpperCase() + data.slice(1))}</span><span class="tb-saluto">${h < 13 ? 'Buongiorno' : h < 18 ? 'Buon pomeriggio' : 'Buonasera'}, ${UI.esc(UT.breve(io) || io.nome)}</span>`;
     } else tit.textContent = info.titolo || '';
     const back = document.getElementById('btnBack');
-    back.hidden = !info.indietro; back.onclick = () => (location.hash = info.indietro);
+    back.hidden = !info.indietro; back.onclick = () => tornaIndietro(info.indietro);   // come il gesto «indietro» del telefono
     document.body.classList.toggle('in-home', !parti.length);
     return y;
   }
@@ -195,13 +204,31 @@ window.App = (function () {
       b.innerHTML = '<b>⚠️ Limite giornaliero gratuito di Firebase finito</b><span>Puoi continuare a lavorare: quello che salvi resta su questo dispositivo e parte da solo quando il limite si azzera (alle 9:00 di mattina). Fino ad allora gli altri dispositivi non vedono le modifiche e i numeri dei rapportini restano «in arrivo».</span>';
     });
     COLLEZIONI.forEach((c) => { Backend.subscribe(c, aggiornaDati(c), erroreDati); pronti++; });
+    // voce della stessa pagina (schermata interna): la gestisce la pagina, se non ha più niente da chiudere si va oltre
+    window.addEventListener('popstate', () => {
+      if (location.hash !== hashOra) return;   // cambio di pagina: ci pensa hashchange
+      const st = history.state; if (!st || typeof st.gi !== 'number') return;
+      const ind = st.gi < cur; cur = st.gi;
+      if (!ind) return;
+      let ok = false; try { ok = !!(indietroInterno && indietroInterno()); } catch (e) {}
+      if (!ok && st.interno) history.back();
+    });
     window.addEventListener('hashchange', () => {
+      // dove sono nella cronologia: voce già vista (indietro/avanti) o voce nuova
+      const st = history.state, nuova = !(st && typeof st.gi === 'number'), prima = cur, hashPrima = hashOra;
+      if (nuova) { cur++; try { history.replaceState({ gi: cur }, ''); } catch (e) {} } else cur = st.gi;
+      if (!nuova && cur < prima && salta.has(cur)) { salta.delete(cur); hashOra = location.hash; history.back(); return; }   // modulo già chiuso: si salta
       // uscita da una pagina con modifiche non salvate (freccia dell'app, gesto indietro del telefono, link): chiedo prima
       if (uscita) { let ok = false; try { ok = uscita(); } catch (e) { console.error(e); } uscita = null; if (ok) guardia = null; }
-      if (daSalvare() && !UI.conferma('Uscire senza salvare?\n\nTutto quello che non hai salvato con «💾 Salva» andrà perso.')) { history.pushState(null, '', hashOra); return; }
+      if (daSalvare() && !UI.conferma('Uscire senza salvare?\n\nTutto quello che non hai salvato con «💾 Salva» andrà perso.')) { cur++; history.pushState({ gi: cur }, '', hashOra); return; }
       // tornando indietro (freccia dell'app o del telefono) ritrovo la pagina dov'era; in una pagina nuova si parte dall'alto
       const indietro = percorso.length > 1 && percorso[percorso.length - 2] === location.hash;
       if (indietro) percorso.pop(); else { percorso.push(location.hash); if (percorso.length > 50) percorso.shift(); }
+      // tornato alla pagina di prima con un link (es. dopo «Salva»): la voce della pagina appena chiusa e il doppione si saltano
+      if (indietro && nuova) { salta.add(prima); salta.add(prima - 1); }
+      // uscito in avanti da un modulo (nuovo/modifica) col «Salva»: tornando indietro il modulo non si riapre
+      else if (nuova && /\/(nuov[oa]|modifica|cartella-nuova)(\/|\?|$)/.test(hashPrima)) salta.add(prima);
+      indietroInterno = null;
       hashOra = location.hash;
       document.querySelectorAll('.modal-ov').forEach((m) => m.remove()); document.body.classList.remove('modal-aperto'); ridisegna();
       const y = indietro ? posizioni[location.hash] || 0 : 0;
@@ -297,7 +324,7 @@ window.App = (function () {
   document.addEventListener('DOMContentLoaded', avvio);
   // dopo lo sblocco col PIN: se mentre era bloccato sono arrivati dati nuovi ridisegno, altrimenti lascio la pagina com'è
   const ridisegnaSeServe = () => { if (document.body.classList.contains('fuori')) ridisegna(); };
-  const api = { ridisegnaSeServe, proteggi, allUscita, ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
+  const api = { passoInterno, suIndietroInterno, tornaIndietro, ridisegnaSeServe, proteggi, allUscita, ridisegna, esporta, tecnicoPredefinito, ricordaTecnico, VERSIONE, dati: () => S };
   Object.defineProperty(api, 'tecnici', { get: () => UT.nomi() });
   return api;
 })();

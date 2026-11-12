@@ -56,12 +56,16 @@ window.CAB = (function () {
         css: CSS_APP,
         modifiche: modificheSalvate(S),
         scrollTop: () => window.scrollTo({ top: 0 }),
+        // schermate interne nella cronologia: il gesto «indietro» e la freccia in alto tornano di una schermata sola
+        onPasso: () => App.passoInterno(),
+        onIndietro: () => history.back(),
         onModifica: (m) => {
           if (!UT.puo('cablaggio.modifica')) return;
           UI.salva('impostazioni', { id: 'modificheCablaggio', json: JSON.stringify(m) }).catch(() => {});
         },
         onRapporto: (r) => salvaRapporto(S, r)
       });
+      App.suIndietroInterno(() => istanza && istanza.indietro());
     }).catch(() => {
       box.innerHTML = '<p class="nessuno">Impossibile caricare il configuratore. Controlla la connessione e riprova.</p>';
     });
