@@ -37,7 +37,8 @@ window.DDT = (function () {
   const indirizzoSede = (s) => (s ? [s.indirizzo, [s.cap, s.citta].filter(Boolean).join(' ') + (s.provincia ? ' - ' + s.provincia : '')].filter((x) => x && x.trim()) : []);
   // destinatario = sede legale del cliente (se c'è in anagrafica), destinazione = la sede dove va la merce
   const legale = (c) => (c?.sedeLegale && (c.sedeLegale.indirizzo || c.sedeLegale.citta) ? c.sedeLegale : null);
-  const testoDest = (c, s, conSede) => c ? [CLI.nome(c), ...(conSede && s && (c.sedi || []).length > 1 && s.nome ? [s.nome] : []), ...indirizzoSede(!conSede && legale(c) ? legale(c) : s)].join('\n') : '';
+  // solo nome del cliente e indirizzo (il nome della sede non serve)
+  const testoDest = (c, s, conSede) => c ? [CLI.nome(c), ...indirizzoSede(!conSede && legale(c) ? legale(c) : s)].join('\n') : '';
 
   // ---------- sotto-schede «Rapportini | DDT» ----------
   const tabs = (att) => UT.puo('sez.ddt') ? `<nav class="tabs tabs-scheda tabs-rapddt"><a class="tab ${att === 'rap' ? 'on' : ''}" href="#/rapportini"><b>📝 Rapportini</b></a><a class="tab ${att === 'ddt' ? 'on' : ''}" href="#/rapportini/ddt"><b>🚚 DDT</b></a></nav>` : '';
@@ -99,8 +100,8 @@ window.DDT = (function () {
               <div class="cli-pick"><button type="button" class="cli-btn" id="btnCli">${etichettaCli()}</button>
                 <div class="cli-pop" hidden><input type="search" class="cli-q" placeholder="🔍 Cerca cliente, fornitore o sede" autocomplete="off"><div class="cli-list"></div></div></div></label>
             <div class="due">
-              <label>Destinatario<textarea name="destinatario" rows="4" placeholder="Ragione sociale e indirizzo">${esc(d.destinatario)}</textarea></label>
               <label>Destinazione<textarea name="destinazione" rows="4" placeholder="Dove va la merce">${esc(d.destinazione)}</textarea></label>
+              <label>Destinatario<textarea name="destinatario" rows="4" placeholder="Ragione sociale e indirizzo">${esc(d.destinatario)}</textarea></label>
             </div>
             <details class="rif-rap" ${d.ordine || d.offerta || d.riferimento || d.dataOrdine ? 'open' : ''}><summary>📎 Ordine, offerta e riferimento</summary>
               <div class="due"><label>Ordine n°<input name="ordine" value="${esc(d.ordine)}"></label><label>Data vs ordine<input type="date" name="dataOrdine" value="${esc(d.dataOrdine)}"></label></div>
