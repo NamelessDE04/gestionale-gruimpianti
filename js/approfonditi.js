@@ -356,7 +356,7 @@ window.APR = (function () {
         <div class="sg2-lista">${comp.map((cp, i) => `
           <div class="sg2-gi ap-gi" data-i="${i}">
             <div class="h"><span class="d">${esc(cp.t)}${tipo === 'magnete' ? `<small>${cp.sc === 'A' ? 'annuale' : 'trimestrale'}</small>` : ''}</span></div>
-            <div class="ap-bt">${COD_C.map(([k, l]) => `<button type="button" class="cod-btn" data-c="${esc(k)}" title="${l}">${esc(k)}</button>`).join('')}<button type="button" class="cod-btn ap-n" data-c="N" title="osservazione">N° oss.</button></div>
+            <div class="ap-bt">${COD_C.filter(([k]) => k !== '/').map(([k, l]) => `<button type="button" class="cod-btn" data-c="${esc(k)}" title="${l}">${esc(k)}</button>`).join('')}<button type="button" class="cod-btn ap-n" data-c="N" title="osservazione">N° oss.</button></div>
             <input class="gi-nota" data-oss placeholder="Osservazione (es. SICUREZZA ALBERO ROTTA)" value="${esc(g.righe[i].oss || '')}" hidden>
             <div class="ap-rs"><span class="muted small">R/S</span>${rs.map(([k, l]) => `<button type="button" data-rs="${k}" title="${l}">${k}</button>`).join('')}</div>
           </div>`).join('')}</div>
