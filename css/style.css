@@ -1965,3 +1965,9 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .cbs-mped .cbs-pedb { grid-column: 1 / -1; flex-wrap: wrap; } .cbs-mped .cbs-pedb .btn { flex: 0 1 auto; }
 .cbs-prow.vert .cbs-pnome { flex: 0 0 auto; }
 .cbs-prow.vert .cbs-pi.nome { width: 110px; }
+.cbs-mtarga-hit { fill: transparent; }
+.cbs-mod .cbs-mtarga-hit { cursor: text; } .cbs-mod .cbs-m:hover .cbs-mtarga { fill: #fff8dc; stroke: #f2b705; }
+.cbs-mtin { position: absolute; z-index: 5; width: 96px; height: 40px; border: 2px solid #f2b705; border-radius: 8px; background: #fff; font: inherit; font-size: 16px; font-weight: 800; text-align: center; text-transform: uppercase; box-shadow: 0 6px 18px rgba(0,0,0,.2); padding: 0; margin: 0; min-height: 0; }
+.cbs-mtarga-hit { fill: transparent; }
+.cbs-mod .cbs-mtarga-hit { cursor: text; } .cbs-mod .cbs-m:hover .cbs-mtarga { fill: #fff8dc; stroke: #f2b705; }
+.cbs-mtin { position: absolute; z-index: 5; width: 96px; height: 40px; border: 2px solid #f2b705; border-radius: 8px; background: #fff; font: inherit; font-size: 16px; font-weight: 800; text-align: center; text-transform: uppercase; box-shadow: 0 6px 18px rgba(0,0,0,.2); padding: 0; margin: 0; min-height: 0; }

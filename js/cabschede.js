@@ -40,7 +40,7 @@ window.CABS = (function () {
   };
   NUOVO.mors = (o = {}) => {
     const n = Math.max(1, Math.min(120, +o.n || 10)), tipo = MT[o.tipo] ? o.tipo : 'WDU 2,5';
-    return { id: uid(), tipo: 'mors', titolo: o.titolo || 'MORSETTIERA', morsetti: Array.from({ length: n }, (_, k) => ({ id: uid(), nome: String(k + 1), tipo, ev: false })), ponti: [] };
+    return { id: uid(), tipo: 'mors', titolo: o.titolo || 'MORSETTIERA', morsetti: Array.from({ length: n }, (_, k) => ({ id: uid(), nome: MT[tipo].pe ? 'PE' : String(k + 1), tipo, ev: false })), ponti: [] };
   };
   const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera' };
 
@@ -98,9 +98,10 @@ window.CABS = (function () {
         <rect x="${x}" y="${y}" width="${w}" height="${MH}" fill="${t.pe ? `url(#gv-${b.id})` : m.ev ? '#f7a46b' : '#e9e3d1'}" stroke="#3d3a30" stroke-width="1"/>
         ${t.pe && m.ev ? `<rect x="${x}" y="${y}" width="${w}" height="${MH}" fill="#f7a46b" opacity=".55"/>` : ''}
         ${vite(y + 16)}${vite(y + MH - 16)}
-        <rect x="${x + w * 0.16}" y="${y + 56}" width="${w * 0.68}" height="${MH - 92}" rx="1.5" fill="#fff" stroke="#9a957f" stroke-width=".6"/>
-        <text x="${cx}" y="${y + MH / 2 + 6}" transform="rotate(-90 ${cx} ${y + MH / 2 + 6})" text-anchor="middle" dominant-baseline="middle" font-size="${Math.min(11, w * 0.5)}" font-weight="800" fill="#1d2433">${esc(m.nome)}</text>
-        <rect class="cbs-msel" x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${MH - 2}"/></g>`;
+        <rect class="cbs-mtarga" x="${x + w * 0.16}" y="${y + 56}" width="${w * 0.68}" height="${MH - 92}" rx="1.5" fill="#fff" stroke="#9a957f" stroke-width=".6"/>
+        <text x="${cx}" y="${y + MH / 2 + 6}" transform="rotate(-90 ${cx} ${y + MH / 2 + 6})" text-anchor="middle" dominant-baseline="middle" font-size="${Math.min(11, w * 0.5)}" font-weight="800" fill="#1d2433" pointer-events="none">${esc(m.nome)}</text>
+        <rect class="cbs-msel" x="${x + 1}" y="${y + 1}" width="${w - 2}" height="${MH - 2}"/>
+        <rect class="cbs-mtarga-hit" data-mt="${i}" x="${x + w * 0.1}" y="${y + 50}" width="${w * 0.8}" height="${MH - 80}"/></g>`;
     });
     const livelli = [];
     (b.ponti || []).forEach((p, k) => {
@@ -360,12 +361,28 @@ window.CABS = (function () {
           nm.oninput = () => { b.morsetti.find((m) => st.sel.has(m.id)).nome = nm.value.toUpperCase(); segna(); soloSvg(); };
           nm.onkeydown = (e) => { if (e.key !== 'Enter') return; e.preventDefault(); const k = b.morsetti.findIndex((m) => st.sel.has(m.id)); if (k < b.morsetti.length - 1) { st.sel = new Set([b.morsetti[k + 1].id]); tutto(); const n = box.querySelector('[data-mnome]'); n?.focus(); n?.select(); } };
         }
-        pan.querySelectorAll('[data-mtipo]').forEach((x) => (x.onclick = () => { b.morsetti.forEach((m) => { if (st.sel.has(m.id)) m.tipo = x.dataset.mtipo; }); segna(); tutto(); }));
+        pan.querySelectorAll('[data-mtipo]').forEach((x) => (x.onclick = () => { b.morsetti.forEach((m) => { if (st.sel.has(m.id)) { m.tipo = x.dataset.mtipo; if (MT[m.tipo].pe) m.nome = 'PE'; } }); segna(); tutto(); }));
         pan.querySelector('[data-mev]')?.addEventListener('click', () => { const sc = b.morsetti.filter((m) => st.sel.has(m.id)), v = !sc.every((m) => m.ev); sc.forEach((m) => (m.ev = v)); segna(); tutto(); });
         pan.querySelector('[data-mdel]')?.addEventListener('click', () => { if (!UI.conferma(`Togliere ${st.sel.size > 1 ? st.sel.size + ' morsetti' : 'il morsetto'}?`)) return; b.morsetti = b.morsetti.filter((m) => !st.sel.has(m.id)); b.ponti = (b.ponti || []).filter((q) => !st.sel.has(q.da) && !st.sel.has(q.a)); st.sel.clear(); segna(); tutto(); });
         pan.querySelector('[data-mok]')?.addEventListener('click', () => { st.sel.clear(); tutto(); });
       }
+      // nome scritto direttamente sulla targhetta bianca (Invio = morsetto dopo)
+      function apriTarga(k) {
+        if (k < 0 || k >= b.morsetti.length) return;
+        st.modo = 'sel'; st.sel = new Set([b.morsetti[k].id]); tutto();
+        const riga = box.querySelector('.cbs-mriga'), sv = box.querySelector('.cbs-ms'), rr = riga.getBoundingClientRect(), rs = sv.getBoundingClientRect(), pos = mpos(b);
+        const inp = document.createElement('input'); inp.className = 'cbs-mtin'; inp.value = b.morsetti[k].nome || ''; inp.setAttribute('autocomplete', 'off'); inp.setAttribute('spellcheck', 'false');
+        inp.style.left = (rs.left - rr.left + pos[k].x + pos[k].w / 2 - 48) + 'px'; inp.style.top = (rs.top - rr.top + MTOP + MH / 2 - 20) + 'px';
+        riga.appendChild(inp);
+        const sc = riga.parentElement, cx = rs.left - rr.left + pos[k].x; if (cx < sc.scrollLeft + 40 || cx > sc.scrollLeft + sc.clientWidth - 60) sc.scrollLeft = cx - sc.clientWidth / 2;
+        inp.focus({ preventScroll: true }); inp.select();
+        let via = false;
+        inp.oninput = () => { b.morsetti[k].nome = inp.value.toUpperCase(); segna(); soloSvg(); const pn = box.querySelector('[data-mnome]'); if (pn) pn.value = b.morsetti[k].nome; };
+        inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); via = true; inp.remove(); apriTarga(k + 1 < b.morsetti.length ? k + 1 : -1); } else if (e.key === 'Escape') { via = true; inp.remove(); } };
+        inp.onblur = () => { if (!via) inp.remove(); };
+      }
       function legaSvg() {
+        box.querySelectorAll('.cbs-mtarga-hit').forEach((r) => (r.onclick = (e) => { if (st.modo !== 'sel') return; e.stopPropagation(); apriTarga(+r.dataset.mt); }));
         box.querySelectorAll('.cbs-m').forEach((g) => (g.onclick = () => {
           const m = b.morsetti[+g.dataset.mi];
           if (st.modo === 'ponte') {
@@ -386,7 +403,7 @@ window.CABS = (function () {
         const mu = box.querySelector('[data-mmulti]'); if (mu) mu.onchange = () => { st.multi = mu.checked; if (!st.multi && st.sel.size > 1) st.sel = new Set([...st.sel].slice(-1)); tutto(); };
         box.querySelector('[data-madd]').onclick = () => {
           const ult = [...st.sel].pop(), k = ult ? b.morsetti.findIndex((m) => m.id === ult) + 1 : b.morsetti.length, prec = b.morsetti[k - 1];
-          const m = { id: uid(), nome: '', tipo: prec ? prec.tipo : 'WDU 2,5', ev: false }; b.morsetti.splice(k, 0, m); st.modo = 'sel'; st.sel = new Set([m.id]); segna(); tutto();
+          const tp = prec ? prec.tipo : 'WDU 2,5', m = { id: uid(), nome: MT[tp].pe ? 'PE' : '', tipo: tp, ev: false }; b.morsetti.splice(k, 0, m); st.modo = 'sel'; st.sel = new Set([m.id]); segna(); tutto();
           box.querySelector('[data-mnome]')?.focus();
         };
         box.querySelectorAll('.cbs-mpresa').forEach((h) => h.addEventListener('pointerdown', (e) => trascinaM(e, +h.dataset.mpr)));
