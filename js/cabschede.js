@@ -33,7 +33,44 @@ window.CABS = (function () {
       return { id: uid(), tipo: 'cavo', titolo: o.titolo || 'CAVO', colonne: [...cols], righe };
     }
   };
-  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo' };
+  NUOVO.puls = (o = {}) => {
+    const n = Math.max(1, Math.min(40, +o.n || 6)), nc = Math.max(0, Math.min(n, +o.nc || 0));
+    return { id: uid(), tipo: 'puls', titolo: o.titolo || 'PULSANTIERA', orient: o.orient === 'v' ? 'v' : 'o',
+      tasti: Array.from({ length: n }, (_, k) => ({ id: uid(), nome: 'P' + (k + 1), schema: '', filo: '', tipo: k < n - nc ? 'NO' : 'NC', schemaSotto: '', filoSotto: '' })) };
+  };
+  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera' };
+
+  // ---------- pulsantiera: simbolo IEC del pulsante (testa a pressione «[», tratteggio, contatto NO o NC) ----------
+  function simboloPuls(t, conNome) {
+    const nome = conNome ? `<text x="47" y="62" class="cbs-pn" transform="rotate(-90 47 62)" text-anchor="middle">${esc(t.nome)}</text>` : '';
+    const testa = `<path d="M6 50V74M6 50H2M6 74H2" class="cbs-pl"/><line x1="7" y1="62" x2="${t.tipo === 'NC' ? 31 : 24}" y2="62" class="cbs-pl cbs-pt"/>`;
+    const fili = '<line x1="28" y1="0" x2="28" y2="40" class="cbs-pl"/><line x1="28" y1="84" x2="28" y2="118" class="cbs-pl"/>';
+    const lama = t.tipo === 'NC' ? '<line x1="28" y1="40" x2="36" y2="40" class="cbs-pl"/><line x1="28" y1="84" x2="39" y2="36" class="cbs-pl"/>' : '<line x1="28" y1="84" x2="15" y2="44" class="cbs-pl"/>';
+    return `<svg viewBox="0 0 56 118" class="cbs-psym">${fili}${lama}${testa}${nome}</svg>`;
+  }
+  const cerchio = (v, ed) => (v || ed ? `<span class="cbs-cerchio${v ? '' : ' vuoto'}">${esc(v || '·')}</span>` : '<span class="cbs-cerchio nulla"></span>');
+  // il disegno dei pulsanti (orizzontale: colonne come sul foglio · verticale: una riga per pulsante)
+  let PSEL = null;   // pulsante selezionato in modifica
+  function disegnoPuls(b, i, ed) {
+    const v = b.orient === 'v';
+    return `<div class="cbs-scroll"><div class="cbs-prow ${v ? 'vert' : 'oriz'}" data-pr="${i}">${b.tasti.map((t, k) => `
+      <div class="cbs-tasto${ed && PSEL === t.id ? ' sel' : ''}" data-tk="${i}.${k}">
+        ${ed ? '<span class="cbs-presa" title="Trascina per spostare">⠿</span>' : ''}
+        ${cerchio(t.filo, ed)}<span class="cbs-pnum${t.schema ? '' : ' vuoto'}">${esc(t.schema || (ed ? '—' : ''))}</span>
+        <span class="cbs-psbox">${simboloPuls(t, !v)}</span>
+        <span class="cbs-pnum${t.schemaSotto ? '' : ' vuoto'}">${esc(t.schemaSotto || (ed ? '—' : ''))}</span>${cerchio(t.filoSotto, ed)}
+        ${v ? `<span class="cbs-pnome">${esc(t.nome)}</span>` : ''}
+      </div>`).join('')}</div></div>`;
+  }
+  function pannelloPuls(b, i) {
+    const k = b.tasti.findIndex((t) => t.id === PSEL); if (k < 0) return '';
+    const t = b.tasti[k], p = `b.${i}.tasti.${k}`;
+    const campo = (c, l, num) => `<label>${l}<input class="cbs-in cbs-pin-in" data-p="${p}.${c}" data-pv="${i}" value="${esc(t[c] || '')}" ${num ? 'inputmode="numeric"' : ''} autocomplete="off"></label>`;
+    return `<div class="cbs-ped"><h4>Pulsante ${k + 1} di ${b.tasti.length}</h4>
+      ${campo('nome', 'Nome')}${campo('filo', 'N° filo in alto (cerchiato)', true)}${campo('schema', 'N° schema in alto')}${campo('schemaSotto', 'N° schema in basso')}${campo('filoSotto', 'N° filo in basso (cerchiato)', true)}
+      <div><span class="cbs-pedl">Contatto</span><div class="cbs-ptipo"><button type="button" class="btn ghost${t.tipo === 'NO' ? ' on' : ''}" data-ptipo="${i}.${k}.NO">NO</button><button type="button" class="btn ghost${t.tipo === 'NC' ? ' on' : ''}" data-ptipo="${i}.${k}.NC">NC</button></div></div>
+      <div class="cbs-pedb"><button type="button" class="btn ghost danger" data-pdel="${i}.${k}" ${b.tasti.length > 1 ? '' : 'disabled'}>🗑 Togli</button><button type="button" class="btn ghost" data-pok>Fatto</button></div></div>`;
+  }
 
   // simbolo del contatto: NA (aperto) o NC (chiuso)
   const contatto = (c) => c === 'NC'
@@ -73,6 +110,10 @@ window.CABS = (function () {
           <td>${cella(ed, rp + '.p2', r.p2)}</td><td>${cella(ed, rp + '.b', r.b)}</td><td class="cbs-fcn">${cella(ed, rp + '.nota', r.nota, 'nota')}</td>
           ${ed ? `<td><button type="button" class="cbs-mini danger" data-delr="${i}.${j}" aria-label="Togli riga" ${b.righe.length > 1 ? '' : 'disabled'}>×</button></td>` : ''}</tr>`; }).join('')}</table></div>
         ${ed ? `<button type="button" class="btn ghost small" data-addr="${i}">+ Riga</button>` : ''}`;
+    } else if (b.tipo === 'puls') {
+      corpo = `<div data-pd="${i}">${disegnoPuls(b, i, ed)}</div>
+        ${ed ? `<p class="cbs-pnota">Tocca un pulsante per scrivere nome e numeri · tieni premuto ⠿ e trascinalo per spostarlo.</p><div data-pp="${i}">${pannelloPuls(b, i)}</div>
+          <button type="button" class="btn ghost small" data-padd="${i}">+ Pulsante</button>` : ''}`;
     } else {
       corpo = `<div class="cbs-scroll"><table class="cbs-t cbs-cavo"><tr>${b.colonne.map((c, k) => `<th>${cella(ed, `${bp}.colonne.${k}`, c, 'th')}</th>`).join('')}${ed ? '<th></th>' : ''}</tr>
         ${b.righe.map((r, j) => `<tr>${r.map((x, k) => `<td>${cella(ed, `${bp}.righe.${j}.${k}`, x)}</td>`).join('')}
@@ -89,7 +130,7 @@ window.CABS = (function () {
     const lista = tutte.filter((s) => !q || [s.nome, s.note, ...(s.blocchi || []).map((b) => b.titolo)].join(' ').toLowerCase().includes(q));
     el.innerHTML = `
       <section class="cli cbs">
-        <div class="sez-head"><h1>Configuratore cablaggio ${info('Qui crei le tue schede di cablaggio partendo da zero. Ogni scheda è fatta di blocchi: <b>presa / spina</b> (connettore a 16, 24 o 32 poli), <b>finecorsa</b> e <b>cavo</b>. La struttura la scegli tu, e anche tutto quello che c\'è scritto. Le schede valgono per tutti i dispositivi. Il vecchio configuratore è nel menu ⋯.')}</h1>
+        <div class="sez-head"><h1>Configuratore cablaggio ${info('Qui crei le tue schede di cablaggio partendo da zero. Ogni scheda è fatta di blocchi: <b>presa / spina</b> (connettore a 16, 24 o 32 poli), <b>finecorsa</b>, <b>cavo</b> e <b>pulsantiera</b>. La struttura la scegli tu, e anche tutto quello che c\'è scritto. Le schede valgono per tutti i dispositivi. Il vecchio configuratore è nel menu ⋯.')}</h1>
           ${UI.menu([{ t: '📄 Rapporti di collaudo', href: '#/cablaggio/rapporti' }, { t: '🗄 Configuratore vecchio', href: '#/cablaggio/vecchio' }])}</div>
         ${puoModificare() ? '<button type="button" class="sg2-inizia ap-nuovo" id="csNuova">＋ Nuova scheda di cablaggio</button>' : ''}
         ${tutte.length > 5 ? `<input type="search" id="csQ" class="cerca" placeholder="Cerca una scheda…" value="${esc(cerca)}">` : ''}
@@ -151,12 +192,13 @@ window.CABS = (function () {
       el.innerHTML = `
         <section class="cbs cbs-scheda cbs-mod">
           <div class="card"><label>Nome della scheda<input id="csNome" class="cbs-nome" value="${esc(bz.nome || '')}" autocomplete="off"></label>
-            <p class="muted small">Scrivi direttamente nelle caselle. ⚙ cambia la struttura del blocco (poli, colonne), ↑ ↓ lo spostano.</p></div>
+            <p class="muted small">Scrivi direttamente nelle caselle. ⚙ cambia la struttura del blocco (poli, colonne, orientamento), ↑ ↓ lo spostano.</p></div>
           <div class="cbs-blocchi">${bz.blocchi.map((b, i) => bloccoHtml(b, i, true)).join('') || '<p class="nessuno">Nessun blocco: aggiungine uno qui sotto.</p>'}</div>
           <div class="cbs-agg"><span>Aggiungi un blocco</span>
             <button type="button" class="btn ghost" data-nuovo="conn">🔌 Presa / spina</button>
             <button type="button" class="btn ghost" data-nuovo="fc">⛔ Finecorsa</button>
-            <button type="button" class="btn ghost" data-nuovo="cavo">〰 Cavo</button></div>
+            <button type="button" class="btn ghost" data-nuovo="cavo">〰 Cavo</button>
+            <button type="button" class="btn ghost" data-nuovo="puls">🎛 Pulsantiera</button></div>
           <div class="azioni-form cbs-salvabar"><a class="btn ghost" href="#/cablaggio/s/${id}">Chiudi</a><span class="grow"></span><button type="button" class="btn" id="csSalva">💾 Salva</button></div>
         </section>`;
       const nm = el.querySelector('#csNome'); nm.oninput = () => { bz.nome = nm.value.toUpperCase(); segna(); };
@@ -175,8 +217,53 @@ window.CABS = (function () {
       el.querySelectorAll('[data-imp]').forEach((x) => (x.onclick = () => impostazioni(+x.dataset.imp)));
       el.querySelectorAll('[data-nuovo]').forEach((x) => (x.onclick = () => nuovoBlocco(x.dataset.nuovo)));
       el.querySelector('#csSalva').onclick = salva;
+      el.querySelectorAll('[data-pd]').forEach((c) => legaPuls(+c.dataset.pd));
+      el.querySelectorAll('[data-padd]').forEach((x) => (x.onclick = () => { const b = bz.blocchi[+x.dataset.padd]; const t = { id: uid(), nome: 'P' + (b.tasti.length + 1), schema: '', filo: '', tipo: 'NO', schemaSotto: '', filoSotto: '' }; b.tasti.push(t); PSEL = t.id; segna(); disegna(b.id); }));
       if (scorriA) { const t = el.querySelector('#cb-' + scorriA); if (t) t.scrollIntoView({ block: 'center' }); }
     };
+    function legaPuls(i) {
+      const b = bz.blocchi[i], box = el.querySelector(`[data-pd="${i}"]`), pp = el.querySelector(`[data-pp="${i}"]`);
+      const ridisegnaDisegno = () => { box.innerHTML = disegnoPuls(b, i, true); legaTasti(); };
+      const ridisegnaPannello = () => {
+        pp.innerHTML = pannelloPuls(b, i);
+        pp.querySelectorAll('.cbs-in[data-p]').forEach((x) => (x.oninput = () => { imposta(x.dataset.p, x.value.toUpperCase()); segna(); ridisegnaDisegno(); }));
+        pp.querySelectorAll('[data-ptipo]').forEach((x) => (x.onclick = () => { const [, k, tp] = x.dataset.ptipo.split('.'); b.tasti[+k].tipo = tp; segna(); ridisegnaDisegno(); ridisegnaPannello(); }));
+        pp.querySelector('[data-pdel]')?.addEventListener('click', (e) => { const k = +e.currentTarget.dataset.pdel.split('.')[1]; if (!UI.conferma(`Togliere il pulsante «${b.tasti[k].nome}»?`)) return; b.tasti.splice(k, 1); PSEL = null; segna(); ridisegnaDisegno(); ridisegnaPannello(); });
+        pp.querySelector('[data-pok]')?.addEventListener('click', () => { PSEL = null; ridisegnaDisegno(); ridisegnaPannello(); });
+      };
+      function legaTasti() {
+        box.querySelectorAll('.cbs-tasto').forEach((c) => {
+          c.onclick = () => { const t = b.tasti[+c.dataset.tk.split('.')[1]]; PSEL = PSEL === t.id ? null : t.id; ridisegnaDisegno(); ridisegnaPannello(); const n = pp.querySelector('input'); if (n) { n.focus({ preventScroll: true }); pp.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } };
+          c.querySelector('.cbs-presa')?.addEventListener('pointerdown', (e) => trascina(e, c));
+        });
+      }
+      // trascinamento col dito o col mouse: la barretta gialla mostra dove finisce
+      function trascina(e, c) {
+        e.preventDefault(); e.stopPropagation();
+        const riga = box.querySelector('.cbs-prow'), vert = b.orient === 'v', da = +c.dataset.tk.split('.')[1], r = c.getBoundingClientRect();
+        const f = c.cloneNode(true); f.classList.add('cbs-fant'); Object.assign(f.style, { width: r.width + 'px', left: r.left + 'px', top: r.top + 'px' }); document.body.appendChild(f);
+        c.classList.add('trascina');
+        const ox = e.clientX - r.left, oy = e.clientY - r.top, ins = document.createElement('div'); ins.className = 'cbs-ins'; let dove = da;
+        const muovi = (ev) => {
+          f.style.left = (vert ? r.left : ev.clientX - ox) + 'px'; f.style.top = (vert ? ev.clientY - oy : r.top) + 'px';
+          const cols = [...riga.querySelectorAll('.cbs-tasto')]; dove = cols.length;
+          for (let k = 0; k < cols.length; k++) { const q = cols[k].getBoundingClientRect(); if (vert ? ev.clientY < q.top + q.height / 2 : ev.clientX < q.left + q.width / 2) { dove = k; break; } }
+          cols[dove] ? riga.insertBefore(ins, cols[dove]) : riga.appendChild(ins);
+          const sc = riga.parentElement, sr = sc.getBoundingClientRect();
+          if (!vert) { if (ev.clientX > sr.right - 30) sc.scrollLeft += 12; if (ev.clientX < sr.left + 30) sc.scrollLeft -= 12; }
+          else { if (ev.clientY > innerHeight - 60) scrollBy(0, 12); if (ev.clientY < 80) scrollBy(0, -12); }
+        };
+        const fine = () => {
+          document.removeEventListener('pointermove', muovi); document.removeEventListener('pointerup', fine); document.removeEventListener('pointercancel', fine);
+          f.remove(); ins.remove(); c.classList.remove('trascina');
+          const a = dove > da ? dove - 1 : dove;
+          if (a !== da) { const [t] = b.tasti.splice(da, 1); b.tasti.splice(a, 0, t); PSEL = t.id; segna(); }
+          ridisegnaDisegno(); ridisegnaPannello();
+        };
+        document.addEventListener('pointermove', muovi); document.addEventListener('pointerup', fine); document.addEventListener('pointercancel', fine);
+      }
+      legaTasti(); ridisegnaPannello();
+    }
     async function salva() {
       if (!String(bz.nome || '').trim()) { UI.toast('Scrivi il nome della scheda'); el.querySelector('#csNome').focus(); return; }
       bz.agg = { il: new Date().toISOString(), da: UT.breve(UT.attuale()) };
@@ -209,11 +296,24 @@ window.CABS = (function () {
             b.righe = b.righe.map((r) => Array.from({ length: n }, (_, k) => r[k] ?? ''));
             segna(); disegna(b.id);
           } });
+      } else if (b.tipo === 'puls') {
+        UI.modal({ titolo: 'Pulsantiera', infoTxt: 'Orizzontale: i pulsanti uno accanto all\'altro, come sul foglio. Verticale: un pulsante per riga, comodo sul telefono e per le pulsantiere lunghe.',
+          valori: { orient: b.orient === 'v' ? 'Verticale' : 'Orizzontale' }, campi: [{ k: 'orient', label: 'Orientamento', tipo: 'select', opzioni: ['Orizzontale', 'Verticale'] }],
+          onSalva: (v) => { b.orient = v.orient === 'Verticale' ? 'v' : 'o'; segna(); disegna(b.id); } });
       } else {
         UI.toast('Nel finecorsa: aggiungi o togli righe direttamente nel blocco; tocca il contatto per passare da NA a NC');
       }
     }
     function nuovoBlocco(tipo) {
+      if (tipo === 'puls') {
+        UI.modal({ titolo: 'Nuova pulsantiera', infoTxt: 'Dici quanti pulsanti ha e quanti sono NC (gli altri sono NO). Poi tocchi ogni pulsante per scrivere nome, n° schema e n° filo, e li trascini per metterli in ordine.',
+          valori: { titolo: '', n: '14', nc: '1', orient: 'Orizzontale' },
+          campi: [{ k: 'titolo', label: 'Titolo (es. SCHEMA PULSANTIERA PENSILE 18G 1,5)', req: true, maiuscolo: true },
+            { k: 'n', label: 'Quanti pulsanti', mezza: true }, { k: 'nc', label: 'Di cui NC', mezza: true },
+            { k: 'orient', label: 'Orientamento', tipo: 'select', opzioni: ['Orizzontale', 'Verticale'] }],
+          onSalva: (v) => { const b = NUOVO.puls({ titolo: String(v.titolo).toUpperCase(), n: parseInt(v.n, 10), nc: parseInt(v.nc, 10), orient: v.orient === 'Verticale' ? 'v' : 'o' }); PSEL = null; bz.blocchi.push(b); segna(); disegna(b.id); } });
+        return;
+      }
       if (tipo === 'conn') {
         UI.modal({ titolo: 'Nuova presa / spina', valori: { titolo: '', nomePin: 'PRESA', pin: '16' },
           campi: [{ k: 'titolo', label: 'Titolo (es. PRESA PULSANTIERA)', req: true, maiuscolo: true }, { k: 'nomePin', label: 'Scritta sul connettore', tipo: 'select', opzioni: ['PRESA', 'SPINA'], mezza: true },
