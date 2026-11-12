@@ -2054,7 +2054,7 @@ body.cbs-stampa .cbs-sdsvg { max-height: none !important; }
   body.cbs-stampa main, body.cbs-stampa .cbs-scheda { padding: 0 !important; margin: 0 !important; max-width: none !important; page: cbs; }
   body.cbs-stampa .no-print { display: none !important; }
   body.cbs-stampa .cbs-pag { page: cbs; break-before: page; margin: 0; }
-  body.cbs-stampa .cbs-pag.cbs-pagL { page: cbsL; }
+  body.cbs-stampa .cbs-pag.cbs-pagL, body.cbs-stampaL main, body.cbs-stampaL .cbs-scheda { page: cbsL; }
   body.cbs-stampa .cbs-pag:last-of-type { break-after: auto; }
   body.cbs-stampa .cbs-scheda, body.cbs-stampa .cbs-scheda * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
@@ -2067,3 +2067,28 @@ body.cbs-stampa .cbs-pfoto { padding: 0 !important; }
 body.cbs-stampa .cbs-pag .cbs-blocchi, body.cbs-stampa .cbs-pag .cbs-colonne { display: block; columns: 300px; column-gap: 10px; margin: 0; }
 body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-blocco, body.cbs-stampa .cbs-pag .cbs-colonne > .cbs-blocco { display: inline-block; width: 100%; margin: 0 0 10px; break-inside: avoid; vertical-align: top; }
 body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-puls { column-span: all; }
+/* stampa: fogli separati per morsettiera e scatola */
+body.cbs-stampa .cbs-soloschermo { display: none; }
+body.cbs-stampa .cbs-uno > .cbs-blocco { margin: 0; box-shadow: none !important; }
+.cbs-zt small { font-size: .8em; color: #5b6578; font-weight: 700; }
+.cbs-sdst .cbs-sdviste { display: grid; grid-template-columns: 1.35fr 1fr; grid-template-rows: auto auto; gap: 8px 12px; align-items: start; }
+.cbs-sdst .cbs-sdf { margin: 0; border: 1.5px solid #d5dae2; border-radius: 10px; padding: 6px; background: #fff; }
+.cbs-sdst .cbs-sdf1 { grid-row: 1 / span 2; }
+.cbs-sdst .cbs-sdf figcaption { font-weight: 800; font-size: .85rem; color: #16324f; margin: 0 0 4px; }
+.cbs-sdst .cbs-sdf svg { width: 100%; height: auto; display: block; }
+.cbs-sdst .sd-zona { display: none; }
+.cbs-sdmat { width: 100%; border-collapse: collapse; margin: 10px 0 6px; font-size: .85rem; }
+.cbs-sdmat th { background: #e6ebf1; text-align: left; padding: 4px 6px; font-size: .78rem; }
+.cbs-sdmat td { border-bottom: 1px solid #d5dce4; padding: 4px 6px; vertical-align: top; }
+.cbs-sdaltro { display: grid; grid-template-columns: max-content 1fr; gap: 3px 10px; margin: 0; font-size: .85rem; }
+.cbs-sdaltro dt { font-weight: 800; color: #16324f; } .cbs-sdaltro dd { margin: 0; }
+.cbs-sdst .sd-dd { color: #b26a00; }
+
+
+.cbs-sdst .cbs-sdviste { grid-template-columns: 1.3fr 1fr 1fr; grid-template-rows: auto; }
+.cbs-sdst .cbs-sdf1 { grid-row: auto; }
+body.cbs-stampa .cbs-uno .cbs-ms { height: 420px; width: auto; max-width: 100%; }
+body.cbs-stampa .cbs-uno .cbs-mriga, body.cbs-stampa .cbs-uno .cbs-msvg { overflow: visible !important; }
+.cbs-sdst .cbs-sdviste { grid-template-columns: 1.25fr 1fr; }
+.cbs-sdst .cbs-sdf1 { grid-row: 1 / span 2; }
+.cbs-sdlista .cbs-sdmat { font-size: 1rem; } .cbs-sdlista .cbs-sdmat th { font-size: .85rem; } .cbs-sdlista .cbs-sdaltro { font-size: 1rem; margin-top: 10px; }

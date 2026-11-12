@@ -80,6 +80,20 @@ window.CABS = (function () {
     });
     return h + '</g>';
   }
+  // scatola in stampa: le 3 viste insieme e l'elenco del materiale
+  function scatStampaHtml(b) {
+    const con = b.versione === 'con', D = b.dati || {}, V = window.CBS_SD || {}, v = (x) => (x ? esc(String(x).toUpperCase()) : '<span class="sd-dd">—</span>');
+    const vista = (n, vb, t) => `<figure class="cbs-sdf cbs-sdf${n}"><figcaption>${t}</figcaption><svg viewBox="${vb}">${(V['v' + n] || '').replace('{{MORS}}', n === 1 ? morsSuGuida(b) : '')}</svg></figure>`;
+    const pc = (D.pressacavi || []).map((x, k) => [k + 1, x]).filter(([n]) => !(con && n === 3));
+    const det = (k, lista) => lista.filter(([c]) => (D[k] || {})[c]).map(([c, l]) => `<b>${l}:</b> ${v(D[k][c])}`).join(' · ') || '<span class="sd-dd">da definire</span>';
+    const ver = `<p class="cbs-sdver">MISIA · MOTORE ${con ? 'CONICO · 7' : 'CILINDRICO · 8'} PRESSACAVI</p>`;
+    // due fogli: le 3 viste grandi, poi l'elenco del materiale
+    return [`<div class="sd cbs-sdw cbs-sdst${con ? ' sd-conico' : ''}">${ver}
+      <div class="cbs-sdviste">${vista(1, '32 34 502 416', '1 · Vista dall\'alto')}${vista(2, '20 20 480 300', '2 · Lato pressacavi')}${vista(3, '20 20 480 300', '3 · Lato festone')}</div></div>`,
+      `<div class="sd cbs-sdw cbs-sdst cbs-sdlista${con ? ' sd-conico' : ''}">${ver}<table class="cbs-sdmat"><thead><tr><th>N.</th><th>A cosa serve</th><th>Pressacavo</th><th>Foro da fare</th><th>Lama / punzone</th></tr></thead>
+        <tbody>${pc.map(([n, x]) => `<tr><td><b>${n}</b></td><td>${v(x.uso)}</td><td>${v(x.pressacavo)}</td><td>${v(x.foro)}</td><td>${v(x.lama)}</td></tr>`).join('')}</tbody></table>
+      <dl class="cbs-sdaltro"><dt>Guida DIN</dt><dd>${det('din', SD_CAMPI.din)}</dd><dt>Fori di fissaggio</dt><dd>${det('fori', SD_CAMPI.fori)}</dd><dt>Pressacavo cavo piatto</dt><dd>${det('piatto', SD_CAMPI.piatto)}</dd></dl></div>`];
+  }
   function scatHtml(b, i, ed) {
     const st = (SDV[b.id] = SDV[b.id] || { vista: 1, sel: null }), con = b.versione === 'con';
     const ammessi = { 1: ['din', 'fori'], 2: ['p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8'], 3: ['piatto'] }[st.vista];
@@ -343,23 +357,30 @@ window.CABS = (function () {
     const t0 = document.title; document.title = 'Cablaggio_' + String(titolo || '').replace(/[^\w\-]+/g, '_');
     document.body.classList.add('cbs-stampa');
     const FOGLIO = { P: [718, 1047], L: [1047, 718] }, SICURO = 0.96;   // 190×277 mm utili a 96 dpi
-    const pagine = [...document.querySelectorAll('.cbs-scheda .cbs-pag')];
+    const pagine = [...document.querySelectorAll('.cbs-scheda .cbs-pag')].filter((p) => !p.closest('.cbs-soloschermo'));
     const pulisci = () => pagine.forEach((p) => { p.style.height = ''; p.style.width = ''; p.classList.remove('cbs-pagP', 'cbs-pagL'); const n = p.querySelector('.cbs-pin'); if (n) { n.style.transform = ''; n.style.width = ''; } });
     pulisci();
-    pagine.forEach((p) => {
-      const n = p.querySelector('.cbs-pin'); if (!n) return;
-      let best = null;
-      // si sceglie quella che riempie di più il foglio (a parità, quella con le scritte più grandi)
-      [380, 480, 600, 718, 800, 900, 1047, 1150, 1300, 1450].forEach((wd) => {
+    // un solo orientamento per tutta la stampa (Chrome rimpicciolisce tutto se si mischiano fogli verticali e orizzontali):
+    // per ogni foglio si cerca la disposizione migliore nei due orientamenti, poi vince l'orientamento che riempie di più
+    const LARG = [380, 480, 600, 718, 800, 900, 1047, 1150, 1300, 1450];
+    const prove = pagine.map((p) => {
+      const n = p.querySelector('.cbs-pin'), best = {}; if (!n) return null;
+      LARG.forEach((wd) => {
         n.style.width = wd + 'px';
         const w = Math.max(wd, n.scrollWidth), h = n.scrollHeight;
-        ['P', 'L'].forEach((o) => { const f = Math.min(FOGLIO[o][0] / w, FOGLIO[o][1] * SICURO / h, 3), pieno = (f * f * w * h) / (FOGLIO[o][0] * FOGLIO[o][1]);
-          if (!best || pieno > best.pieno + 0.02 || (pieno > best.pieno - 0.02 && f > best.f)) best = { f, o, wd, h, pieno }; });
+        ['P', 'L'].forEach((o) => { const f = Math.min(FOGLIO[o][0] / w, FOGLIO[o][1] * SICURO / h, 3), pieno = (f * f * w * h) / (FOGLIO[o][0] * FOGLIO[o][1]), bo = best[o];
+          if (!bo || pieno > bo.pieno + 0.02 || (pieno > bo.pieno - 0.02 && f > bo.f)) best[o] = { f, wd, h, pieno }; });
       });
-      n.style.width = best.wd + 'px'; n.style.transform = `scale(${best.f.toFixed(3)})`;
-      p.classList.add('cbs-pag' + best.o); p.style.width = FOGLIO[best.o][0] + 'px'; p.style.height = Math.floor(best.h * best.f) + 'px';
+      return best;
     });
-    const fine = () => { document.body.classList.remove('cbs-stampa'); pulisci(); document.title = t0; window.removeEventListener('afterprint', fine); };
+    const tot = (o) => prove.reduce((a, x) => a + (x ? x[o].pieno : 0), 0), O = tot('L') >= tot('P') ? 'L' : 'P';
+    document.body.classList.add('cbs-stampa' + O);
+    pagine.forEach((p, k) => {
+      const n = p.querySelector('.cbs-pin'), x = prove[k] && prove[k][O]; if (!x) return;
+      n.style.width = x.wd + 'px'; n.style.transform = `scale(${x.f.toFixed(3)})`;
+      p.classList.add('cbs-pag' + O); p.style.width = FOGLIO[O][0] + 'px'; p.style.height = Math.floor(x.h * x.f) + 'px';
+    });
+    const fine = () => { document.body.classList.remove('cbs-stampa', 'cbs-stampaL', 'cbs-stampaP'); pulisci(); document.title = t0; window.removeEventListener('afterprint', fine); };
     window.addEventListener('afterprint', fine);
     window.print();
     setTimeout(fine, 1500);
@@ -375,20 +396,30 @@ window.CABS = (function () {
     const diZona = (a) => tutti.filter(([b]) => a.blocchi.includes(b.id));
     const pag = (num, nome, lista) => `<div class="cbs-pag"><div class="cbs-pin"><p class="cbs-ptit">${esc(s.nome || '')}</p>
       ${nome ? `<h2 class="cbs-zt">${num ? `<span>${num}</span>` : ''}${esc(nome)}</h2>` : ''}${blocchiHtml(lista, s.compatta)}</div></div>`;
+    // in stampa: ogni morsettiera e ogni scatola su un foglio suo, gli altri blocchi insieme
+    const testaF = (num, nome, sotto) => `<p class="cbs-ptit">${esc(s.nome || '')}</p>${nome ? `<h2 class="cbs-zt">${num ? `<span>${num}</span>` : ''}${esc(nome)}${sotto ? ` <small>· ${esc(sotto)}</small>` : ''}</h2>` : ''}`;
+    const fogli = (num, nome, lista) => {
+      const resto = lista.filter(([b]) => b.tipo !== 'mors' && b.tipo !== 'scat');
+      return (resto.length ? `<div class="cbs-pag"><div class="cbs-pin">${testaF(num, nome)}${blocchiHtml(resto, s.compatta)}</div></div>` : '')
+        + lista.filter(([b]) => b.tipo === 'mors').map(([b, i]) => `<div class="cbs-pag"><div class="cbs-pin">${testaF(num, nome)}<div class="cbs-uno">${bloccoHtml(b, i, false)}</div></div></div>`).join('')
+        + lista.filter(([b]) => b.tipo === 'scat').map(([b]) => { const [viste, mat] = scatStampaHtml(b);
+          return `<div class="cbs-pag"><div class="cbs-pin">${testaF(num, nome, b.titolo)}${viste}</div></div><div class="cbs-pag"><div class="cbs-pin">${testaF(num, nome, b.titolo + ' · MATERIALE')}${mat}</div></div>`; }).join('');
+    };
+    const conStampa = (num, nome, lista) => `<div class="cbs-soloschermo">${pag(num, nome, lista)}</div><div class="cbs-solostampa">${fogli(num, nome, lista)}</div>`;
     let corpo;
     const altri = tutti.filter(([b]) => !inZona.has(b.id));
     if (zona === 'altri') {
-      corpo = altri.length ? pag(0, 'Altri blocchi', altri) : '<p class="nessuno">Nessun blocco.</p>';
+      corpo = altri.length ? conStampa(0, 'Altri blocchi', altri) : '<p class="nessuno">Nessun blocco.</p>';
     } else if (zona) {
       const a = z.find((x) => x.k === zona), lista = a ? diZona(a) : [];
-      corpo = lista.length ? pag(z.indexOf(a) + 1, a.nome, lista) : '<p class="nessuno">Nessun blocco in questa zona.</p>';
+      corpo = lista.length ? conStampa(z.indexOf(a) + 1, a.nome, lista) : '<p class="nessuno">Nessun blocco in questa zona.</p>';
     } else if (!conGru) {
-      corpo = tutti.length ? pag(0, '', tutti) : '<p class="nessuno">La scheda è vuota.</p>';
+      corpo = tutti.length ? conStampa(0, '', tutti) : '<p class="nessuno">La scheda è vuota.</p>';
     } else {
       corpo = `${conGru ? `<div class="card cbs-gru cbs-pag cbs-pfoto"><div class="cbs-pin"><p class="cbs-ptit">${esc(s.nome || '')}</p><h2>Tocca la zona della gru</h2>${fotoGru(s, base)}
           <div class="cbs-zbtn">${z.map((a, k) => `<a class="btn ghost${a.blocchi.length ? '' : ' disabled'}" ${a.blocchi.length ? `href="${base}/z/${a.k}"` : ''}><span class="cbs-zn">${k + 1}</span>${esc(a.nome)}<small>${a.blocchi.length}</small></a>`).join('')}${altri.length ? `<a class="btn ghost" href="${base}/z/altri"><span class="cbs-zn cbs-zn0">+</span>ALTRI BLOCCHI<small>${altri.length}</small></a>` : ''}</div>
           <ol class="cbs-indice">${z.filter((a) => a.blocchi.length).map((a) => `<li><b>${z.indexOf(a) + 1} · ${esc(a.nome)}</b> — ${diZona(a).map(([b]) => esc(b.titolo || NOME_TIPO[b.tipo])).join(', ')}</li>`).join('')}</ol></div></div>` : ''}
-        <div class="cbs-solostampa">${z.map((a, k) => { const l = diZona(a); return l.length ? pag(k + 1, a.nome, l) : ''; }).join('')}${altri.length ? pag(0, 'Altri blocchi', altri) : ''}</div>`;
+        <div class="cbs-solostampa">${z.map((a, k) => { const l = diZona(a); return l.length ? fogli(k + 1, a.nome, l) : ''; }).join('')}${altri.length ? fogli(0, 'Altri blocchi', altri) : ''}</div>`;
     }
     el.innerHTML = `
       <section class="cbs cbs-scheda">
