@@ -100,7 +100,7 @@ window.CABS = (function () {
   }
   // tocchi nella scatola (vale in lettura e in modifica): rid = ridisegna solo il blocco
   function legaScat(box, b, i, ed, onInput) {
-    const st = SDV[b.id], rid = () => { box.outerHTML = scatHtml(b, i, ed); const nb = document.querySelector(`[data-sdb="${i}"]`); legaScat(nb, b, i, ed, onInput); return nb; };
+    const st = SDV[b.id], rid = () => { const t = document.createElement('div'); t.innerHTML = scatHtml(b, i, ed); const nb = t.firstElementChild; box.replaceWith(nb); legaScat(nb, b, i, ed, onInput); return nb; };
     box.querySelectorAll('[data-sdv]').forEach((x) => (x.onclick = () => { st.vista = +x.dataset.sdv; st.sel = null; rid(); }));
     box.querySelectorAll('.sd-zona').forEach((x) => (x.onclick = () => { st.vista = +x.dataset.vai; st.sel = null; rid(); }));
     box.querySelectorAll('.sd-pz').forEach((g) => g.classList.toggle('sd-on', g.dataset.id === st.sel));
@@ -108,7 +108,7 @@ window.CABS = (function () {
       e.stopPropagation();
       const mm = /^m(\d+)$/.exec(g.dataset.id);
       if (mm) {   // morsetto: si va alla morsettiera, su quel morsetto
-        const t = document.getElementById('cb-' + b.morsId); if (!t) return;
+        const t = box.closest('.cbs-pag')?.querySelector(`[id="cb-${b.morsId}"]`) || document.getElementById('cb-' + b.morsId); if (!t) return;
         const mb = BLOCCHI_ORA.find((x) => x.id === b.morsId);
         if (ed && mb) { const ms = mst(mb); ms.modo = 'sel'; ms.sel = new Set([mb.morsetti[+mm[1]].id]); const mdx = t.querySelector('[data-md]'); if (mdx) mdx.dispatchEvent(new CustomEvent('cbs-rid')); }
         t.scrollIntoView({ behavior: 'smooth', block: 'center' }); t.classList.add('cbs-lampo'); setTimeout(() => t.classList.remove('cbs-lampo'), 1400);
@@ -337,10 +337,21 @@ window.CABS = (function () {
   function legaLettura(el, s) {
     el.querySelectorAll('[data-sdb]').forEach((x) => { const i = +x.dataset.sdb; legaScat(x, s.blocchi[i], i, false); });
   }
+  // A4 verticale: ogni zona su un foglio; se una zona è più alta del foglio la si rimpicciolisce fino a farla stare
   function stampa(titolo) {
     const t0 = document.title; document.title = 'Cablaggio_' + String(titolo || '').replace(/[^\w\-]+/g, '_');
-    document.body.classList.add('cbs-stampa'); window.print();
-    setTimeout(() => { document.body.classList.remove('cbs-stampa'); document.title = t0; }, 800);
+    document.body.classList.add('cbs-stampa');
+    const ALTO = 990;   // 277 mm utili a 96 dpi (1047 px), con margine di sicurezza
+    const pagine = [...document.querySelectorAll('.cbs-scheda .cbs-pag')];
+    const pulisci = () => pagine.forEach((p) => { p.style.height = ''; const n = p.querySelector('.cbs-pin'); if (n) n.style.transform = ''; });
+    pulisci();
+    // rimpicciolisce con scale (lo zoom CSS non viene rispettato nell'impaginazione) e fissa l'altezza del foglio
+    pagine.forEach((p) => { const n = p.querySelector('.cbs-pin'); if (!n) return; const r = n.getBoundingClientRect(), f = Math.max(0.3, Math.min(1, ALTO / r.height, r.width / Math.max(r.width, n.scrollWidth)));
+      if (f < 1) { n.style.transform = `scale(${f.toFixed(3)})`; p.style.height = Math.ceil(r.height * f) + 'px'; } });
+    const fine = () => { document.body.classList.remove('cbs-stampa'); pulisci(); document.title = t0; window.removeEventListener('afterprint', fine); };
+    window.addEventListener('afterprint', fine);
+    window.print();
+    setTimeout(fine, 1500);
   }
   function vista(el, S, id, zona) {
     const s = S.impostazioni.find((d) => d.id === id);
@@ -349,17 +360,21 @@ window.CABS = (function () {
     const tutti = (s.blocchi || []).map((b, i) => [b, i]), base = `#/cablaggio/s/${id}`;
     const z = zoneDi(s), conGru = !!PUNTI[s.gru];
     const inZona = new Set(conGru ? z.flatMap((a) => a.blocchi) : []);
+    // blocchi di una zona nell'ordine della scheda (un blocco può stare in più zone)
+    const diZona = (a) => tutti.filter(([b]) => a.blocchi.includes(b.id));
+    const pag = (num, nome, lista) => `<div class="cbs-pag"><div class="cbs-pin"><p class="cbs-ptit">${esc(s.nome || '')}</p>
+      ${nome ? `<h2 class="cbs-zt">${num ? `<span>${num}</span>` : ''}${esc(nome)}</h2>` : ''}${blocchiHtml(lista, s.compatta)}</div></div>`;
     let corpo;
     if (zona) {
-      const a = z.find((x) => x.k === zona);
-      const lista = tutti.filter(([b]) => a && a.blocchi.includes(b.id)).sort((p, q) => a.blocchi.indexOf(p[0].id) - a.blocchi.indexOf(q[0].id));
-      corpo = `<h2 class="cbs-zt"><span>${z.indexOf(a) + 1}</span>${esc(a ? a.nome : '')}</h2>${lista.length ? blocchiHtml(lista, s.compatta) : '<p class="nessuno">Nessun blocco in questa zona.</p>'}`;
+      const a = z.find((x) => x.k === zona), lista = a ? diZona(a) : [];
+      corpo = lista.length ? pag(z.indexOf(a) + 1, a.nome, lista) : '<p class="nessuno">Nessun blocco in questa zona.</p>';
     } else {
       const altri = tutti.filter(([b]) => !inZona.has(b.id));
-      corpo = `${conGru ? `<div class="card cbs-gru"><h2>Tocca la zona della gru</h2>${fotoGru(s, base)}
-          <div class="cbs-zbtn">${z.map((a, k) => `<a class="btn ghost${a.blocchi.length ? '' : ' disabled'}" ${a.blocchi.length ? `href="${base}/z/${a.k}"` : ''}><span class="cbs-zn">${k + 1}</span>${esc(a.nome)}<small>${a.blocchi.length}</small></a>`).join('')}</div></div>` : ''}
-        ${altri.length ? `${conGru ? '<h2 class="cbs-zt">Altri blocchi</h2>' : ''}${blocchiHtml(altri, s.compatta)}` : (tutti.length ? '' : '<p class="nessuno">La scheda è vuota.</p>')}
-        ${conGru ? `<div class="cbs-solostampa">${z.map((a, k) => { const l = tutti.filter(([b]) => a.blocchi.includes(b.id)).sort((p, q) => a.blocchi.indexOf(p[0].id) - a.blocchi.indexOf(q[0].id)); return l.length ? `<h2 class="cbs-zt"><span>${k + 1}</span>${esc(a.nome)}</h2>${blocchiHtml(l, s.compatta)}` : ''; }).join('')}</div>` : ''}`;
+      corpo = `${conGru ? `<div class="card cbs-gru cbs-pag cbs-pfoto"><div class="cbs-pin"><p class="cbs-ptit">${esc(s.nome || '')}</p><h2>Tocca la zona della gru</h2>${fotoGru(s, base)}
+          <div class="cbs-zbtn">${z.map((a, k) => `<a class="btn ghost${a.blocchi.length ? '' : ' disabled'}" ${a.blocchi.length ? `href="${base}/z/${a.k}"` : ''}><span class="cbs-zn">${k + 1}</span>${esc(a.nome)}<small>${a.blocchi.length}</small></a>`).join('')}</div>
+          <ol class="cbs-indice">${z.filter((a) => a.blocchi.length).map((a) => `<li><b>${z.indexOf(a) + 1} · ${esc(a.nome)}</b> — ${diZona(a).map(([b]) => esc(b.titolo || NOME_TIPO[b.tipo])).join(', ')}</li>`).join('')}</ol></div></div>` : ''}
+        ${conGru ? z.map((a, k) => { const l = diZona(a); return l.length ? pag(k + 1, a.nome, l) : ''; }).join('') : ''}
+        ${altri.length ? pag(0, conGru ? 'Altri blocchi' : '', altri) : (tutti.length ? '' : '<p class="nessuno">La scheda è vuota.</p>')}`;
     }
     el.innerHTML = `
       <section class="cbs cbs-scheda">
@@ -370,7 +385,6 @@ window.CABS = (function () {
           ${puoModificare() ? `<a class="btn ghost" href="${base}/modifica">✏️ Modifica</a>` : ''}
           <button type="button" class="btn ghost" id="csComp" title="Riordina i blocchi per occupare meno spazio">${s.compatta ? '▤ In ordine' : '▦ Compatta'}</button>
           <button type="button" class="btn ghost" id="csStampa">🖨 Stampa</button></div>
-        <h1 class="cbs-stit">${esc(s.nome || '')}${zona ? ' · ' + esc((z.find((x) => x.k === zona) || {}).nome || '') : ''}</h1>
         ${corpo}
       </section>`;
     legaLettura(el, s);
@@ -408,9 +422,9 @@ window.CABS = (function () {
     const imposta = (p, v) => { const k = p.split('.'); let o = { b: bz.blocchi }; for (let i = 0; i < k.length - 1; i++) o = o[k[i]]; o[k[k.length - 1]] = v; };
     // disegno della gru e zone: nome modificabile, blocchi da mettere dentro (un blocco sta in una zona sola)
     const gruHtml = () => `<div class="card cbs-gruc"><label>Disegno della gru<select id="csGru">${[['', 'Nessuno'], ['monotrave', 'Monotrave'], ['bitrave', 'Bitrave']].map(([v, t]) => `<option value="${v}" ${bz.gru === v || (!bz.gru && !v) ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
-      ${PUNTI[bz.gru] ? `${fotoGru(bz, '')}<p class="muted small">Dai il nome alle zone e tocca i blocchi da mettere dentro ciascuna. Un blocco sta in una zona sola; quelli in nessuna zona si vedono sotto la foto.</p>
+      ${PUNTI[bz.gru] ? `${fotoGru(bz, '')}<p class="muted small">Dai il nome alle zone e tocca i blocchi da mettere dentro ciascuna. Lo stesso blocco può stare in più zone; quelli in nessuna zona finiscono in «Altri blocchi». Salvando, i blocchi si mettono in ordine di zona.</p>
         ${bz.aree.map((a, k) => `<div class="cbs-zed"><div class="cbs-zedt"><span class="cbs-zn">${k + 1}</span><input class="cbs-in cbs-zin" data-z="${k}" value="${esc(a.nome)}" autocomplete="off"></div>
-          <div class="cbs-chips">${bz.blocchi.map((b) => { const dove = bz.aree.findIndex((x) => x.blocchi.includes(b.id)); return `<button type="button" class="cbs-chip${dove === k ? ' on' : dove >= 0 ? ' altrove' : ''}" data-zb="${k}.${b.id}" title="${dove >= 0 && dove !== k ? 'Ora è nella zona ' + (dove + 1) : ''}">${dove >= 0 && dove !== k ? `<i>${dove + 1}</i>` : ''}${esc(b.titolo || NOME_TIPO[b.tipo])}</button>`; }).join('') || '<span class="muted small">Prima aggiungi dei blocchi.</span>'}</div></div>`).join('')}` : ''}</div>`;
+          <div class="cbs-chips">${bz.blocchi.map((b) => { const qui = a.blocchi.includes(b.id), alt = bz.aree.map((x, j) => (j !== k && x.blocchi.includes(b.id) ? j + 1 : 0)).filter(Boolean); return `<button type="button" class="cbs-chip${qui ? ' on' : ''}" data-zb="${k}.${b.id}">${esc(b.titolo || NOME_TIPO[b.tipo])}${alt.map((n) => `<i>${n}</i>`).join('')}</button>`; }).join('') || '<span class="muted small">Prima aggiungi dei blocchi.</span>'}</div></div>`).join('')}` : ''}</div>`;
     const disegna = (scorriA) => {
       BLOCCHI_ORA = bz.blocchi;
       el.innerHTML = `
@@ -455,7 +469,7 @@ window.CABS = (function () {
       el.querySelectorAll('.cbs-zin').forEach((x) => (x.oninput = () => { const p0 = x.selectionStart; x.value = x.value.toUpperCase(); x.setSelectionRange(p0, p0); bz.aree[+x.dataset.z].nome = x.value; segna(); }));
       el.querySelectorAll('[data-zb]').forEach((x) => (x.onclick = () => {
         const [k, bid] = [+x.dataset.zb.split('.')[0], x.dataset.zb.split('.').slice(1).join('.')], era = bz.aree[k].blocchi.includes(bid);
-        bz.aree.forEach((a) => (a.blocchi = a.blocchi.filter((y) => y !== bid))); if (!era) bz.aree[k].blocchi.push(bid);
+        if (era) bz.aree[k].blocchi = bz.aree[k].blocchi.filter((y) => y !== bid); else bz.aree[k].blocchi.push(bid);
         segna(); const y = scrollY; disegna(); scrollTo(0, y);
       }));
       el.querySelectorAll('[data-padd]').forEach((x) => (x.onclick = () => { const b = bz.blocchi[+x.dataset.padd]; const t = { id: uid(), nome: 'P' + (b.tasti.length + 1), schema: '', filo: '', tipo: 'NO', schemaSotto: '', filoSotto: '' }; b.tasti.push(t); PSEL = t.id; segna(); disegna(b.id); }));
@@ -604,6 +618,7 @@ window.CABS = (function () {
       bz.blocchi = maiuscolo(bz.blocchi); bz.nome = String(bz.nome || '').toUpperCase();
       const ids = new Set(bz.blocchi.map((b) => b.id)); bz.aree = bz.aree.map((a) => ({ k: a.k, nome: String(a.nome || '').toUpperCase(), blocchi: a.blocchi.filter((x) => ids.has(x)) }));
       bz.blocchi.forEach((b) => { if (b.morsId && !ids.has(b.morsId)) b.morsId = ''; });
+      if (PUNTI[bz.gru]) { const zi = (b) => { const k = bz.aree.findIndex((a) => a.blocchi.includes(b.id)); return k < 0 ? 99 : k; }; bz.blocchi = bz.blocchi.map((b, i) => [b, i]).sort((p, q) => zi(p[0]) - zi(q[0]) || p[1] - q[1]).map(([b]) => b); }
       if (!String(bz.nome || '').trim()) { UI.toast('Scrivi il nome della scheda'); el.querySelector('#csNome').focus(); return; }
       bz.agg = { il: new Date().toISOString(), da: UT.breve(UT.attuale()) };
       try { await UI.salva('impostazioni', clona(bz)); } catch (e) { return; }

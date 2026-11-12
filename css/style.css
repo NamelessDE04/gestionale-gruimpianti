@@ -2028,25 +2028,30 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .cbs-chip.altrove { opacity: .55; } .cbs-chip i { font-style: normal; background: #8a94a3; color: #fff; border-radius: 50%; width: 18px; height: 18px; display: inline-grid; place-items: center; font-size: .72rem; }
 .cbs-azioni { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 12px; } .cbs-azioni .btn { flex: 0 1 auto; }
 .cbs-colonne { columns: 420px; column-gap: 12px; margin-bottom: 12px; } .cbs-colonne > .cbs-blocco { break-inside: avoid; display: block; margin: 0 0 12px; width: 100%; }
-.cbs-stit { display: none; }
+.cbs-ptit { display: none; }
+.cbs-indice { display: none; }
+.cbs-chip i { margin-left: -2px; }
+/* stampa A4 verticale: un foglio per zona (lo stile vale anche a schermo mentre si misura) */
+body.cbs-stampa .cbs-azioni, body.cbs-stampa .sg2-testa, body.cbs-stampa .cbs-zbtn, body.cbs-stampa .cbs-sdtab, body.cbs-stampa .cbs-strum, body.cbs-stampa .cbs-gru h2, body.cbs-stampa .cbs-sdinfo:has(.sd-hint) { display: none !important; }
+body.cbs-stampa .cbs-pag { width: 190mm; box-sizing: border-box; margin: 0 0 6mm; padding: 0; background: #fff; border: 0; box-shadow: none; }
+body.cbs-stampa .cbs-ptit { display: block; font-size: 10pt; font-weight: 800; color: #5b6578; margin: 0 0 1mm; letter-spacing: .04em; }
+body.cbs-stampa .cbs-indice { display: block; margin: 4mm 0 0; padding-left: 0; list-style: none; font-size: 10pt; } body.cbs-stampa .cbs-indice li { margin: 0 0 2mm; }
+body.cbs-stampa .cbs-pag .cbs-zt { margin: 0 0 3mm; }
+body.cbs-stampa .cbs-pag .cbs-blocchi { display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; align-items: start; }
+body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-puls, body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-mors, body.cbs-stampa .cbs-pag .cbs-blocchi > .cbs-scat { grid-column: 1 / -1; }
+body.cbs-stampa .cbs-pag .cbs-colonne { columns: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 3mm; align-items: start; margin-bottom: 3mm; }
+body.cbs-stampa .cbs-pag .cbs-blocco { margin: 0; box-shadow: none !important; break-inside: avoid; }
+body.cbs-stampa .cbs-foto { max-width: 100%; } body.cbs-stampa .cbs-sdsvg { max-height: 150mm; }
+body.cbs-stampa .cbs-ms, body.cbs-stampa .cbs-mriga, body.cbs-stampa .cbs-pag [data-md] > div { overflow: visible !important; }
+@page cbs { size: A4 portrait; margin: 10mm; }
 @media print {
   body.cbs-stampa { background: #fff; }
-  body.cbs-stampa .cbs-azioni, body.cbs-stampa .sg2-testa, body.cbs-stampa .cbs-zbtn, body.cbs-stampa .cbs-sdtab, body.cbs-stampa .cbs-strum, body.cbs-stampa .no-print { display: none !important; }
-  body.cbs-stampa .cbs-stit { display: block; font-size: 16pt; margin: 0 0 4mm; }
-  body.cbs-stampa .cbs-blocco, body.cbs-stampa .cbs-gru, body.cbs-stampa .cbs-sdw { break-inside: avoid; page-break-inside: avoid; box-shadow: none !important; }
-  body.cbs-stampa .cbs-blocchi { display: block; } body.cbs-stampa .cbs-blocchi > .cbs-blocco { margin-bottom: 4mm; }
-  body.cbs-stampa .cbs-colonne { columns: 2; }
-  body.cbs-stampa .cbs-foto { max-width: 170mm; } body.cbs-stampa .cbs-sdsvg { max-height: 120mm; }
-  body.cbs-stampa .cbs-ms, body.cbs-stampa .cbs-mriga { overflow: visible !important; }
-}
-.cbs-azioni .btn { flex: 1 1 0; min-width: 0; white-space: nowrap; padding-left: 8px; padding-right: 8px; }
-@media (min-width: 700px) { .cbs-azioni .btn { flex: 0 1 auto; } }
-.cbs-blocchi > .cbs-scat { grid-column: 1 / -1; }
-.cbs-solostampa { display: none; }
-@media print { body.cbs-stampa .cbs-solostampa { display: block; } body.cbs-stampa .cbs-zt { break-after: avoid; } }
-@media print {
-  body.cbs-stampa .cbs-colonne { columns: auto; display: grid; grid-template-columns: 1fr 1fr; gap: 4mm; align-items: start; }
-  body.cbs-stampa .cbs-colonne > .cbs-blocco { margin: 0; }
-  body.cbs-stampa .cbs-gru > h2, body.cbs-stampa .cbs-sdinfo:has(.sd-hint) { display: none !important; }
+  body.cbs-stampa main, body.cbs-stampa .cbs-scheda { padding: 0 !important; margin: 0 !important; max-width: none !important; page: cbs; }
+  body.cbs-stampa .no-print { display: none !important; }
+  body.cbs-stampa .cbs-pag { page: cbs; break-after: page; margin: 0; }
+  body.cbs-stampa .cbs-pag:last-of-type { break-after: auto; }
   body.cbs-stampa .cbs-scheda, body.cbs-stampa .cbs-scheda * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }
+.cbs-pin { transform-origin: 0 0; }
+body.cbs-stampa .cbs-pag { overflow: hidden; break-inside: avoid; }
+body.cbs-stampa .cbs-pin { width: 190mm; }
