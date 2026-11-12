@@ -1845,3 +1845,5 @@ html.fg-aperta, html.fg-aperta body { overflow: hidden; }
 .ddt-scelte .btn { justify-content: space-between; text-align: left; white-space: normal; }
 .ddt-scelte small { font-weight: 500; opacity: .8; margin-left: 8px; }
 .ddt-scelta .modal-body { display: block; }
+.ap-fasce-cli { margin: 0 0 12px; }
+.ap-fasce-cli .fasc { height: 34px; font-size: 13px; text-transform: uppercase; }

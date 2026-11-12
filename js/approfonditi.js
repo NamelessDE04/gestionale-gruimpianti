@@ -132,20 +132,27 @@ window.APR = (function () {
     const q = (filtri[tipo] || '').toLowerCase();
     let corpo = '';
     if (T.fam === 'a') {
+      // come i sottoganci: una cartella per ogni sede del cliente, dentro i suoi attrezzi
       const anno = anno0();
-      const tutti = S.attrezzi.filter((a) => a.tipo === tipo && !CLI.sedeCongelata(S, a.sedeId));   // i clienti congelati non compaiono
-      const lista = tutti.filter((a) => !q || [a.nInterno, a.tipoDesc, a.casa, a.portata, a.nFabbrica, a.matricola, nomeCli(cliDi(S, a.sedeId))].join(' ').toLowerCase().includes(q));
+      const tutti = S.attrezzi.filter((a) => a.tipo === tipo && !CLI.sedeCongelata(S, a.sedeId));   // i clienti archiviati non compaiono
       const gruppi = {};
-      lista.forEach((a) => (gruppi[a.sedeId] = gruppi[a.sedeId] || []).push(a));
-      corpo = Object.entries(gruppi).map(([sid, arr]) => ({ c: cliDi(S, sid), arr })).sort((x, y) => nomeCli(x.c).localeCompare(nomeCli(y.c))).map(({ c, arr }) => `
-        <div class="sg2-tit">${esc(nomeCli(c))}</div>
-        <div class="sg2-lista">${arr.sort((a, b) => String(a.nInterno || '').localeCompare(String(b.nInterno || ''), 'it', { numeric: true })).map((a) => {
-          const ct = controlliAnno(S, a.id, anno), ult = ct.filter(Boolean).pop();
-          return `<a class="sg2-riga ${a.dismesso ? 'dismesso' : ''}" href="#/approfonditi/${tipo}/a/${a.id}">
-            <span class="n">${esc(a.nInterno || '–')}</span>
-            <span class="d">${esc(a.tipoDesc || T.uno)}<small>${[a.casa, a.portata, a.nFabbrica && 'n° ' + a.nFabbrica].filter(Boolean).map(esc).join(' · ')}${ult?.fuoriServizio ? ' · <b class="txt-ko">FUORI SERVIZIO</b>' : ''}</small></span>
-            <span class="ap-pallini">${SLOT.map((s, i) => `<i style="--c:${s.col}" class="${ct[i] ? (ct[i].inCorso ? 'mezzo' : 'on') : ''}" title="${s.nome}${ct[i]?.inCorso ? ' · in corso' : ''}"></i>`).join('')}</span></a>`; }).join('')}</div>`).join('')
-        || `<p class="nessuno">${tutti.length ? 'Nessun risultato.' : `Nessun${tipo === 'pinza' ? 'a pinza o gancio a C' : ' magnete'} in elenco. Aggiungi il primo con «${T.nuovo}».`}</p>`;
+      tutti.forEach((a) => (gruppi[a.sedeId] = gruppi[a.sedeId] || []).push(a));
+      const lista = Object.entries(gruppi).map(([sid, arr]) => ({ sid, c: cliDi(S, sid), arr }))
+        .filter(({ c, arr }) => !q || [nomeCli(c), c?.sigla, ...arr.flatMap((a) => [a.nInterno, a.tipoDesc, a.casa, a.portata, a.nFabbrica, a.matricola])].join(' ').toLowerCase().includes(q))
+        .sort((x, y) => nomeCli(x.c).localeCompare(nomeCli(y.c)));
+      corpo = lista.length ? `<div class="cartelle">${lista.map(({ sid, c, arr }) => {
+        const attivi = arr.filter((a) => !a.dismesso), fs = fasceSede(S, attivi, anno), st = statoSede(S, arr);
+        const fuori = attivi.filter((a) => controlliAnno(S, a.id, anno).filter(Boolean).pop()?.fuoriServizio).length;
+        return `<a class="cartella" href="#/approfonditi/${tipo}/c/${sid}">
+          <div class="cartella-ico">${c?.anagrafica?.logo ? CLI.avatar(c.anagrafica, true) : ICO_CART}</div>
+          <div class="cartella-txt">
+            <h2>${c ? UI.magnete(c.sede) + ' ' + esc(c.nome) : '(cliente)'}</h2>
+            <p class="loc">${esc(c?.localita || '')}</p>
+            <p class="muted small">${attivi.length} ${attivi.length === 1 ? T.uno : (tipo === 'pinza' ? 'pinze / ganci a C' : 'magneti')}</p>
+            <div class="fascette">${fs.map((f, i) => `<span class="fasc ${f.tutti ? 'fatto' : ''}" style="--c:${SLOT[i].col}" title="${SLOT[i].nome}">${f.tutti ? dataBreve(f.data) : f.n ? f.n + '/' + attivi.length : ''}</span>`).join('')}</div>
+            <div class="cartella-st"><span class="pill st-${st.k}">${esc(st.label)}</span>${fuori ? `<span class="pill st-scaduto">${fuori} fuori servizio</span>` : ''}</div>
+          </div></a>`; }).join('')}</div>`
+        : `<p class="nessuno">${tutti.length ? 'Nessun cliente trovato.' : `Nessun${tipo === 'pinza' ? 'a pinza o gancio a C' : ' magnete'} in elenco. Aggiungi il primo con «${T.nuovo}».`}</p>`;
     } else {
       const tutti = S.schedeApprofondite.filter((d) => d.tipo === tipo);
       const lista = tutti.filter((d) => !q || [nomeCli(cliDi(S, d.sedeId)), d.v?.gruN, d.v?.gru, d.v?.matricola, d.v?.particolare, d.v?.nInterno, d.data].join(' ').toLowerCase().includes(q))
@@ -162,15 +169,67 @@ window.APR = (function () {
     el.innerHTML = `
       <section class="sg sg2 ap">
         <div class="card sg2-testa"><div class="grow"><h1>${T.titolo}</h1>
-          <p class="muted small">${T.sotto} ${info(T.fam === 'a' ? 'Ogni attrezzo ha il suo foglio annuale con 4 colonne, una per fascetta (blu, giallo, arancio, verde). Tocca un attrezzo per fare il controllo o stampare il foglio. I pallini colorati sono i controlli già fatti quest\'anno.' : 'Ogni controllo è una scheda: tocca una scheda per completarla o stamparla.')}</p></div></div>
+          <p class="muted small">${T.sotto} ${info(T.fam === 'a' ? 'Una cartella per ogni cliente, come nei sottoganci. Le 4 caselle colorate sono i controlli dell\'anno (fascette blu, giallo, arancio, verde): piena con la data quando sono fatti tutti gli attrezzi del cliente, altrimenti quanti ne sono fatti (es. 2/3). Tocca la cartella per vedere gli attrezzi del cliente.' : 'Ogni controllo è una scheda: tocca una scheda per completarla o stamparla.')}</p></div></div>
         ${!UT.solaLettura() && UT.puo('ctr.fare') ? `<a class="sg2-inizia ap-nuovo" href="#/approfonditi/${tipo}/nuovo">${T.nuovo}</a>` : ''}
-        <input type="search" id="fTesto" class="cerca" placeholder="Cerca cliente, numero, matricola…" value="${esc(filtri[tipo] || '')}">
+        <input type="search" id="fTesto" class="cerca" placeholder="${T.fam === 'a' ? 'Cerca cliente, numero, matricola…' : 'Cerca cliente, gru, matricola…'}" value="${esc(filtri[tipo] || '')}">
         ${corpo}
       </section>`;
     const ft = el.querySelector('#fTesto');
     ft.oninput = () => { filtri[tipo] = ft.value; const p = ft.selectionStart; App.ridisegna(); const n = document.getElementById('fTesto'); n.focus(); n.setSelectionRange(p, p); };
     void query;
     return { titolo: T.titolo, indietro: '#/approfonditi', live: true };
+  }
+
+  // ---------- cartelle per cliente (pinze e magneti) ----------
+  const ICO_CART = `<svg viewBox="0 0 64 52" aria-hidden="true"><path d="M3 9a4 4 0 0 1 4-4h16l6 6h28a4 4 0 0 1 4 4v30a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4z" fill="#f2b705" stroke="#16324f" stroke-width="3" stroke-linejoin="round"/><path d="M3 19h58" stroke="#16324f" stroke-width="3"/><rect x="22" y="27" width="20" height="9" rx="2" fill="#fff" stroke="#16324f" stroke-width="2.5"/></svg>`;
+  // per ogni fascetta: quanti attrezzi sono fatti, se lo sono tutti e l'ultima data
+  const fasceSede = (S, attivi, anno) => SLOT.map((sl, i) => {
+    const fatti = attivi.map((a) => controlliAnno(S, a.id, anno)[i]).filter((k) => k && !k.inCorso);
+    return { n: fatti.length, tutti: attivi.length > 0 && fatti.length === attivi.length, data: fatti.map((k) => k.data || '').sort().pop() || '' };
+  });
+  // come i sottoganci: ogni 3 mesi, scade a fine mese
+  const MESI_A = ['gennaio', 'febbraio', 'marzo', 'aprile', 'maggio', 'giugno', 'luglio', 'agosto', 'settembre', 'ottobre', 'novembre', 'dicembre'];
+  function statoSede(S, arr) {
+    const ids = new Set(arr.filter((a) => !a.dismesso).map((a) => a.id));
+    const u = S.controlliAttrezzi.filter((k) => ids.has(k.attrezzoId) && k.data && !k.inCorso).map((k) => k.data).sort().pop();
+    if (!u) return { k: 'mai', label: 'Mai controllato' };
+    const [y0, m0] = u.split('-').map(Number), fine = new Date(y0, m0 + 3, 0), mese = MESI_A[fine.getMonth()], prossimo = UI.iso(fine);
+    if (prossimo < oggi()) return { k: 'scaduto', label: `In ritardo (da fare a ${mese})` };
+    if (oggi().slice(0, 7) === prossimo.slice(0, 7)) return { k: 'scadenza', label: `Da fare entro ${mese}` };
+    return { k: 'ok', label: 'In regola' };
+  }
+  const filtriCart = {};
+  function cartellaAtt(el, S, tipo, sid, query) {
+    const T = TIPI[tipo], c = cliDi(S, sid);
+    if (query.get('anno')) annoScelto = +query.get('anno');
+    const anno = annoScelto, q = (filtriCart[tipo + sid] || '').toLowerCase();
+    const tutti = S.attrezzi.filter((a) => a.tipo === tipo && a.sedeId === sid);
+    const lista = tutti.filter((a) => !q || [a.nInterno, a.tipoDesc, a.casa, a.portata, a.nFabbrica, a.matricola].join(' ').toLowerCase().includes(q))
+      .sort((a, b) => (a.dismesso - b.dismesso) || String(a.nInterno || '').localeCompare(String(b.nInterno || ''), 'it', { numeric: true }));
+    const attivi = tutti.filter((a) => !a.dismesso), fs = fasceSede(S, attivi, anno), st = statoSede(S, tutti), base = `#/approfonditi/${tipo}/c/${sid}`;
+    el.innerHTML = `
+      <section class="sg sg2 ap">
+        <div class="card sg2-testa">
+          <div class="grow"><h1>${c ? `<a class="link-anag" href="#/clienti/${c.clienteId}" title="Apri anagrafica">${esc(c.nome)}</a> ${UI.magnete(c.sede)}` : '(cliente)'}</h1>
+            <p class="muted small">${esc(c?.localita || '')} · ${attivi.length} ${attivi.length === 1 ? T.uno : (tipo === 'pinza' ? 'pinze / ganci a C' : 'magneti')} · <span class="pill st-${st.k}">${esc(st.label)}</span>
+            ${info('Le 4 caselle sono le fascette dell\'anno: piena con la data quando sono fatti tutti gli attrezzi, altrimenti quanti ne sono fatti. Tocca un attrezzo per fare il suo controllo o stampare il suo foglio. I pallini colorati sono i controlli già fatti.')}</p></div>
+          <div class="anno anno-mini"><a href="${base}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="${base}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
+          ${c ? UI.menu([{ t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` }]) : ''}
+        </div>
+        <div class="fascette ap-fasce-cli">${fs.map((f, i) => `<span class="fasc ${f.tutti ? 'fatto' : ''}" style="--c:${SLOT[i].col}" title="${SLOT[i].nome}">${f.tutti ? dataBreve(f.data) : f.n ? f.n + '/' + attivi.length : SLOT[i].nome}</span>`).join('')}</div>
+        ${!UT.solaLettura() && UT.puo('ctr.fare') ? `<a class="sg2-inizia ap-nuovo" href="#/approfonditi/${tipo}/nuovo?sede=${sid}">${T.nuovo}</a>` : ''}
+        ${tutti.length > 6 ? `<input type="search" id="fTestoC" class="cerca" placeholder="Cerca numero, tipo, matricola…" value="${esc(filtriCart[tipo + sid] || '')}">` : ''}
+        <div class="sg2-tit">${tipo === 'pinza' ? 'Pinze e ganci a C' : 'Magneti'} · controlli ${anno}</div>
+        <div class="sg2-lista">${lista.map((a) => {
+          const ct = controlliAnno(S, a.id, anno), ult = ct.filter(Boolean).pop();
+          return `<a class="sg2-riga ${a.dismesso ? 'dismesso' : ''}" href="#/approfonditi/${tipo}/a/${a.id}">
+            <span class="n">${esc(a.nInterno || '–')}</span>
+            <span class="d">${esc(a.tipoDesc || T.uno)}<small>${[a.casa, a.portata, a.nFabbrica && 'n° ' + a.nFabbrica].filter(Boolean).map(esc).join(' · ')}${ult?.fuoriServizio ? ' · <b class="txt-ko">FUORI SERVIZIO</b>' : ''}${a.dismesso ? ' · non più in uso' : ''}</small></span>
+            <span class="ap-pallini">${SLOT.map((sl, i) => `<i style="--c:${sl.col}" class="${ct[i] ? (ct[i].inCorso ? 'mezzo' : 'on') : ''}" title="${sl.nome}${ct[i]?.inCorso ? ' · in corso' : ''}"></i>`).join('')}</span></a>`; }).join('') || '<p class="nessuno">Nessun risultato.</p>'}</div>
+      </section>`;
+    const ft = el.querySelector('#fTestoC');
+    ft && (ft.oninput = () => { filtriCart[tipo + sid] = ft.value; const p = ft.selectionStart; App.ridisegna(); const n = document.getElementById('fTestoC'); n.focus(); n.setSelectionRange(p, p); });
+    return { titolo: T.titolo, indietro: '#/approfonditi/' + tipo, live: true };
   }
 
   // ================= ATTREZZO (pinza / magnete) =================
@@ -212,7 +271,7 @@ window.APR = (function () {
         ${tipo === 'pinza' && a.accessori ? `<div class="sg2-tit">Accessori</div><div class="card"><p class="ap-pre">${esc(a.accessori)}</p></div>` : ''}
       </section>`;
     el.querySelectorAll('[data-sceglif]').forEach((b) => (b.onclick = () => { sceltoSlotA[id + '|' + anno] = +b.dataset.sceglif; App.ridisegna(); }));
-    return { titolo: `${T.uno.charAt(0).toUpperCase() + T.uno.slice(1)} · ${c ? c.nome : ''}`, indietro: '#/approfonditi/' + tipo, live: true };
+    return { titolo: `${T.uno.charAt(0).toUpperCase() + T.uno.slice(1)} · ${c ? c.nome : ''}`, indietro: `#/approfonditi/${tipo}/c/${a.sedeId}`, live: true };
   }
 
   function formAttrezzo(el, S, tipo, id, query) {
@@ -236,7 +295,7 @@ window.APR = (function () {
         <div class="azioni-form">
           ${id && !UT.solaLettura() ? '<button type="button" class="btn danger ghost" id="btnElimina">Elimina</button>' : ''}
           <span class="grow"></span>
-          <a class="btn ghost" href="${id ? `#/approfonditi/${tipo}/a/${id}` : '#/approfonditi/' + tipo}">Annulla</a>
+          <a class="btn ghost" href="${id ? `#/approfonditi/${tipo}/a/${id}` : a.sedeId ? `#/approfonditi/${tipo}/c/${a.sedeId}` : '#/approfonditi/' + tipo}">Annulla</a>
           <button class="btn" type="submit">Salva</button>
         </div>
       </form>`;
@@ -270,7 +329,7 @@ window.APR = (function () {
       const n = S.controlliAttrezzi.filter((x) => x.attrezzoId === a.id).length;
       if (!UI.conferma(n ? `Questo attrezzo ha ${n} controlli salvati: eliminandolo spariscono anche quelli. Se è solo fuori uso, meglio spuntare «Non più in uso». Eliminare comunque?` : 'Eliminare questo attrezzo?')) return;
       for (const x of S.controlliAttrezzi.filter((x) => x.attrezzoId === a.id)) await Backend.remove('controlliAttrezzi', x.id);
-      await Backend.remove('attrezzi', a.id); location.hash = '#/approfonditi/' + tipo;
+      await Backend.remove('attrezzi', a.id); location.hash = `#/approfonditi/${tipo}/c/${a.sedeId}`;
     });
     return { titolo: id ? 'Modifica ' + T.uno : T.nuovo.replace('＋ ', ''), indietro: id ? `#/approfonditi/${tipo}/a/${id}` : '#/approfonditi/' + tipo, live: false };
   }
@@ -611,6 +670,7 @@ window.APR = (function () {
     if (!TIPI[tipo]) { location.hash = '#/approfonditi'; return null; }
     if (parti.includes('stampa')) return stampa(el, S, tipo, parti);
     if (parti[2] === 'nuovo') return TIPI[tipo].fam === 'a' ? formAttrezzo(el, S, tipo, null, query) : formScheda(el, S, tipo, null, query);
+    if (parti[2] === 'c' && parti[3] && TIPI[tipo].fam === 'a') return cartellaAtt(el, S, tipo, parti[3], query);
     if (parti[2] === 'a' && parti[4] === 'modifica') return formAttrezzo(el, S, tipo, parti[3], query);
     if (parti[2] === 'a' && parti[4] === 'controllo') return formControllo(el, S, tipo, parti[3], +parti[5], +parti[6]);
     if (parti[2] === 'a') return schedaAttrezzo(el, S, tipo, parti[3], query);
