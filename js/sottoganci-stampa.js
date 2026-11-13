@@ -88,7 +88,11 @@ window.SGStampa = (function () {
     const items = SG.elenco(S, cliId, anno).filter((s) => !s.dismesso);   // gli sbarrati (eliminati dall'elenco) non vanno al cliente
     const giri = SG.slotGiri(S, cliId, anno);
     const ultimo = giri.filter(Boolean).pop();
-    const pagine = impagina(items);
+    // ogni foglio separato (es. accessori 02 e 03) è un elenco completo a sé: intestazione, pagine, note e legenda
+    return SG.fogliDi(S, cliId, items).map((fg) => fogliDoc(c, fg, giri, ultimo, S, anno)).join('');
+  }
+  function fogliDoc(c, fg, giri, ultimo, S, anno) {
+    const pagine = impagina(fg.items);
     return pagine.map((pg, pi) => {
       const top = pi === 0 ? TOP1 : TOP2;
       const usate = pg.items.reduce((n, it) => n + it.parti.length, 0);
@@ -100,7 +104,7 @@ window.SGStampa = (function () {
           <img class="p-logo" src="img/logo-grande.png" alt="">
           <div class="p-box"></div><div class="p-box-fondo"></div><div class="p-box-tick"></div>
           <img class="p-logo30" src="img/logo-30.png" alt="" onerror="this.remove()">
-          <div class="p-titolo" data-adatta="0.4">${esc(c.titoloElenco || 'ELENCO SOTTOGANCI')}&nbsp; ${anno}</div>
+          <div class="p-titolo" data-adatta="0.4">${esc(fg.titolo || c.titoloElenco || 'ELENCO SOTTOGANCI')}&nbsp; ${anno}</div>
           <div class="p-cliente" data-adatta="0.4" data-righe="2">${esc(CLI.nomeAl(c.anagrafica, ultimo?.data || `${anno}-12-31`, c.sede))}</div>
           <div class="p-loc" data-adatta="0.4">${esc(c.localita || '')}</div>
           <div class="p-colfasc">colore fascette</div>

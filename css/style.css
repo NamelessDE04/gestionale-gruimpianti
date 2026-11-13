@@ -2202,3 +2202,8 @@ a.ct-riga { text-decoration: none; color: inherit; }
 .ct-invt td.ct-dsc .cbs-in.ct-tin { text-align: left; }
 .ct-invt td span { overflow-wrap: anywhere; }
 .ct-invt td.ct-val { min-width: 118px; } .ct-invt td.ct-val .cbs-in.ct-tin { overflow-wrap: normal; word-break: normal; }
+/* sottoganci: fogli separati nelle impostazioni dell'elenco */
+.sg-fsep { border-top: 1px solid #e3e7ee; margin-top: 8px; padding-top: 8px; } .sg-fsep h2 { font-size: 1rem; margin: 0 0 8px; }
+.sg-fsr { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; align-items: end; margin-bottom: 8px; } .sg-fsr label { min-width: 0; }
+@media (max-width: 560px) { .sg-fsr { grid-template-columns: 1fr auto; } .sg-fsr label:nth-child(2) { grid-column: 1; grid-row: 2; } .sg-fsr button { grid-row: 1; grid-column: 2; } }
+.sg-fsep #fsepAdd { margin-bottom: 10px; }

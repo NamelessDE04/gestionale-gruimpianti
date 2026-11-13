@@ -47,6 +47,18 @@ window.SG = (function () {
     }
     return null;
   }
+  // FOGLI SEPARATI: in una cartella alcuni numeri (es. 02 e 03) si stampano su un elenco a parte.
+  // Tutti gli altri, compresi gli accessori aggiunti in futuro, vanno nel foglio principale.
+  const numeriDi = (t) => String(t || '').split(/[,;\s]+/).map(normNum).filter(Boolean);
+  function fogliDi(S, cliId, items) {
+    const c = cliente(S, cliId), sep = ((c && c.sede.fogliSeparati) || []).filter((f) => numeriDi(f.numeri).length);
+    if (!sep.length) return [{ titolo: c ? c.titoloElenco : '', items }];
+    const presi = new Set(), fogli = sep.map((f) => { const nn = new Set(numeriDi(f.numeri)); const its = items.filter((x) => nn.has(normNum(x.numero)) && !presi.has(x.id)); its.forEach((x) => presi.add(x.id)); return { titolo: f.titolo || c.titoloElenco, items: its, sep: true }; });
+    const tutti = [{ titolo: c.titoloElenco, items: items.filter((x) => !presi.has(x.id)) }, ...fogli].filter((f) => f.items.length);
+    // in ordine di numero (chi ha il numero più basso viene prima)
+    const primo = (f) => f.items[0] ? f.items[0].numero : '';
+    return tutti.sort((a, b) => primo(a).localeCompare(primo(b), 'it', { numeric: true, sensitivity: 'base' }));
+  }
   // cartelle attive: sedi con sottoganci o aperte apposta
   const cartelleDi = (S) => S.clienti.flatMap((c) => CLI.sediDi(c)
     .filter((sd) => sd.cartellaSottoganci || S.sottoganci.some((x) => x.sedeId === sd.id))
@@ -179,7 +191,7 @@ window.SG = (function () {
           <div class="anno anno-mini"><a href="#/sottoganci/c/${cliId}?anno=${anno - 1}" aria-label="Anno prima">‹</a><b>${anno}</b><a href="#/sottoganci/c/${cliId}?anno=${anno + 1}" aria-label="Anno dopo">›</a></div>
           ${UI.menu([
             UT.puo('stampa') && { t: `🖨️ Elenco ${anno} per il cliente`, href: `#/sottoganci/c/${cliId}/stampa/${anno}` },
-            { t: '⚙ Titolo dell\'elenco', href: `#/sottoganci/cartella/${cliId}` },
+            { t: '⚙ Impostazioni elenco (titolo, fogli separati)', href: `#/sottoganci/cartella/${cliId}` },
             UT.puo('sg.cartelle') && { t: '🏷 Righe titolo dei sottoganci composti', href: `#/sottoganci/c/${cliId}/titoli` },
             { t: '🏢 Anagrafica cliente', href: `#/clienti/${c.clienteId}` },
             UT.puo('sg.cartelle') && { t: '🗑 Elimina cartella', id: 'btnEliminaCart', cls: 'txt-ko' }
@@ -239,6 +251,9 @@ window.SG = (function () {
 
   // ---------- CARTELLA (nuova / impostazioni) ----------
   // La cartella è legata a una sede dell'anagrafica clienti: qui si sceglie solo la sede e il titolo dell'elenco.
+  const fsepRiga = (x, k) => `<div class="sg-fsr"><label>Numeri<input name="fsn" value="${esc(x.numeri || '')}" placeholder="es. 02, 03" autocomplete="off"></label>
+    <label>Titolo del foglio<input name="fst" value="${esc(x.titolo || '')}" placeholder="come il principale" autocomplete="off"></label>
+    <button type="button" class="btn ghost small danger" data-fsdel="${k}" aria-label="Togli">✕</button></div>`;
   function formCartella(el, S, sedeId) {
     const c = sedeId ? cliente(S, sedeId) : null;
     const attive = new Set(cartelleDi(S).map((x) => x.id));
@@ -256,6 +271,9 @@ window.SG = (function () {
           <p class="muted small">Il cliente o la sede non ci sono? <a class="link" href="#/clienti">Aggiungili in Anagrafica clienti</a>.</p>`}
         <label>Titolo dell'elenco stampato<input name="titolo" value="${esc(c ? c.titoloElenco : 'ELENCO SOTTOGANCI')}" placeholder="es. ELENCO FUNI"></label>
         <p class="muted small">Sulla stampa viene aggiunto l'anno: «${esc(c ? c.titoloElenco : 'ELENCO SOTTOGANCI')} ${annoCorrente()}».</p>
+        ${c ? `<div class="sg-fsep"><h2>Fogli separati ${UI.info('Se il cliente vuole alcuni accessori su un elenco a parte, scrivi qui i loro numeri (es. «02, 03»): in stampa escono su un foglio tutto loro, con intestazione, note e legenda. Tutti gli altri, compresi quelli che aggiungerai in futuro, restano nel foglio principale.')}</h2>
+          <div id="fsepRighe">${(c.sede.fogliSeparati || []).map((x, k) => fsepRiga(x, k)).join('')}</div>
+          <button type="button" class="btn ghost small" id="fsepAdd">+ Foglio separato</button></div>` : ''}
         <div class="azioni-form">
           ${c && (UT.puo('sg.cartelle') || !S.sottoganci.some((x) => x.sedeId === sedeId)) ? '<button type="button" class="btn danger ghost" id="btnChiudi">🗑 Elimina cartella</button>' : ''}
           <span class="grow"></span>
@@ -274,10 +292,14 @@ window.SG = (function () {
       e.preventDefault();
       const id = c ? sedeId : f.sede.value;
       if (!id) return UI.toast('Scegli la sede', 'err');
-      await salvaSede(id, { cartellaSottoganci: true, titoloElenco: f.titolo.value.trim().toUpperCase() || 'ELENCO SOTTOGANCI' });
+      const fogliSeparati = [...f.querySelectorAll('.sg-fsr')].map((r) => ({ numeri: r.querySelector('[name=fsn]').value.trim().toUpperCase(), titolo: r.querySelector('[name=fst]').value.trim().toUpperCase() })).filter((x) => numeriDi(x.numeri).length);
+      await salvaSede(id, { cartellaSottoganci: true, titoloElenco: f.titolo.value.trim().toUpperCase() || 'ELENCO SOTTOGANCI', ...(c ? { fogliSeparati } : {}) });
       UI.toast('Salvato', 'ok'); location.hash = '#/sottoganci/c/' + id;
     };
     el.querySelector('#btnChiudi')?.addEventListener('click', () => eliminaCartella(S, sedeId));
+    const legaFsep = () => f.querySelectorAll('[data-fsdel]').forEach((b) => (b.onclick = () => b.closest('.sg-fsr').remove()));
+    el.querySelector('#fsepAdd')?.addEventListener('click', () => { const box = f.querySelector('#fsepRighe'); box.insertAdjacentHTML('beforeend', fsepRiga({}, box.children.length)); legaFsep(); box.lastElementChild.querySelector('input').focus(); });
+    legaFsep();
     return { titolo: c ? 'Impostazioni elenco' : 'Nuova cartella', indietro: c ? '#/sottoganci/c/' + sedeId : '#/sottoganci', live: false };
   }
 
@@ -774,5 +796,5 @@ window.SG = (function () {
     return cartelle(el, S);
   }
 
-  return { SLOT, CODICI, route, cartelleDi, riepilogo, elenco, slotGiri, noteDi, cliente, dataBreve, nomeCliente, conGiudizio };
+  return { SLOT, CODICI, fogliDi, route, cartelleDi, riepilogo, elenco, slotGiri, noteDi, cliente, dataBreve, nomeCliente, conGiudizio };
 })();
