@@ -54,8 +54,8 @@ window.CABS = (function () {
   let SCAT_VECCHI = null;   // valori già scritti nel configuratore vecchio (se ci sono), per partire da quelli
   NUOVO.scat = (o = {}) => ({ id: uid(), tipo: 'scat', titolo: o.titolo || 'SCATOLA DI DERIVAZIONE', versione: o.versione === 'con' ? 'con' : 'cil', morsId: o.morsId || '',
     dati: SCAT_VECCHI ? clona(SCAT_VECCHI) : SCAT_DEF() });
-  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera', scat: 'Scatola di derivazione', test: 'Check list test' };
-  NUOVO.test = () => CABT.nuovo();
+  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera', scat: 'Scatola di derivazione', test: 'Check list test', inv: 'Parametri inverter' };
+  NUOVO.test = () => CABT.nuovo(); NUOVO.inv = () => CABT.nuovoInv();
 
   // ---------- scatola di derivazione: 3 viste da toccare, scheda del pezzo sotto ----------
   const SDV = {};   // vista e pezzo scelto, per blocco
@@ -293,6 +293,8 @@ window.CABS = (function () {
         ${ed ? `<button type="button" class="btn ghost small" data-addr="${i}">+ Riga</button>` : ''}`;
     } else if (b.tipo === 'test') {
       corpo = CABT.bloccoHtml(b, i, ed);
+    } else if (b.tipo === 'inv') {
+      corpo = CABT.invHtml(b, i, ed, cella);
     } else if (b.tipo === 'scat') {
       corpo = scatHtml(b, i, ed);
     } else if (b.tipo === 'mors') {
@@ -492,6 +494,7 @@ window.CABS = (function () {
             <button type="button" class="btn ghost" data-nuovo="puls">🎛 Pulsantiera</button>
             <button type="button" class="btn ghost" data-nuovo="mors">▥ Morsettiera</button>
             <button type="button" class="btn ghost" data-nuovo="scat">📦 Scatola di derivazione</button>
+            <button type="button" class="btn ghost" data-nuovo="inv" ${bz.blocchi.some((b) => b.tipo === 'inv') ? 'disabled title="La scheda ha già i parametri inverter"' : ''}>⚙ Parametri inverter</button>
             <button type="button" class="btn ghost" data-nuovo="test" ${bz.blocchi.some((b) => b.tipo === 'test') ? 'disabled title="La scheda ha già la check list"' : ''}>✅ Check list test</button>
             ${schede(S).some((x) => x.id !== id && (x.blocchi || []).length) ? '<button type="button" class="btn ghost cbs-copia" id="csCopia">⧉ Copia blocchi da un\'altra scheda</button>' : ''}</div>
           <div class="azioni-form cbs-salvabar"><a class="btn ghost" href="#/cablaggio/s/${id}">Chiudi</a><span class="grow"></span><button type="button" class="btn" id="csSalva">💾 Salva</button></div>
@@ -504,7 +507,8 @@ window.CABS = (function () {
       el.querySelectorAll('[data-ct]').forEach((x) => (x.onclick = () => { const [i, j] = x.dataset.ct.split('.').map(Number); const r = bz.blocchi[i].righe[j]; r.c = r.c === 'NC' ? 'NA' : 'NC'; segna(); disegna(); }));
       el.querySelectorAll('[data-addr]').forEach((x) => (x.onclick = () => {
         const b = bz.blocchi[+x.dataset.addr];
-        if (b.tipo === 'fc') b.righe.push({ sig: String.fromCharCode(65 + b.righe.length), a: '', p1: '', c: 'NA', p2: '', b: '', nota: '' });
+        if (b.tipo === 'inv') b.righe.push(['', '', '', '']);
+        else if (b.tipo === 'fc') b.righe.push({ sig: String.fromCharCode(65 + b.righe.length), a: '', p1: '', c: 'NA', p2: '', b: '', nota: '' });
         else b.righe.push(b.colonne.map((_, k) => (k === 0 ? String(b.righe.filter((r) => /^\d+$/.test(r[0])).length + 1) : '')));
         segna(); disegna(b.id);
       }));
@@ -664,7 +668,7 @@ window.CABS = (function () {
     const maiuscolo = (o) => {
       if (Array.isArray(o)) return o.map((x) => (typeof x === 'string' ? x.toUpperCase() : maiuscolo(x)));
       if (!o || typeof o !== 'object') return o;
-      const salta = new Set(['id', 'tipo', 'orient', 'c', 'agg', 'versione', 'morsId', ...('da' in o ? ['da', 'a'] : [])]);
+      const salta = new Set(['id', 'tipo', 'orient', 'c', 'agg', 'versione', 'morsId', 'mot', ...('da' in o ? ['da', 'a'] : [])]);
       Object.keys(o).forEach((k) => { if (salta.has(k)) return; o[k] = typeof o[k] === 'string' ? o[k].toUpperCase() : maiuscolo(o[k]); });
       return o;
     };
@@ -737,7 +741,10 @@ window.CABS = (function () {
               const scelti = src.blocchi.filter((b, k) => w.tutti || w['b' + k]);
               if (!scelti.length) { UI.toast('Nessun blocco spuntato'); return; }
               let ultimo = null; const mappa = {};
-              scelti.forEach((b) => { const c = clona(b); c.id = uid(); mappa[b.id] = c.id; bz.blocchi.push(c); ultimo = c.id; });
+              scelti.forEach((b) => { const c = clona(b); c.id = uid(); mappa[b.id] = c.id;
+                // check list e parametri inverter: uno solo per scheda, quello copiato prende il posto di quello che c'era
+                if (b.tipo === 'test' || b.tipo === 'inv') { const k = bz.blocchi.findIndex((x) => x.tipo === b.tipo); if (k >= 0) { const vecchio = bz.blocchi[k].id; bz.blocchi.splice(k, 1); bz.aree.forEach((a) => (a.blocchi = a.blocchi.filter((y) => y !== vecchio))); } }
+                bz.blocchi.push(c); ultimo = c.id; });
               // la scatola copiata insieme alla sua morsettiera resta collegata a quella nuova
               scelti.forEach((b) => { const c = bz.blocchi.find((x) => x.id === mappa[b.id]); if (c.morsId) c.morsId = mappa[c.morsId] || (bz.blocchi.some((x) => x.id === c.morsId) ? c.morsId : ''); });
               // stesse zone della gru dell'originale (se la scheda non ha ancora la gru, prende quella dell'originale)
@@ -752,6 +759,7 @@ window.CABS = (function () {
         } });
     }
     function nuovoBlocco(tipo) {
+      if (tipo === 'inv') { if (bz.blocchi.some((b) => b.tipo === 'inv')) return; const b = NUOVO.inv(); bz.blocchi.push(b); segna(); disegna(b.id); return; }
       if (tipo === 'test') { if (bz.blocchi.some((b) => b.tipo === 'test')) return; const b = NUOVO.test(); bz.blocchi.push(b); segna(); disegna(b.id); return; }
       if (tipo === 'scat') {
         const mors = bz.blocchi.filter((x) => x.tipo === 'mors');
