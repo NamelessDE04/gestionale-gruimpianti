@@ -54,7 +54,8 @@ window.CABS = (function () {
   let SCAT_VECCHI = null;   // valori già scritti nel configuratore vecchio (se ci sono), per partire da quelli
   NUOVO.scat = (o = {}) => ({ id: uid(), tipo: 'scat', titolo: o.titolo || 'SCATOLA DI DERIVAZIONE', versione: o.versione === 'con' ? 'con' : 'cil', morsId: o.morsId || '',
     dati: SCAT_VECCHI ? clona(SCAT_VECCHI) : SCAT_DEF() });
-  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera', scat: 'Scatola di derivazione' };
+  const NOME_TIPO = { conn: 'Presa / spina', fc: 'Finecorsa', cavo: 'Cavo', puls: 'Pulsantiera', mors: 'Morsettiera', scat: 'Scatola di derivazione', test: 'Check list test' };
+  NUOVO.test = () => CABT.nuovo();
 
   // ---------- scatola di derivazione: 3 viste da toccare, scheda del pezzo sotto ----------
   const SDV = {};   // vista e pezzo scelto, per blocco
@@ -290,6 +291,8 @@ window.CABS = (function () {
           <td>${cella(ed, rp + '.p2', r.p2)}</td><td>${cella(ed, rp + '.b', r.b)}</td><td class="cbs-fcn">${cella(ed, rp + '.nota', r.nota, 'nota')}</td>
           ${ed ? `<td><button type="button" class="cbs-mini danger" data-delr="${i}.${j}" aria-label="Togli riga" ${b.righe.length > 1 ? '' : 'disabled'}>×</button></td>` : ''}</tr>`; }).join('')}</table></div>
         ${ed ? `<button type="button" class="btn ghost small" data-addr="${i}">+ Riga</button>` : ''}`;
+    } else if (b.tipo === 'test') {
+      corpo = CABT.bloccoHtml(b, i, ed);
     } else if (b.tipo === 'scat') {
       corpo = scatHtml(b, i, ed);
     } else if (b.tipo === 'mors') {
@@ -318,7 +321,7 @@ window.CABS = (function () {
     el.innerHTML = `
       <section class="cli cbs">
         <div class="sez-head"><h1>Configuratore cablaggio ${info('Qui crei le tue schede di cablaggio partendo da zero. Ogni scheda è fatta di blocchi: <b>presa / spina</b> (connettore a 16, 24 o 32 poli), <b>finecorsa</b>, <b>cavo</b>, <b>pulsantiera</b>, <b>morsettiera</b> e <b>scatola di derivazione</b>. Puoi scegliere la foto della gru (monotrave o bitrave) e mettere i blocchi nelle sue zone. La struttura la scegli tu, e anche tutto quello che c\'è scritto. Le schede valgono per tutti i dispositivi. Il vecchio configuratore è nel menu ⋯.')}</h1>
-          ${UI.menu([{ t: '📄 Rapporti di collaudo', href: '#/cablaggio/rapporti' }, { t: '🗄 Configuratore vecchio', href: '#/cablaggio/vecchio' }])}</div>
+          ${UI.menu([{ t: '📄 Collaudi', href: '#/gho/collaudi' }, { t: '🗄 Configuratore vecchio', href: '#/cablaggio/vecchio' }])}</div>
         ${puoModificare() ? '<button type="button" class="sg2-inizia ap-nuovo" id="csNuova">＋ Nuova scheda di cablaggio</button>' : ''}
         ${tutte.length > 5 ? `<input type="search" id="csQ" class="cerca" placeholder="Cerca una scheda…" value="${esc(cerca)}">` : ''}
         ${lista.length ? `<div class="sg2-lista">${lista.map((s) => `<a class="sg2-riga" href="#/cablaggio/s/${s.id}">
@@ -392,7 +395,7 @@ window.CABS = (function () {
     const s = S.impostazioni.find((d) => d.id === id);
     if (!s) { el.innerHTML = '<p class="nessuno">Scheda non trovata.</p>'; return { titolo: 'Configuratore cablaggio', indietro: '#/cablaggio' }; }
     BLOCCHI_ORA = s.blocchi || [];
-    const tutti = (s.blocchi || []).map((b, i) => [b, i]), base = `#/cablaggio/s/${id}`;
+    const tutti = (s.blocchi || []).map((b, i) => [b, i]).filter(([b]) => b.tipo !== 'test'), base = `#/cablaggio/s/${id}`;   // la check list non si mostra: si usa col tasto «Avvia test gru»
     const z = zoneDi(s), conGru = !!PUNTI[s.gru];
     const inZona = new Set(conGru ? z.flatMap((a) => a.blocchi) : []);
     // blocchi di una zona nell'ordine della scheda (un blocco può stare in più zone)
@@ -432,7 +435,8 @@ window.CABS = (function () {
         <div class="cbs-azioni no-print">
           ${puoModificare() ? `<a class="btn ghost" href="${base}/modifica">✏️ Modifica</a>` : ''}
           ${zona || !conGru ? `<button type="button" class="btn ghost" id="csComp" title="Riordina i blocchi per occupare meno spazio">${s.compatta ? '▤ In ordine' : '▦ Compatta'}</button>` : ''}
-          <button type="button" class="btn ghost" id="csStampa">🖨 Stampa</button></div>
+          <button type="button" class="btn ghost" id="csStampa">🖨 Stampa</button>
+          ${CABT.puoTest() ? `<a class="btn cbs-test" href="${base}/test">▶ Avvia test gru</a>` : ''}</div>
         ${corpo}
       </section>`;
     legaLettura(el, s);
@@ -472,7 +476,7 @@ window.CABS = (function () {
     const gruHtml = () => `<div class="card cbs-gruc"><label>Disegno della gru<select id="csGru">${[['', 'Nessuno'], ['monotrave', 'Monotrave'], ['bitrave', 'Bitrave']].map(([v, t]) => `<option value="${v}" ${bz.gru === v || (!bz.gru && !v) ? 'selected' : ''}>${t}</option>`).join('')}</select></label>
       ${PUNTI[bz.gru] ? `${fotoGru(bz, '')}<p class="muted small">Dai il nome alle zone e tocca i blocchi da mettere dentro ciascuna. Lo stesso blocco può stare in più zone; quelli in nessuna zona finiscono in «Altri blocchi». Salvando, i blocchi si mettono in ordine di zona.</p>
         ${bz.aree.map((a, k) => `<div class="cbs-zed"><div class="cbs-zedt"><span class="cbs-zn">${k + 1}</span><input class="cbs-in cbs-zin" data-z="${k}" value="${esc(a.nome)}" autocomplete="off"></div>
-          <div class="cbs-chips">${bz.blocchi.map((b) => { const qui = a.blocchi.includes(b.id), alt = bz.aree.map((x, j) => (j !== k && x.blocchi.includes(b.id) ? j + 1 : 0)).filter(Boolean); return `<button type="button" class="cbs-chip${qui ? ' on' : ''}" data-zb="${k}.${b.id}">${esc(b.titolo || NOME_TIPO[b.tipo])}${alt.map((n) => `<i>${n}</i>`).join('')}</button>`; }).join('') || '<span class="muted small">Prima aggiungi dei blocchi.</span>'}</div></div>`).join('')}` : ''}</div>`;
+          <div class="cbs-chips">${bz.blocchi.filter((b) => b.tipo !== 'test').map((b) => { const qui = a.blocchi.includes(b.id), alt = bz.aree.map((x, j) => (j !== k && x.blocchi.includes(b.id) ? j + 1 : 0)).filter(Boolean); return `<button type="button" class="cbs-chip${qui ? ' on' : ''}" data-zb="${k}.${b.id}">${esc(b.titolo || NOME_TIPO[b.tipo])}${alt.map((n) => `<i>${n}</i>`).join('')}</button>`; }).join('') || '<span class="muted small">Prima aggiungi dei blocchi.</span>'}</div></div>`).join('')}` : ''}</div>`;
     const disegna = (scorriA) => {
       BLOCCHI_ORA = bz.blocchi;
       el.innerHTML = `
@@ -488,6 +492,7 @@ window.CABS = (function () {
             <button type="button" class="btn ghost" data-nuovo="puls">🎛 Pulsantiera</button>
             <button type="button" class="btn ghost" data-nuovo="mors">▥ Morsettiera</button>
             <button type="button" class="btn ghost" data-nuovo="scat">📦 Scatola di derivazione</button>
+            <button type="button" class="btn ghost" data-nuovo="test" ${bz.blocchi.some((b) => b.tipo === 'test') ? 'disabled title="La scheda ha già la check list"' : ''}>✅ Check list test</button>
             ${schede(S).some((x) => x.id !== id && (x.blocchi || []).length) ? '<button type="button" class="btn ghost cbs-copia" id="csCopia">⧉ Copia blocchi da un\'altra scheda</button>' : ''}</div>
           <div class="azioni-form cbs-salvabar"><a class="btn ghost" href="#/cablaggio/s/${id}">Chiudi</a><span class="grow"></span><button type="button" class="btn" id="csSalva">💾 Salva</button></div>
         </section>`;
@@ -508,6 +513,7 @@ window.CABS = (function () {
       // duplica: la copia va subito sotto l'originale, con «(COPIA)» nel titolo
       el.querySelectorAll('[data-dupb]').forEach((x) => (x.onclick = () => { const i = +x.dataset.dupb, c = clona(bz.blocchi[i]); c.id = uid(); c.titolo = (c.titolo || '') + ' (COPIA)'; bz.blocchi.splice(i + 1, 0, c); segna(); disegna(c.id); UI.toast('Blocco duplicato: cambia il titolo e i valori', 'ok'); }));
       el.querySelectorAll('[data-nuovo]').forEach((x) => (x.onclick = () => nuovoBlocco(x.dataset.nuovo)));
+      CABT.lega(el, bz, (i, fn, nuova) => { fn(); segna(); disegna(bz.blocchi[i].id); if (nuova) { const t = el.querySelectorAll(`[data-p^="b.${i}.voci."]`); t[t.length - 1]?.focus(); } });
       el.querySelector('#csCopia')?.addEventListener('click', copiaDa);
       el.querySelector('#csSalva').onclick = salva;
       el.querySelectorAll('[data-pd]').forEach((c) => legaPuls(+c.dataset.pd));
@@ -746,6 +752,7 @@ window.CABS = (function () {
         } });
     }
     function nuovoBlocco(tipo) {
+      if (tipo === 'test') { if (bz.blocchi.some((b) => b.tipo === 'test')) return; const b = NUOVO.test(); bz.blocchi.push(b); segna(); disegna(b.id); return; }
       if (tipo === 'scat') {
         const mors = bz.blocchi.filter((x) => x.tipo === 'mors');
         UI.modal({ titolo: 'Scatola di derivazione', infoTxt: 'La scatola dei paranchi MISIA: 3 viste da toccare (dall\'alto, lato pressacavi, lato festone) con la scheda di ogni pezzo. Le voci si scrivono in modifica.',
@@ -798,6 +805,7 @@ window.CABS = (function () {
   }
 
   function route(el, S, parti) {
+    if (parti[1] === 's' && parti[2] && parti[3] === 'test') { const sc = S.impostazioni.find((d) => d.id === parti[2]); if (sc && CABT.puoTest()) return CABT.esegui(el, S, sc); location.hash = '#/cablaggio/s/' + parti[2]; return null; }
     if (parti[1] === 's' && parti[2]) return parti[3] === 'modifica' ? modifica(el, S, parti[2]) : vista(el, S, parti[2], parti[3] === 'z' ? parti[4] : null);
     return elenco(el, S);
   }

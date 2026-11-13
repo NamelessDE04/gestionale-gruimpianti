@@ -114,6 +114,7 @@ window.UT = (function () {
     { g: 'Ufficio', k: 'ddt.prezzi.modifica', nome: 'DDT: scrivere prezzo e sconto', def: ['master'], scrive: true, eredita: 'ddt.prezzi' },
     { g: 'Lavoro', k: 'mag.modifica', nome: 'Magazzino: aggiungere articoli, caricare merce, modificare quantità e ubicazioni', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'gho.ore', nome: 'Registrare le ore GHO', def: LAVORO, scrive: true },
+    { g: 'Lavoro', k: 'cablaggio.test', nome: 'Configuratore cablaggio: fare il test della gru (check list di collaudo) e salvarlo in GHO › Collaudi', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'gho.schede', nome: 'GHO: aggiungere e modificare le gru da controllare per GHO (senza anagrafica)', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'anag.modifica', nome: 'Aggiungere e modificare clienti, impianti, sottoganci, attrezzi e mezzi', def: LAVORO, scrive: true },
     { g: 'Anagrafiche', k: 'forn.modifica', nome: 'Aggiungere e modificare fornitori', def: LAVORO, scrive: true },

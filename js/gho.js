@@ -154,6 +154,7 @@ window.GHO = (function () {
           <a class="tile attiva" href="#/gho/ore"><div class="tile-ill">${ILL.registroOre}</div><div class="tile-txt"><h2>Registro ore</h2><p>Interventi mese per mese, per la fattura</p>${b ? `<span class="tile-badge">${b}</span>` : ''}</div></a>
           ${UT.puo('sez.schede') ? `<a class="tile attiva" href="#/gho/schede"><div class="tile-ill">${ILL.schede || ILL.cablaggio}</div><div class="tile-txt"><h2>Schede di controllo</h2><p>Gru dei clienti di GHO, senza anagrafica</p></div></a>` : ''}
           <a class="tile attiva" href="#/cablaggio"><div class="tile-ill">${ILL.cablaggio}</div><div class="tile-txt"><h2>Configuratore cablaggio gru</h2><p>Schede di cablaggio da creare e modificare</p></div></a>
+          <a class="tile attiva" href="#/gho/collaudi"><div class="tile-ill">${ILL.collaudi || ILL.cablaggio}</div><div class="tile-txt"><h2>Collaudi</h2><p>Check list di test delle gru compilate</p></div></a>
         </div>
       </section>`;
     return { titolo: 'GHO ELIGIO', indietro: '#/', live: true };
@@ -488,6 +489,7 @@ window.GHO = (function () {
   function route(el, S, parti, query) {
     if (!parti[1]) return home(el, S);
     if (parti[1] === 'schede') return GHOS.route(el, S, parti);
+    if (parti[1] === 'collaudi') return CABT.route(el, S, parti);
     if (parti[1] !== 'ore') { location.hash = '#/gho'; return null; }
     if (parti[2] === 'stampa') return stampa(el, S, parti[3] || meseScelto);
     if (parti[2] === 'nuovo') return form(el, S, null);

@@ -183,6 +183,18 @@ window.ILL = (function () {
       <rect x="78" y="82" width="22" height="20" rx="2" fill="${W}" stroke="${N}" stroke-width="2.5"/><path d="M83 88h12M83 94h8" stroke="${G}" stroke-width="2.5"/>
       <rect x="106" y="90" width="18" height="12" rx="2" fill="${Y}" stroke="${N}" stroke-width="2.5"/>`),
 
+    // collaudi: cartellina con la check list spuntata e il gancio della gru
+    collaudi: svg(`
+      <ellipse cx="80" cy="112" rx="50" ry="5" fill="${L}"/>
+      <rect x="40" y="14" width="80" height="94" rx="8" fill="${W}" stroke="${N}" stroke-width="3.5"/>
+      <rect x="62" y="8" width="36" height="14" rx="4" fill="${G}" stroke="${N}" stroke-width="3"/>
+      <rect x="50" y="34" width="12" height="12" rx="2" fill="${V}" stroke="${N}" stroke-width="2"/><path d="M52.5 40 l3 3 l5 -6" fill="none" stroke="${W}" stroke-width="2.4" stroke-linecap="round"/>
+      <rect x="50" y="56" width="12" height="12" rx="2" fill="${V}" stroke="${N}" stroke-width="2"/><path d="M52.5 62 l3 3 l5 -6" fill="none" stroke="${W}" stroke-width="2.4" stroke-linecap="round"/>
+      <rect x="50" y="78" width="12" height="12" rx="2" fill="${W}" stroke="${N}" stroke-width="2"/>
+      <line x1="68" y1="40" x2="108" y2="40" stroke="${N}" stroke-width="3" stroke-linecap="round"/><line x1="68" y1="62" x2="104" y2="62" stroke="${N}" stroke-width="3" stroke-linecap="round"/>
+      <line x1="68" y1="84" x2="98" y2="84" stroke="${G}" stroke-width="3" stroke-linecap="round"/>
+      <path d="M128 30 v26 m0 0 c0 10 -12 10 -12 2" fill="none" stroke="${Y}" stroke-width="5" stroke-linecap="round"/>
+    `),
     // configuratore cablaggio: carroponte visto dall'alto con le sue zone (quadro, carrello, pulsantiera, motori del ponte)
     cablaggio: svg(`
       <ellipse cx="80" cy="112" rx="62" ry="5" fill="${L}"/>
