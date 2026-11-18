@@ -3,6 +3,7 @@ window.HOME = (function () {
   // home (stessa per tutti, si vedono solo le caselle abilitate in «Gestione utenti › 🔑 Funzioni»)
   const caselle = [
     { k: 'rapportini', titolo: 'Rapportini e DDT', sotto: 'Interventi firmati dal cliente e documenti di trasporto', ill: 'rapportini', attiva: true },
+    { k: 'promemoria', titolo: 'Promemoria per l\'ufficio', sotto: 'Cose da ricordare: offerte, ricambi, telefonate…', ill: 'promemoria', attiva: true, href: '#/promemoria' },
     { k: 'schede', titolo: 'Schede di controllo', sotto: 'Carriponte, sottoganci e controlli approfonditi', ill: 'schede', attiva: true },
     { k: 'lavagna', titolo: 'Lavagna', sotto: 'Calendario dell\'officina', ill: 'lavagna', attiva: true, href: (window.LAVAGNA_URL || 'lavagna/index.html') },
     { k: 'anagrafiche', titolo: 'Anagrafiche', sotto: 'Clienti, fornitori, impianti, layout e mezzi', ill: 'clienti', attiva: true, href: '#/anagrafiche' },
@@ -61,11 +62,12 @@ window.HOME = (function () {
   };
 
   // caselle che questa persona può vedere (funzioni abilitate in «Gestione utenti › 🔑 Funzioni»)
-  const SEZ = { rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', fornitori: 'sez.fornitori', magazzino: 'sez.magazzino', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
+  const SEZ = { promemoria: 'promemoria', rapportini: 'sez.rapportini', schede: 'sez.schede', clienti: 'sez.clienti', impianti: 'sez.impianti', layout: 'sez.layout', mezzi: 'sez.mezzi', fornitori: 'sez.fornitori', magazzino: 'sez.magazzino', lavagna: 'sez.lavagna', gho: 'sez.gho', invio: 'invio' };
   const vede = (c) => c.k === 'anagrafiche' ? anagrafiche.some(vede) : !SEZ[c.k] || UT.puo(SEZ[c.k]);
   const vociHome = () => caselle.filter(vede);
   const nScad = (S) => MEZ.avvisi(S).length;
-  const badge = (S, c) => c.k === 'rapportini' ? RAP.badge(S)
+  const badge = (S, c) => c.k === 'promemoria' ? (RAP.memoAperti(S) ? `${RAP.memoAperti(S)} da fare` : '')
+    : c.k === 'rapportini' ? RAP.badge(S)
     : c.k === 'gho' ? GHO.badge(S)
     : c.k === 'magazzino' ? MAG.badge(S)
     : (c.k === 'mezzi' || c.k === 'anagrafiche') && nScad(S) ? `${nScad(S)} ${nScad(S) === 1 ? 'scadenza mezzi' : 'scadenze mezzi'}`

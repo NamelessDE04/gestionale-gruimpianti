@@ -184,6 +184,16 @@ window.ILL = (function () {
       <rect x="106" y="90" width="18" height="12" rx="2" fill="${Y}" stroke="${N}" stroke-width="2.5"/>`),
 
     // collaudi: cartellina con la check list spuntata e il gancio della gru
+    // promemoria: foglietto con la puntina
+    promemoria: svg(`
+      <ellipse cx="80" cy="112" rx="46" ry="5" fill="${L}"/>
+      <path d="M44 22 h70 a4 4 0 0 1 4 4 v62 l-18 18 h-56 a4 4 0 0 1 -4 -4 v-76 a4 4 0 0 1 4 -4z" fill="#fff6c9" stroke="${N}" stroke-width="3.5" stroke-linejoin="round"/>
+      <path d="M118 88 h-14 a4 4 0 0 0 -4 4 v14" fill="${Y}" stroke="${N}" stroke-width="3" stroke-linejoin="round"/>
+      <line x1="54" y1="48" x2="104" y2="48" stroke="${N}" stroke-width="3" stroke-linecap="round"/>
+      <line x1="54" y1="62" x2="98" y2="62" stroke="${N}" stroke-width="3" stroke-linecap="round"/>
+      <line x1="54" y1="76" x2="86" y2="76" stroke="${G}" stroke-width="3" stroke-linecap="round"/>
+      <circle cx="80" cy="22" r="9" fill="${R}" stroke="${N}" stroke-width="3"/><circle cx="77" cy="19" r="2.5" fill="#fff" opacity=".7"/>
+    `),
     collaudi: svg(`
       <ellipse cx="80" cy="112" rx="50" ry="5" fill="${L}"/>
       <rect x="40" y="14" width="80" height="94" rx="8" fill="${W}" stroke="${N}" stroke-width="3.5"/>

@@ -2207,3 +2207,9 @@ a.ct-riga { text-decoration: none; color: inherit; }
 .sg-fsr { display: grid; grid-template-columns: 1fr 1.4fr auto; gap: 8px; align-items: end; margin-bottom: 8px; } .sg-fsr label { min-width: 0; }
 @media (max-width: 560px) { .sg-fsr { grid-template-columns: 1fr auto; } .sg-fsr label:nth-child(2) { grid-column: 1; grid-row: 2; } .sg-fsr button { grid-row: 1; grid-column: 2; } }
 .sg-fsep #fsepAdd { margin-bottom: 10px; }
+/* promemoria per l'ufficio: tab in Rapportini e DDT */
+.memo-riga > span.memo-az { font-size: inherit; display: flex; gap: 6px; flex-shrink: 0; }
+.memo-pag { padding-top: 6px; padding-bottom: 6px; }
+.memo-tf { display: block; margin: 14px 0 8px; font-weight: 700; }
+.memo-riga.fatto .memo-az .btn { opacity: 1; }
+@media (max-width: 520px) { .memo-riga { flex-wrap: wrap; } .memo-riga > span.memo-az { width: 100%; justify-content: flex-end; } }

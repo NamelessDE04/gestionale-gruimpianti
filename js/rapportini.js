@@ -247,7 +247,9 @@ window.RAP = (function () {
     // --- promemoria per l'ufficio (si salvano subito, a parte dal rapportino)
     const memoLista = () => {
       const lista = (S.promemoria || []).filter((m) => m.rapportinoId === r.id).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
-      el.querySelector('#memoLista').innerHTML = lista.map((m) => `<div class="memo-riga ${m.fatto ? 'fatto' : ''}"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b><small>${m.fatto ? `✓ fatto il ${fmt((m.fattoIl || '').slice(0, 10))}${m.fattoNome ? ' da ' + esc(m.fattoNome) : ''}` : `scritto da ${esc(m.daNome || '—')} il ${fmt((m.creato || '').slice(0, 10))} · in attesa`}</small></div></div>`).join('') || '<p class="muted small">Nessun promemoria.</p>';
+      el.querySelector('#memoLista').innerHTML = lista.map((m) => `<div class="memo-riga ${m.fatto ? 'fatto' : ''}"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b><small>${m.fatto ? `✓ fatto il ${fmt((m.fattoIl || '').slice(0, 10))}${m.fattoNome ? ' da ' + esc(m.fattoNome) : ''}` : `scritto da ${esc(m.daNome || '—')} il ${fmt((m.creato || '').slice(0, 10))} · in attesa`}${m.modificatoIl ? ` · modificato da ${esc(m.modificatoNome || '—')}` : ''}</small></div>
+        ${puoMemo() ? `<button type="button" class="btn ghost small" data-memoed="${m.id}" aria-label="Modifica promemoria">✏️</button>` : ''}</div>`).join('') || '<p class="muted small">Nessun promemoria.</p>';
+      el.querySelectorAll('#memoLista [data-memoed]').forEach((b) => (b.onclick = () => memoModal(S, S.promemoria.find((x) => x.id === b.dataset.memoed), memoLista)));
     };
     memoLista();
     el.querySelector('#btnMemo').onclick = () => {
@@ -693,26 +695,86 @@ window.RAP = (function () {
     }
     return lista(el, S);
   }
+  // ---------- PROMEMORIA PER L'UFFICIO: tab in Rapportini e DDT ----------
+  // si scrivono dal rapportino oppure da qui, anche senza rapportino e senza cliente; si possono modificare, riaprire ed eliminare
+  const puoMemo = () => UT.puo('promemoria.scrivere');
+  const memoAperti = (S) => (S.promemoria || []).filter((m) => !m.fatto && !CLI.congelato(S, m.clienteId) && !CLI.sedeCongelata(S, m.sedeId)).length;
+  let memoFatti = false;
+  function memoModal(S, m, dopo) {
+    const nuovo = !m, io = UT.attuale();
+    const clienti = CLI.tutti(S).filter((c) => !CLI.congelato(S, c.id)).sort((a, b) => CLI.nome(a).localeCompare(CLI.nome(b)));
+    const etC = (c) => CLI.nome(c), NESSUNO = '— nessun cliente —';
+    const cl = m && clienti.find((c) => c.id === m.clienteId);
+    UI.modal({
+      titolo: nuovo ? '📌 Nuovo promemoria per l\'ufficio' : '✏️ Modifica promemoria',
+      infoTxt: 'Scrivi cosa va fatto (es. «FARE OFFERTA PER 2 FUNI PARANCO N° 3»). Il cliente non è obbligatorio. Compare nella home dell\'ufficio finché non viene segnato come fatto.',
+      valori: { testo: m ? m.testo : '', cliente: cl ? etC(cl) : NESSUNO, stato: m && m.fatto ? 'Fatto' : 'Da fare' },
+      campi: [{ k: 'testo', label: 'Cosa ricordare', tipo: 'textarea', req: true, maiuscolo: true },
+        ...(m && m.rapportinoId ? [] : [{ k: 'cliente', label: 'Cliente (se c\'entra)', tipo: 'select', opzioni: [NESSUNO, ...clienti.map(etC)] }]),
+        ...(nuovo ? [] : [{ k: 'stato', label: 'Stato', tipo: 'select', opzioni: ['Da fare', 'Fatto'] }])],
+      testoSalva: nuovo ? 'Salva promemoria' : 'Salva modifiche',
+      onSalva: async (v) => {
+        const testo = String(v.testo || '').trim().toUpperCase(); if (!testo) return;
+        const c = v.cliente ? clienti.find((x) => etC(x) === v.cliente) : null, ora = new Date().toISOString(), chi = io ? UT.breve(io) : '';
+        let d;
+        if (nuovo) d = { id: uid(), testo, rapportinoId: '', clienteId: c ? c.id : '', sedeId: '', creato: ora, da: io?.id || '', daNome: chi, fatto: false };
+        else {
+          d = { ...m, testo, modificatoIl: ora, modificatoDa: io?.id || '', modificatoNome: chi };
+          if (!m.rapportinoId && v.cliente !== undefined) { d.clienteId = c ? c.id : ''; if (d.clienteId !== m.clienteId) d.sedeId = ''; }
+          const fatto = v.stato === 'Fatto';
+          if (fatto && !m.fatto) Object.assign(d, { fatto: true, fattoIl: ora, fattoDa: io?.id || '', fattoNome: chi });
+          if (!fatto && m.fatto) Object.assign(d, { fatto: false, fattoIl: '', fattoDa: '', fattoNome: '' });
+        }
+        await UI.salva('promemoria', d);
+        if (!(S.promemoria || []).some((x) => x.id === d.id)) (S.promemoria = S.promemoria || []).push(d); else Object.assign(S.promemoria.find((x) => x.id === d.id), d);
+        UI.toast(nuovo ? 'Promemoria salvato' : 'Promemoria modificato', 'ok'); dopo && dopo();
+      }
+    });
+  }
+  function memoRiga(S, m) {
+    const { c, s } = trova(S, m.sedeId), cl = c || S.clienti.find((x) => x.id === m.clienteId), rp = m.rapportinoId && S.rapportini.find((x) => x.id === m.rapportinoId);
+    return `<div class="memo-riga ${m.fatto ? 'fatto' : ''}"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b>
+      <small>${cl ? esc(CLI.nome(cl)) + (s ? ' · ' + esc(s.sigla || s.nome || '') : '') + ' · ' : ''}${rp ? `<a href="#/rapportini/r/${rp.id}">rapportino N° ${esc(numeroDi(rp))}</a> · ` : ''}${esc(m.daNome || '—')}, ${fmt((m.creato || '').slice(0, 10))}${m.modificatoIl ? ` · modificato da ${esc(m.modificatoNome || '—')} il ${fmt(m.modificatoIl.slice(0, 10))}` : ''}${m.fatto ? ` · ✓ fatto${m.fattoNome ? ' da ' + esc(m.fattoNome) : ''} il ${fmt((m.fattoIl || '').slice(0, 10))}` : ''}</small></div>
+      <span class="memo-az">${puoMemo() ? `<button type="button" class="btn ghost small" data-memoed="${m.id}" aria-label="Modifica">✏️</button>` : ''}
+      ${!m.fatto && UT.puo('promemoria.fatto') ? `<button type="button" class="btn ghost small" data-memofatto="${m.id}">✓ Fatto</button>` : ''}</span></div>`;
+  }
+  function paginaMemo(el, S) {
+    const tutti = (S.promemoria || []).filter((m) => !CLI.congelato(S, m.clienteId) && !CLI.sedeCongelata(S, m.sedeId));
+    const aperti = tutti.filter((m) => !m.fatto).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
+    const fatti = tutti.filter((m) => m.fatto).sort((a, b) => (b.fattoIl || '').localeCompare(a.fattoIl || ''));
+    el.innerHTML = `
+      <section class="cli">
+        <div class="sez-head"><h1>Promemoria per l'ufficio ${info('Le cose da ricordare all\'ufficio: offerte, ricambi, telefonate… Si scrivono dal rapportino oppure da qui, anche senza rapportino e senza cliente. Con ✏️ si correggono il testo e il cliente, e si può riaprire uno già fatto.')}</h1>
+          ${puoMemo() ? '<button type="button" class="btn fab" id="memoNuovo"><span class="fab-piu">+</span><span class="fab-txt"> Nuovo promemoria</span></button>' : ''}</div>
+        <h2 class="mese-rap">Da fare <span class="muted">· ${aperti.length}</span></h2>
+        <div class="card memo-pag">${aperti.map((m) => memoRiga(S, m)).join('') || '<p class="muted">Niente da fare 👍</p>'}</div>
+        ${fatti.length ? `<button type="button" class="link memo-tf" id="memoTf">${memoFatti ? '▾' : '▸'} Già fatti (${fatti.length})</button>
+          ${memoFatti ? `<div class="card memo-pag">${fatti.slice(0, 100).map((m) => memoRiga(S, m)).join('')}${fatti.length > 100 ? '<p class="muted small">Sono mostrati gli ultimi 100.</p>' : ''}</div>` : ''}` : ''}
+      </section>`;
+    el.querySelector('#memoNuovo')?.addEventListener('click', () => memoModal(S, null, () => App.ridisegna()));
+    el.querySelector('#memoTf')?.addEventListener('click', () => { memoFatti = !memoFatti; App.ridisegna(); });
+    collegaMemo(el, S);
+    return { titolo: 'Promemoria per l\'ufficio', indietro: '#/', live: true };
+  }
+
   // ---------- promemoria nella home (Master, Risorse Umane, Developer): restano finché non sono fatti ----------
   function memoHome(S) {
     if (!UT.puo('promemoria')) return '';
     const lista = (S.promemoria || []).filter((m) => !m.fatto && !CLI.congelato(S, m.clienteId) && !CLI.sedeCongelata(S, m.sedeId)).sort((a, b) => (a.creato || '').localeCompare(b.creato || ''));
     if (!lista.length) return '';
-    return `<div class="card memo-home">${UI.tendina('memo', lista.length, `📌 Promemoria da fare <span class="pill st-scadenza">${lista.length}</span> ${info('Li scrivono i tecnici dal rapportino quando il cliente chiede qualcosa (offerte, ricambi, funi…). Restano qui finché qualcuno non tocca «✓ Fatto».')}`, `
-      ${lista.map((m) => { const { c, s } = trova(S, m.sedeId), cl = c || S.clienti.find((x) => x.id === m.clienteId), rp = S.rapportini.find((x) => x.id === m.rapportinoId);
-        return `<div class="memo-riga"><span>📌</span><div class="grow"><b>${esc(m.testo)}</b>
-          <small>${esc(cl ? CLI.nome(cl) : '—')}${s ? ' · ' + esc(s.sigla || s.nome || '') : ''} · ${rp ? `<a href="#/rapportini/r/${rp.id}">rapportino N° ${esc(numeroDi(rp))}</a>` : 'rapportino'} · ${esc(m.daNome || '—')}, ${fmt((m.creato || '').slice(0, 10))}</small></div>
-          ${UT.puo('promemoria.fatto') ? `<button type="button" class="btn ghost small" data-memofatto="${m.id}">✓ Fatto</button>` : ''}</div>`; }).join('')}`)}</div>`;
+    return `<div class="card memo-home">${UI.tendina('memo', lista.length, `📌 Promemoria da fare <span class="pill st-scadenza">${lista.length}</span> ${info('Li scrivono i tecnici dal rapportino o chiunque dalla casella «📌 Promemoria» in home. Restano qui finché qualcuno non tocca «✓ Fatto»; con ✏️ si correggono.')}`, `
+      ${lista.map((m) => memoRiga(S, m)).join('')}`)}</div>`;
   }
   function collegaMemo(el, S) {
+    el.querySelectorAll('.memo-riga [data-memoed]').forEach((b) => (b.onclick = () => memoModal(S, (S.promemoria || []).find((x) => x.id === b.dataset.memoed), () => App.ridisegna())));
     el.querySelectorAll('[data-memofatto]').forEach((b) => (b.onclick = async () => {
       const m = (S.promemoria || []).find((x) => x.id === b.dataset.memofatto); if (!m) return;
       if (!UI.conferma(`Segnare come FATTO?\n\n«${m.testo}»\n\nSparisce dalla home di tutti.`)) return;
       const io = UT.attuale();
       await UI.salva('promemoria', { ...m, fatto: true, fattoIl: new Date().toISOString(), fattoDa: io?.id || '', fattoNome: io ? UT.breve(io) : '' });
-      UI.toast('Promemoria fatto', 'ok');
+      UI.toast('Promemoria fatto', 'ok'); App.ridisegna();
     }));
   }
 
-  return { route, badge, oreLavoro, assegnaNumeri, ora15, memoHome, collegaMemo };
+  return { route, badge, oreLavoro, assegnaNumeri, ora15, memoHome, collegaMemo, memoAperti, paginaMemo };
 })();

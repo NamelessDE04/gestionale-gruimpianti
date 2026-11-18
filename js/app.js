@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.46.34';
+  const VERSIONE = '0.46.35';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori', 'ghoControlli'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], ghoControlli: [], clientiCongelati: [] };
   // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
@@ -121,6 +121,7 @@ window.App = (function () {
     else if (parti[0] === 'invio') info = INVIO.route(el, S, parti, query) || info;
     else if (parti[0] === 'cablaggio') info = CAB.route(el, S, parti) || info;
     else if (parti[0] === 'rapportini') info = RAP.route(el, S, parti, query) || info;
+    else if (parti[0] === 'promemoria' && UT.puo('promemoria')) info = RAP.paginaMemo(el, S) || info;
     else if (parti[0] === 'sottoganci') info = SG.route(el, S, parti, query) || info;
     else if (parti[0] === 'sviluppo') info = DEV.pagina(el, S) || info;
     else if (parti[0] === 'gho') info = GHO.route(el, S, parti, query) || info;

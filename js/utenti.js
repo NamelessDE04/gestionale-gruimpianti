@@ -137,8 +137,9 @@ window.UT = (function () {
     { g: 'Ufficio', k: 'invio', nome: 'Invia e archivia (email ai clienti)', def: UFFICIO },
     { g: 'Ufficio', k: 'ordini', nome: 'N° d\'ordine dei clienti: vedere l\'avviso e l\'elenco da aggiornare', def: UFFICIO },
     { g: 'Ufficio', k: 'ordini.modifica', nome: 'N° d\'ordine dei clienti: scriverli e rimandare l\'avviso', def: UFFICIO, eredita: 'ordini' },
-    { g: 'Ufficio', k: 'promemoria', nome: 'Promemoria dei rapportini in home: vederli', def: TUTTI },
-    { g: 'Ufficio', k: 'promemoria.fatto', nome: 'Promemoria dei rapportini: segnarli come fatti', def: UFFICIO, eredita: 'promemoria' },
+    { g: 'Ufficio', k: 'promemoria', nome: 'Promemoria per l\'ufficio: vederli (casella in home)', def: TUTTI },
+    { g: 'Ufficio', k: 'promemoria.fatto', nome: 'Promemoria per l\'ufficio: segnarli come fatti', def: TUTTI, eredita: 'promemoria' },
+    { g: 'Ufficio', k: 'promemoria.scrivere', nome: 'Promemoria per l\'ufficio: scriverne di nuovi (anche senza rapportino), modificarli, riaprirli ed eliminarli', def: TUTTI, eredita: 'promemoria' },
     { g: 'Ufficio', k: 'conflitti', nome: 'Risolvere i conflitti tra dispositivi', def: ['master'], scrive: true }
   ];
   const FMAP = Object.fromEntries(FUNZIONI.map((f) => [f.k, f]));
@@ -236,6 +237,7 @@ window.UT = (function () {
       if (!solaLettura()) return true;
       if (col === 'utenti') return doc?.id === attuale()?.id; // RU può solo aggiornare il proprio profilo (PIN, firma)
       if (col === 'invii') return true;                         // RU invia i documenti ai clienti
+      if (col === 'promemoria' && puo('promemoria.scrivere')) return true;   // chi ha il permesso scrive e modifica i promemoria
       if (col === 'promemoria') {                               // RU segna come fatto un promemoria, nient'altro
         const prima = (S?.promemoria || []).find((x) => x.id === doc?.id); if (!prima) return false;
         const libere = ['fatto', 'fattoIl', 'fattoDa', 'fattoNome', 'aggiornato', '_rev', '_base', '_storia', '_da', '_disp', '_quando'];
