@@ -2218,3 +2218,5 @@ a.ct-riga { text-decoration: none; color: inherit; }
 .mag-cc { color: var(--navy); font-size: 19px; font-weight: 900; letter-spacing: .02em; overflow-wrap: anywhere; }
 .mag-riga .mag-desc { font-size: 16px; font-weight: 700; color: var(--testo, #1d2433); line-height: 1.25; overflow-wrap: anywhere; }
 .mag-riga .mag-qta { min-width: 64px; } .mag-riga .mag-qta b { font-size: 26px; font-weight: 900; line-height: 1; }
+/* codice costruttore: blu con sottolineatura gialla, per staccarlo dalla descrizione */
+.mag-riga .mag-cc { align-self: flex-start; color: #1f5fbf; border-bottom: 3px solid #f2b705; padding-bottom: 1px; margin-bottom: 4px; line-height: 1.15; }
