@@ -2213,3 +2213,8 @@ a.ct-riga { text-decoration: none; color: inherit; }
 .memo-tf { display: block; margin: 14px 0 8px; font-weight: 700; }
 .memo-riga.fatto .memo-az .btn { opacity: 1; }
 @media (max-width: 520px) { .memo-riga { flex-wrap: wrap; } .memo-riga > span.memo-az { width: 100%; justify-content: flex-end; } }
+/* elenco magazzino: codice costruttore, descrizione e pezzi */
+.mag-riga .riga-main { min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.mag-cc { color: var(--navy); font-size: 19px; font-weight: 900; letter-spacing: .02em; overflow-wrap: anywhere; }
+.mag-riga .mag-desc { font-size: 16px; font-weight: 700; color: var(--testo, #1d2433); line-height: 1.25; overflow-wrap: anywhere; }
+.mag-riga .mag-qta { min-width: 64px; } .mag-riga .mag-qta b { font-size: 26px; font-weight: 900; line-height: 1; }

@@ -128,10 +128,9 @@ window.MAG = (function () {
   }
   function riga(S, a, U) {
     const g = giacenza(S, a, U), basso = sottoScorta(S, a, U);
+    // nell'elenco solo codice costruttore, descrizione e pezzi a magazzino: il resto si vede aprendo l'articolo
     return `<a class="riga mag-riga ${basso ? 'basso' : ''}" href="#/magazzino/a/${a.id}">
-      <div class="mag-cod"><b>${esc(a.codice)}</b>${a.codCostruttore ? `<small>${esc(a.codCostruttore)}</small>` : ''}</div>
-      <div class="riga-main"><b class="mag-desc">${esc(a.descrizione)}</b>
-        <div class="muted small">${[a.ubicazione && '📍 ' + esc(a.ubicazione), numO(a.qtaMin) != null && 'minimo ' + q(num(a.qtaMin))].filter(Boolean).join(' · ')}</div></div>
+      <div class="riga-main"><b class="mag-cc">${esc(a.codCostruttore || a.codice || '—')}</b><span class="mag-desc">${esc(a.descrizione)}</span></div>
       <div class="mag-qta ${basso ? 'txt-ko' : ''}"><b>${q(g)}</b><small>a mag.</small></div>›</a>`;
   }
   function collegaFiltri(el) {
