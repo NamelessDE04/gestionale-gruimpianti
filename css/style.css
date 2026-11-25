@@ -2220,3 +2220,11 @@ a.ct-riga { text-decoration: none; color: inherit; }
 .mag-riga .mag-qta { min-width: 64px; } .mag-riga .mag-qta b { font-size: 26px; font-weight: 900; line-height: 1; }
 /* codice costruttore: blu con sottolineatura gialla, per staccarlo dalla descrizione */
 .mag-riga .mag-cc { align-self: flex-start; color: #1f5fbf; border-bottom: 3px solid #f2b705; padding-bottom: 1px; margin-bottom: 4px; line-height: 1.15; }
+/* sottogancio: righe della composizione spostabili */
+.parte-az { display: inline-flex; gap: 4px; margin-bottom: 12px; } .parte-az .btn { margin-bottom: 0; min-width: 40px; padding-left: 8px; padding-right: 8px; }
+@media (max-width: 560px) { .parte-az { grid-column: 1 / -1; justify-content: flex-end; margin-bottom: 8px; } }
+/* controllo sottoganci: il browser non deve far "seguire" la riga che va in fondo */
+#fGiro, #gDaFare, #gFatti { overflow-anchor: none; }
+#parti .parte { border: 1.5px solid #e3e7ee; border-radius: 12px; padding: 8px 10px 0; margin-bottom: 10px; background: #fafbfd; }
+.parte-az .btn:disabled { opacity: .3; }
+@media (max-width: 560px) { #parti .parte { padding-bottom: 0; } }

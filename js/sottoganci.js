@@ -351,17 +351,21 @@ window.SG = (function () {
       </form>`;
 
     const f = el.querySelector('#fSg'), box = el.querySelector('#parti');
+    s.parti.forEach((p, i) => (p._o = i));   // posizione originale: serve a spostare anche i giudizi già dati
     const leggiParti = () => box.querySelectorAll('.parte').forEach((r, i) => {
-      s.parti[i] = { denominazione: r.querySelector('[data-d]').value, dimensioni: r.querySelector('[data-m]').value };
+      s.parti[i] = { ...s.parti[i], denominazione: r.querySelector('[data-d]').value, dimensioni: r.querySelector('[data-m]').value };
     });
     const disegna = () => {
       box.innerHTML = s.parti.map((p, i) => `
         <div class="parte">
           <label>Denominazione${i === 0 ? ' *' : ''}<input data-d value="${esc(p.denominazione)}" placeholder="${i === 0 ? 'es. FUNE ACCIAIO A.A.' : 'es. campanella'}"></label>
           <label>Dimensioni<input data-m value="${esc(p.dimensioni)}" placeholder="es. 18x3000x500"></label>
-          ${s.parti.length > 1 ? `<button type="button" class="btn ghost small danger" data-rm="${i}" aria-label="Togli componente">×</button>` : ''}
+          ${s.parti.length > 1 ? `<span class="parte-az"><button type="button" class="btn ghost small" data-su="${i}" aria-label="Sposta su" ${i ? '' : 'disabled'}>↑</button><button type="button" class="btn ghost small" data-giu="${i}" aria-label="Sposta giù" ${i < s.parti.length - 1 ? '' : 'disabled'}>↓</button><button type="button" class="btn ghost small danger" data-rm="${i}" aria-label="Togli componente">×</button></span>` : ''}
         </div>`).join('');
       box.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = () => { leggiParti(); s.parti.splice(+b.dataset.rm, 1); disegna(); }));
+      const sposta = (i, j) => { leggiParti(); [s.parti[i], s.parti[j]] = [s.parti[j], s.parti[i]]; disegna(); box.querySelectorAll('.parte')[j]?.querySelector(j < i ? '[data-su]' : '[data-giu]')?.focus({ preventScroll: true }); };
+      box.querySelectorAll('[data-su]').forEach((b) => (b.onclick = () => sposta(+b.dataset.su, +b.dataset.su - 1)));
+      box.querySelectorAll('[data-giu]').forEach((b) => (b.onclick = () => sposta(+b.dataset.giu, +b.dataset.giu + 1)));
       el.querySelector('#boxTitolo').hidden = s.parti.length < 2;
     };
     disegna();
@@ -373,13 +377,16 @@ window.SG = (function () {
       if (!numero) return UI.toast('Manca il numero', 'err');
       if (S.sottoganci.some((x) => x.id !== s.id && x.sedeId === s.sedeId && x.numero.toLowerCase() === numero.toLowerCase()))
         return UI.toast(`Il numero ${numero} esiste già per questo cliente`, 'err');
-      s.parti = s.parti.map((p) => ({ denominazione: p.denominazione.trim(), dimensioni: p.dimensioni.trim() })).filter((p, i) => i === 0 || p.denominazione || p.dimensioni);
+      const tenuti = s.parti.filter((p, i) => i === 0 || p.denominazione.trim() || p.dimensioni.trim());
+      const da = tenuti.map((p) => p._o);   // per ogni riga nuova: da quale riga di prima arriva (undefined = aggiunta)
+      s.parti = tenuti.map((p) => ({ denominazione: p.denominazione.trim(), dimensioni: p.dimensioni.trim() }));
       if (!s.parti[0].denominazione) return UI.toast('Manca la denominazione', 'err');
-      // se ho cambiato il numero dei componenti, adeguo i controlli già fatti
-      if (orig && orig.parti.length !== s.parti.length) {
+      // righe aggiunte, tolte o spostate: i giudizi dei controlli già fatti seguono la loro riga
+      if (orig && (orig.parti.length !== s.parti.length || da.some((o, i) => o !== i))) {
+        const segui = (a) => da.map((o) => (o === undefined ? '' : (a || [])[o] || ''));
         for (const g of giriDi(S, s.sedeId).filter((g) => g.righe[s.id])) {
           const r = g.righe[s.id];
-          r.codici = s.parti.map((_, i) => r.codici[i] || ''); r.note = s.parti.map((_, i) => r.note[i] || '');
+          r.codici = segui(r.codici); r.note = segui(r.note); if (r.fili) r.fili = segui(r.fili);
           await UI.salva('giriSottoganci', g);
         }
       }
@@ -581,26 +588,24 @@ window.SG = (function () {
 
     // y0 = dove stava sullo schermo il sottogancio appena giudicato: il prossimo prende il suo posto, senza far scorrere la pagina
     const dopoGiudizio = (i, y0) => {
-      if (cerca.value) {   // con la ricerca: la svuoto, pronta per il numero successivo
-        cerca.value = ''; filtra();
-        if (modoGiro === 'elenco') { const j = prossimo(i); corrente = j >= 0 ? j : i; evidenzia(); riga(voci[i].key).scrollIntoView({ block: 'center' }); cerca.focus(); return; }
+      if (cerca.value && modoGiro === 'elenco') {
+        // con la ricerca la pagina non si muove: la ricerca resta finché il sottogancio non è tutto controllato,
+        // poi il testo viene selezionato così scrivi subito il numero successivo
+        const j = prossimo(i); corrente = j >= 0 ? j : i; evidenzia();
+        if (completo(voci[i].s)) { cerca.focus({ preventScroll: true }); cerca.select(); }
+        return;
       }
+      if (cerca.value) { cerca.value = ''; filtra(); }
       const j = prossimo(i);
       corrente = j >= 0 ? j : i; evidenzia();
       if (modoGiro === 'uno') return disegnaUno();
       if (j < 0 || y0 === undefined) return;
-      // interfaccia «Tenue»: dentro lo stesso sottogancio la pagina resta ferma (scende solo la riga evidenziata);
-      // si sposta solo se il componente dopo è fuori dallo schermo
-      if (document.documentElement.classList.contains('tema-tenue') && voci[j].s === voci[i].s) {
-        const r = riga(voci[j].key).getBoundingClientRect();
-        if (r.bottom > innerHeight - 90) window.scrollBy(0, r.bottom - (innerHeight - 90));
-        else if (r.top < 120) window.scrollBy(0, r.top - 120);
-        return;
-      }
-      // il prossimo da fare prende esattamente il posto di quello appena giudicato (nessuna animazione):
-      // un sottogancio singolo finito sparisce in fondo e quello sotto sale da solo al suo posto
-      const d = riga(voci[j].key).getBoundingClientRect().top - y0;
-      if (Math.abs(d) > 1) window.scrollBy(0, d);
+      // per tutti (come nell'interfaccia «Tenue»): la pagina resta ferma, scende solo la riga evidenziata.
+      // Un sottogancio finito sparisce in fondo e quello sotto sale da solo al suo posto.
+      // Si scorre solo se il prossimo da fare è uscito dallo schermo.
+      const r = riga(voci[j].key).getBoundingClientRect();
+      if (r.bottom > innerHeight - 90) window.scrollBy(0, r.bottom - (innerHeight - 90));
+      else if (r.bottom < 120) window.scrollBy(0, r.top - 120);
     };
 
     voci.forEach((v, i) => {
