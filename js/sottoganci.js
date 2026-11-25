@@ -12,9 +12,9 @@ window.SG = (function () {
   ];
   const CODICI = [
     ['B', 'Buona'], ['D', 'Discreta'], ['DE', 'Discreta / da eliminare'], ['E', 'Da eliminare'],
-    ['S', 'Scorta'], ['SU', 'Scorta utilizzata'], ['\\', 'Eliminata'], ['NC', 'Non controllata'], ['FS', 'Fuori servizio']
+    ['S', 'Scorta'], ['SU', 'Scorta utilizzata'], ['\\', 'Eliminata'], ['NC', 'Non controllata'], ['FS', 'Fuori servizio'], ['DISUSO', 'In disuso']
   ];
-  const classeCod = (c) => ({ B: 'c-b', D: 'c-d', DE: 'c-e', E: 'c-e', S: 'c-s', SU: 'c-s', '\\': 'c-x', NC: 'c-x', FS: 'c-x' }[c] || '');
+  const classeCod = (c) => ({ B: 'c-b', D: 'c-d', DE: 'c-e', E: 'c-e', S: 'c-s', SU: 'c-s', '\\': 'c-x', NC: 'c-x', FS: 'c-x', DISUSO: 'c-x' }[c] || (c ? 'c-x' : ''));
 
   // data "2026-04-02" -> "2/4/26" (come sull'elenco cartaceo)
   const dataBreve = (s) => { if (!s) return ''; const [y, m, d] = s.split('-'); return `${+d}/${+m}/${y.slice(2)}`; };
@@ -470,7 +470,7 @@ window.SG = (function () {
     };
     const bottoni = (cls, v) => `<div class="${cls}">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}" title="${esc(CODICI.find((x) => x[0] === k)[1])}">${esc(k)}</button>`).join('')}
         <button type="button" class="cod-btn altro" data-altro>altro ▾</button></div>
-      <div class="sg2-altri" hidden>${campoFili(v, filiDi(v))}${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>`;
+      <div class="sg2-altri" hidden>${campoFili(v, filiDi(v))}${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}<span class="sg2-lib"><input data-libin placeholder="Altro giudizio (scrivilo)" maxlength="12" autocomplete="off" spellcheck="false"><button type="button" class="btn small" data-libok>OK</button><button type="button" class="cod-btn" data-c="" data-lib hidden></button></span></div>`;
 
     el.innerHTML = `
       <form class="sg form sg2-giro modo-${modoGiro}" id="fGiro" novalidate>
@@ -608,8 +608,16 @@ window.SG = (function () {
       else if (r.bottom < 120) window.scrollBy(0, r.top - 120);
     };
 
+    const legaLibero = (box) => {
+      const inp = box.querySelector('[data-libin]'), ok = box.querySelector('[data-libok]'), bt = box.querySelector('[data-lib]'); if (!inp) return;
+      const vai = () => { const t = inp.value.trim().toUpperCase(); if (!t) return inp.focus(); bt.dataset.c = t; inp.value = ''; bt.click(); };
+      inp.oninput = () => { const p = inp.selectionStart; inp.value = inp.value.toUpperCase(); inp.setSelectionRange(p, p); };
+      inp.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); vai(); } };
+      ok.onclick = vai;
+    };
     voci.forEach((v, i) => {
       const box = riga(v.key);
+      legaLibero(box);
       box.querySelectorAll('.cod-btn[data-c]').forEach((b) => (b.onclick = () => {
         const nuovo = g.righe[v.s.id].codici[v.pi] === b.dataset.c ? '' : b.dataset.c;
         const y0 = box.getBoundingClientRect().top;
@@ -653,7 +661,7 @@ window.SG = (function () {
         <span class="grow"></span>
         ${v.elim ? msgElim(v) : `<div class="u-bt">${PRINCIPALI.map((k) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}">${esc(k)}</button>`).join('')}</div>`}
         <div class="u-sotto"><button type="button" class="link" data-ualtro>${cod && !PRINCIPALI.includes(cod) ? '<b>' + esc(cod) + '</b> ▾' : 'altro giudizio ▾'}</button><button type="button" class="link" data-unota>✎ nota</button></div>
-        <div class="sg2-altri" hidden>${v.elim ? '' : campoFili(v, filiDi(v))}${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}</div>
+        <div class="sg2-altri" hidden>${v.elim ? '' : campoFili(v, filiDi(v))}${CODICI.filter(([k]) => !PRINCIPALI.includes(k)).map(([k, l]) => `<button type="button" class="cod-btn ${classeCod(k)} ${cod === k ? 'on' : ''}" data-c="${esc(k)}"><b>${esc(k)}</b> <small>${esc(l)}</small></button>`).join('')}<span class="sg2-lib"><input data-libin placeholder="Altro giudizio (scrivilo)" maxlength="12" autocomplete="off" spellcheck="false"><button type="button" class="btn small" data-libok>OK</button><button type="button" class="cod-btn" data-c="" data-lib hidden></button></span></div>
         <input class="gi-nota" data-unotain placeholder="Note" value="${esc(nota)}" hidden>
         <div class="u-nav"><button type="button" class="link" data-uprec>‹ precedente</button><button type="button" class="link" data-usalta>salta ›</button></div>`;
       const y = el.querySelector('.sg2-barra').getBoundingClientRect().top + window.scrollY - 70;
@@ -662,6 +670,7 @@ window.SG = (function () {
         const nuovo = cod === b.dataset.c ? '' : b.dataset.c; setCod(corrente, nuovo); riordina(v);
         if (nuovo) dopoGiudizio(corrente); else disegnaUno();
       }));
+      legaLibero(uno);
       if (v.elim) { uno.querySelector('[data-ualtro]').hidden = true; uno.querySelectorAll('.sg2-altri .cod-btn').forEach((b) => (b.disabled = true)); }
       uno.querySelector('[data-ualtro]').onclick = () => { const a = uno.querySelector('.sg2-altri'); a.hidden = !a.hidden; };
       const ni = uno.querySelector('[data-unotain]'), ufi = uno.querySelector('[data-fili]');
