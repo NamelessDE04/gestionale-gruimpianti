@@ -2233,3 +2233,6 @@ a.ct-riga { text-decoration: none; color: inherit; }
 .sg2-lib input { flex: 1 1 auto; min-width: 0; font: inherit; padding: 8px 10px; border: 1.5px solid #c9d1dd; border-radius: 10px; text-transform: uppercase; }
 .sg2-lib input::placeholder { text-transform: none; }
 .sg2-altri .sg2-lib { grid-column: 1 / -1; } .cod-btn.altro { overflow-wrap: anywhere; font-size: 13px; }
+/* casetta per tornare alla home, accanto alla freccia indietro */
+.topbar .back.casa { display: inline-grid; place-items: center; text-decoration: none; font-size: 26px; padding-bottom: 2px; }
+.topbar .back.casa[hidden] { display: none; }

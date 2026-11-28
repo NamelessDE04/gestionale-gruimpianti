@@ -106,6 +106,7 @@ window.UT = (function () {
     { g: 'Lavoro', k: 'ctr.voci', nome: 'Cambiare le voci di controllo di un impianto', def: LAVORO, scrive: true },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.ddt', nome: 'Documenti di trasporto (DDT)', def: TUTTI },
     { g: 'Sezioni dell\'app (vedere)', k: 'sez.magazzino', nome: 'Magazzino ricambi e inventario (codici, ubicazioni e quantità, senza prezzi)', def: TUTTI },
+    { g: 'Lavoro', k: 'sg.azzera', nome: 'Controllo sottoganci: «↺ Azzera e ricomincia» (cancella tutti i giudizi del controllo in corso)', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'ctr.fili', nome: 'Campo «Fili rotti» sulle funi nei controlli dei sottoganci', def: LAVORO, scrive: true },
     { g: 'Lavoro', k: 'firma.grande', nome: 'Firma a tutto schermo (rapportini e DDT)', def: TUTTI },
     { g: 'Lavoro', k: 'rap.scrivere', nome: 'Scrivere e firmare i rapportini', def: LAVORO, scrive: true },

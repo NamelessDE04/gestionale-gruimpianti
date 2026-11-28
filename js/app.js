@@ -1,6 +1,6 @@
 // ===== AVVIO E NAVIGAZIONE =====
 window.App = (function () {
-  const VERSIONE = '0.46.39';
+  const VERSIONE = '0.46.40';
   const COLLEZIONI = ['conflitti', 'invii', 'collaudi', 'rapportini', 'utenti', 'clienti', 'sottoganci', 'giriSottoganci', 'impianti', 'impostazioni', 'schedeControllo', 'mezzi', 'layouts', 'attrezzi', 'controlliAttrezzi', 'schedeApprofondite', 'oreGho', 'promemoria', 'articoli', 'ddt', 'fornitori', 'ghoControlli'];
   const S = { conflitti: [], invii: [], collaudi: [], rapportini: [], utenti: [], clienti: [], sottoganci: [], giriSottoganci: [], impianti: [], impostazioni: [], schedeControllo: [], mezzi: [], promemoria: [], articoli: [], ddt: [], fornitori: [], ghoControlli: [], clientiCongelati: [] };
   // clienti congelati (es. falliti): spariscono da elenchi, ricerche, lavagna e avvisi, ma restano salvati con impianti e controlli.
@@ -151,6 +151,8 @@ window.App = (function () {
     } else tit.textContent = info.titolo || '';
     const back = document.getElementById('btnBack');
     back.hidden = !info.indietro; back.onclick = () => tornaIndietro(info.indietro);   // come il gesto «indietro» del telefono
+    // casetta: dritti alla home, quando l'indietro non ci porta già (pagine dentro le sezioni)
+    document.getElementById('btnHome').hidden = !parti.length || !info.indietro || info.indietro === '#/';
     document.body.classList.toggle('in-home', !parti.length);
     return y;
   }

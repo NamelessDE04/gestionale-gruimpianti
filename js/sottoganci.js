@@ -516,7 +516,7 @@ window.SG = (function () {
         </div>
         <div class="azioni-form sg2-azz">
           <a class="link" href="#/sottoganci/c/${cliId}?anno=${anno}">📂 Cartella del cliente</a><span class="grow"></span>
-          ${!UT.solaLettura() && UT.puo('ctr.elimina') ? '<button type="button" class="btn ghost small" id="btnAzzera">↺ Azzera e ricomincia</button>' : ''}
+          ${!UT.solaLettura() && UT.puo('sg.azzera') ? '<button type="button" class="btn ghost small" id="btnAzzera">↺ Azzera e ricomincia</button>' : ''}
           ${esistente && !UT.solaLettura() && UT.puo('ctr.elimina') ? '<button type="button" class="btn danger ghost small" id="btnElimina">🗑 Elimina questo controllo</button>' : ''}
         </div>
 
